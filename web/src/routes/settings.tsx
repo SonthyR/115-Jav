@@ -8,6 +8,7 @@ import { AppearanceSection } from '@/features/settings/appearance-section'
 import { DataSection } from '@/features/settings/data-section'
 import { EmbySection } from '@/features/settings/emby-section'
 import { NetworkSection } from '@/features/settings/network-section'
+import { OrganizeSection } from '@/features/settings/organize-section'
 import { PanSection } from '@/features/settings/pan-section'
 import { PrivacySection } from '@/features/settings/privacy-section'
 import { SubscriptionSection } from '@/features/settings/subscription-section'
@@ -36,6 +37,8 @@ function SettingsPage() {
           <EmbySection />
           <Separator />
           <PanSection />
+          <Separator />
+          <OrganizeSection />
           <Separator />
           <SubscriptionSection />
           <Separator />

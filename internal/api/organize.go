@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ppxb/miyabi/internal/organize"
@@ -47,6 +46,6 @@ func organizeLogHandler(manager OrganizeManager) gin.HandlerFunc {
 func organizeRunHandler(manager OrganizeManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		manager.Trigger(c.Request.Context())
-		c.Status(http.StatusAccepted)
+		accepted(c, gin.H{"started": true}, nil)
 	}
 }
