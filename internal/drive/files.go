@@ -115,3 +115,18 @@ func (files *Files) Upload(ctx context.Context, parentID, name string, body []by
 		return files.client.Upload(ctx, token, parentID, name, body)
 	})
 }
+
+type videoLister interface {
+	ListVideos(ctx context.Context, token, directoryID string, offset, limit int) (pan.FilePage, error)
+}
+
+// ListVideos reads one page of the videos anywhere below a directory.
+func (files *Files) ListVideos(ctx context.Context, dirID string, offset, limit int) (pan.FilePage, error) {
+	lister, ok := files.drive.client.(videoLister)
+	if !ok {
+		return pan.FilePage{}, fmt.Errorf("115 client cannot list videos recursively")
+	}
+	return fileRequest(ctx, files, func(token string) (pan.FilePage, error) {
+		return lister.ListVideos(ctx, token, dirID, offset, limit)
+	})
+}

@@ -105,9 +105,34 @@ func selfTest115(ctx context.Context) error {
 			failed = err
 		}
 	}
+	probeQuickScan(ctx, files, media.ID)
 	if failed != nil {
 		return fmt.Errorf("115 写操作自检未通过")
 	}
 	fmt.Println("115 写操作自检全部通过")
 	return nil
+}
+
+// probeQuickScan reports whether 115 lists videos below nested folders in one
+// query, which a quick scan relies on. It only reads and never fails the test.
+func probeQuickScan(ctx context.Context, files *drive.Files, mediaID string) {
+	started := time.Now()
+	page, err := files.ListVideos(ctx, mediaID, 0, 1000)
+	if err != nil {
+		fmt.Printf("· 快速扫描探测：接口不可用（%v）\n", err)
+		return
+	}
+	nested := 0
+	for _, file := range page.Files {
+		if file.ParentID != mediaID {
+			nested++
+		}
+	}
+	fmt.Printf("· 快速扫描探测：一次请求返回 %d 个视频（共 %d 个），其中 %d 个在子目录里，用时 %s\n",
+		len(page.Files), page.Total, nested, time.Since(started).Round(time.Millisecond))
+	if nested > 0 {
+		fmt.Println("  可以递归列视频，快速扫描可行")
+	} else {
+		fmt.Println("  没有返回子目录里的视频，快速扫描不可行")
+	}
 }
