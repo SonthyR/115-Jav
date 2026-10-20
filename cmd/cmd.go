@@ -23,8 +23,11 @@ func main() {
 }
 
 func run(ctx context.Context, args []string) error {
+	if len(args) == 1 && args[0] == "selftest-115" {
+		return selfTest115(ctx)
+	}
 	if len(args) > 0 {
-		return errors.New("usage: miyabi; configure the application with MIYABI_* environment variables")
+		return errors.New("usage: miyabi; configure the application with MIYABI_* environment variables (or run: miyabi selftest-115)")
 	}
 	cfg, err := config.Load()
 	if err != nil {
