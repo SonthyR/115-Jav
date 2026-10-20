@@ -45,6 +45,23 @@ func (files *Files) MediaDirectory() domain.LibraryDirectory {
 	return files.state.directory.LibraryDirectory
 }
 
+// Source is the mounted library when Files was opened.
+func (files *Files) Source() domain.LibrarySource {
+	return files.state.source()
+}
+
+// Entries reads every page of a directory.
+func (files *Files) Entries(ctx context.Context, dirID string) ([]pan.File, error) {
+	var entries []pan.File
+	err := WalkFilePages(ctx, func(offset int) (pan.FilePage, error) {
+		return files.List(ctx, dirID, offset)
+	}, func(page pan.FilePage) (bool, error) {
+		entries = append(entries, page.Files...)
+		return true, nil
+	})
+	return entries, err
+}
+
 func fileRequest[T any](ctx context.Context, files *Files, request func(string) (T, error)) (T, error) {
 	return withPanToken(ctx, files.drive, files.state, func(current snapshot) (T, error) {
 		return request(current.tokens.AccessToken)

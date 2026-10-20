@@ -29,6 +29,7 @@ type Dependencies struct {
 	Maintenance    MaintenanceManager
 	Network        NetworkManager
 	Emby           EmbyManager
+	Organize       OrganizeManager
 	Frontend       fs.FS
 	STRMToken      string
 	TrustedProxies []string
@@ -84,6 +85,8 @@ func NewRouter(deps Dependencies) *gin.Engine {
 	settingsAPI.GET("/emby", embyConfigHandler(deps.Emby))
 	settingsAPI.PUT("/emby", embyUpdateHandler(deps.Emby))
 	settingsAPI.POST("/emby/test", embyTestHandler(deps.Emby))
+	settingsAPI.GET("/organize", organizeConfigHandler(deps.Organize))
+	settingsAPI.PUT("/organize", organizeUpdateHandler(deps.Organize))
 	settingsAPI.GET("/subscription", subscriptionSettingsGetHandler(deps.Monitor))
 	settingsAPI.PUT("/subscription", subscriptionSettingsUpdateHandler(deps.Monitor))
 
@@ -94,6 +97,9 @@ func NewRouter(deps Dependencies) *gin.Engine {
 	protected.POST("/library/scan", libraryScanHandler(deps.Library, deps.Emby))
 	protected.POST("/library/rebuild", libraryRebuildHandler(deps.Library))
 	protected.GET("/library/artwork/:key", libraryArtworkHandler(deps.Artwork))
+
+	protected.GET("/organize/log", noStore(), organizeLogHandler(deps.Organize))
+	protected.POST("/organize/run", organizeRunHandler(deps.Organize))
 
 	protected.GET("/tasks", noStore(), tasksHandler(deps.Tasks))
 	protected.POST("/tasks/:id/retry", taskRetryHandler(deps.Tasks))

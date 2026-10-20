@@ -40,6 +40,7 @@ import (
 const (
 	offlineSyncInterval  = 30 * time.Second
 	monitorCheckInterval = 5 * time.Minute
+	organizeInterval     = 5 * time.Minute
 	// Bound a remote offline submission after detaching from its caller.
 	offlineSubmitTimeout = 2 * time.Minute
 )
@@ -58,6 +59,7 @@ type App struct {
 	scrape    *scrape.Service
 	metadata  *metadata.Service
 	embySvc   *emby.Service
+	organizer *organize.Service
 }
 
 // New initializes all services, database connections, and registers task handlers.
@@ -182,6 +184,7 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 	taskRegistry.Register(tasks.NewHandler(tasks.KindSubscriptionBatch, monitorSvc.BatchHandler, monitorSvc.BatchFinished))
 
 	pools := newTaskPools(taskSvc, logger)
+	organizer := organize.New(store.Client, driveSvc, metadataSvc, libSvc, taskSvc.WakePool)
 
 	router := api.NewRouter(api.Dependencies{
 		Logger:         logger,
@@ -198,6 +201,7 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 		Maintenance:    maintenanceSvc,
 		Network:        networkSvc,
 		Emby:           embySvc,
+		Organize:       organizer,
 		Frontend:       miyabi.Frontend(),
 		STRMToken:      cfg.STRMToken,
 		TrustedProxies: cfg.TrustedProxies,
@@ -223,6 +227,7 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 		scrape:    scrapeSvc,
 		metadata:  metadataSvc,
 		embySvc:   embySvc,
+		organizer: organizer,
 	}, nil
 }
 
@@ -246,6 +251,9 @@ func (a *App) Run(ctx context.Context) error {
 	})
 	workers.Go(func() {
 		tasks.RunPeriodic(ctx, a.logger, "monitor", monitorCheckInterval, a.monitors.Pending(), a.monitors.Check)
+	})
+	workers.Go(func() {
+		tasks.RunPeriodic(ctx, a.logger, "organize 115", organizeInterval, nil, a.organizer.Run)
 	})
 
 	serverError := make(chan error, 1)
