@@ -551,16 +551,17 @@ func TestPipelineScansScrapesAndWritesSidecarsEndToEnd(t *testing.T) {
 func TestPipelineImports115NFOWithoutScraping(t *testing.T) {
 	fixture := newPipelineFixture(t)
 	ctx := t.Context()
-	fixture.addCatalogueMovie(fixtureDetail())
+	detail := fixtureDetail()
+	detail.PreviewImages = []domain.PreviewImage{{Original: "https://media.example/preview-1.jpg"}}
+	fixture.addCatalogueMovie(detail)
 	fixture.drive.addDirectory("11", "10", "ABP-123")
 	fixture.drive.addFile("101", "11", "ABP-123-C.mp4", 2<<30, []byte("video"))
 	poster, fanart := fixtureJPEG(t, 200, 300), fixtureJPEG(t, 600, 400)
 	fixture.drive.addFile("102", "11", "poster.jpg", int64(len(poster)), poster)
 	fixture.drive.addFile("103", "11", "fanart.jpg", int64(len(fanart)), fanart)
 	doc := nfo.Movie{
-		Title: "User title", Code: "ABP-123", Premiered: "2020-01-02", Runtime: 90,
-		IDs:    []nfo.UniqueID{{Type: "javdb", Default: true, Value: "movie-user"}},
-		Actors: []nfo.Actor{{ID: "actor-9", Name: "Sidecar actor"}},
+		Title: "User title", Code: "ABP-123", Premiered: "2020-01-02 00:00:00", Runtime: 90,
+		Actors: []nfo.Actor{{Name: "Sidecar actor"}},
 		Thumbs: []nfo.Thumb{{Aspect: "poster", Path: "poster.jpg"}}, Fanart: "fanart.jpg",
 	}
 	body, err := nfo.Encode(doc)
@@ -580,14 +581,18 @@ func TestPipelineImports115NFOWithoutScraping(t *testing.T) {
 			}
 		}
 	}
-	if fixture.catalogue.calls["detail"] != 0 || fixture.catalogue.calls["media"] != 0 {
-		t.Fatalf("115 NFO must replace catalogue scraping: %v", fixture.catalogue.calls)
+	if fixture.catalogue.calls["media"] != 0 {
+		t.Fatalf("115 artwork must replace catalogue images: %v", fixture.catalogue.calls)
 	}
 	record, err := fixture.store.Client.Movie.Query().Where(movie.CodeEQ("ABP-123")).WithActors().Only(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if record.Title != doc.Title || domain.ValueOrZero(record.JavdbID) != "movie-user" || len(record.Edges.Actors) != 1 || record.ScrapeStatus != movie.ScrapeStatusDone {
+	if record.Title != doc.Title || len(record.Edges.Actors) != 1 || record.ScrapeStatus != movie.ScrapeStatusDone || record.ReleaseDate == nil {
+		t.Fatalf("movie from NFO = %+v actors %d", record, len(record.Edges.Actors))
+	}
+	// The JavDB link keeps magnets and previews without replacing NFO fields.
+	if domain.ValueOrZero(record.JavdbID) != detail.ID || !slices.ContainsFunc(record.Metadata.Images, func(image domain.ImageCandidate) bool { return image.Role == "preview" }) {
 		t.Fatalf("movie from NFO = %+v actors %d", record, len(record.Edges.Actors))
 	}
 	if record.Metadata == nil || record.Metadata.FieldSources["metadata"] != scrapePkg.NFOProvider || record.Metadata.FieldSources["cover"] != scrapePkg.NFOProvider {
@@ -758,7 +763,11 @@ func (f fixtureMetadata) Resolve(ctx context.Context, ref domain.MovieRef) (doma
 	for i := range detail.Tags {
 		detail.Tags[i].Provider = "javdb"
 	}
-	return domain.MovieMetadata{Detail: detail, Images: []domain.ImageCandidate{{Provider: "javdb", URL: detail.Cover, Role: "cover"}}}, nil
+	images := []domain.ImageCandidate{{Provider: "javdb", URL: detail.Cover, Role: "cover"}}
+	for _, preview := range detail.PreviewImages {
+		images = append(images, domain.ImageCandidate{Provider: "javdb", URL: preview.Original, Role: "preview"})
+	}
+	return domain.MovieMetadata{Detail: detail, Images: images}, nil
 }
 func (f fixtureMetadata) Image(ctx context.Context, image domain.ImageCandidate) (domain.Media, error) {
 	return f.catalogue.Media(ctx, image.URL)

@@ -61,6 +61,7 @@ func (service *Service) findLibraryNFO(ctx context.Context, sess drive.Session, 
 		}
 		doc.Code = input.Code
 		normalizeImportedNFO(&doc)
+		service.linkCatalogue(ctx, &doc)
 		result := libraryNFO{document: doc}
 		result.poster = service.readSidecarImage(ctx, sess, directory.Files, entry.Name, "poster")
 		if len(result.poster) > 0 {
@@ -69,6 +70,30 @@ func (service *Service) findLibraryNFO(ctx context.Context, sess drive.Session, 
 		return result, true, ctx.Err()
 	}
 	return libraryNFO{}, false, nil
+}
+
+// linkCatalogue adds the JavDB identity and preview images that NFOs from
+// other tools usually lack, so the detail view keeps previews, magnets and
+// related films. NFO fields are never replaced; a failed lookup only logs.
+func (service *Service) linkCatalogue(ctx context.Context, doc *nfo.Movie) {
+	result, err := service.metadata.Fallback(ctx, domain.MovieRef{Code: doc.Code, JavDBID: doc.JavDBID()})
+	if err != nil {
+		slog.WarnContext(ctx, "imported NFO has no JavDB link", "code", doc.Code, "error", err)
+		return
+	}
+	if doc.JavDBID() == "" {
+		for _, source := range result.Detail.Sources {
+			if source.Provider == "javdb" && source.ID != "" {
+				doc.IDs = append(doc.IDs, nfo.UniqueID{Type: "javdb", Value: source.ID})
+				break
+			}
+		}
+	}
+	for _, image := range result.Images {
+		if image.Role == "preview" {
+			doc.Images = append(doc.Images, image)
+		}
+	}
 }
 
 // matchSidecarNFO prefers an NFO named after the code, including suffixed
