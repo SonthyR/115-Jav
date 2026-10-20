@@ -2,6 +2,7 @@ package drive
 
 import (
 	"context"
+	"errors"
 	"slices"
 
 	"github.com/ppxb/miyabi/internal/domain"
@@ -99,6 +100,18 @@ func readSource[T any](ctx context.Context, s *sourceSession, request func(strin
 func (s *sourceSession) List(ctx context.Context, dirID string, offset int) (pan.FilePage, error) {
 	return readSource(ctx, s, func(token string) (pan.FilePage, error) {
 		return s.drive.client.List(ctx, token, dirID, offset, 100)
+	})
+}
+
+// ListVideos lists one page of the videos anywhere below a directory, when
+// the client supports it.
+func (s *sourceSession) ListVideos(ctx context.Context, dirID string, offset, limit int) (pan.FilePage, error) {
+	lister, ok := s.drive.client.(videoLister)
+	if !ok {
+		return pan.FilePage{}, errors.ErrUnsupported
+	}
+	return readSource(ctx, s, func(token string) (pan.FilePage, error) {
+		return lister.ListVideos(ctx, token, dirID, offset, limit)
 	})
 }
 

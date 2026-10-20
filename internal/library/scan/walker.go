@@ -108,6 +108,12 @@ func (s *Scanner) Run(ctx context.Context, job tasks.Job) error {
 	if payload.TargetID != "" {
 		return run.runTarget(ctx, isResume)
 	}
+	// A rebuild walks every folder so renamed folders refresh their paths.
+	if !isResume && !payload.Rebuild {
+		if done, err := run.quick(ctx); done || err != nil {
+			return err
+		}
+	}
 	return run.walk(ctx, Directory{ID: source.Directory.ID, Path: source.Directory.Path}, isResume)
 }
 

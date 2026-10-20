@@ -2,6 +2,7 @@ package library
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -34,6 +35,7 @@ type panStub struct {
 	addOffline    func(context.Context, string, string, string) (string, error)
 	removeOffline func(context.Context, string, string) error
 	offlineTasks  func(context.Context, string, int) (pan.OfflinePage, error)
+	listVideos    func(context.Context, string, string, int, int) (pan.FilePage, error)
 	playURL       func(context.Context, string, string, string) ([]pan.PlaySource, error)
 	openMedia     func(context.Context, string, string, http.Header) (*http.Response, error)
 }
@@ -106,6 +108,14 @@ func (client *panStub) List(ctx context.Context, token, dirID string, offset, li
 		return client.Client.List(ctx, token, dirID, offset, limit)
 	}
 	return pan.FilePage{}, nil
+}
+
+// ListVideos is unsupported unless a test sets listVideos, so scans walk.
+func (client *panStub) ListVideos(ctx context.Context, token, dirID string, offset, limit int) (pan.FilePage, error) {
+	if client.listVideos != nil {
+		return client.listVideos(ctx, token, dirID, offset, limit)
+	}
+	return pan.FilePage{}, errors.ErrUnsupported
 }
 
 func (client *panStub) Info(ctx context.Context, token, fileID string) (pan.FileInfo, error) {
