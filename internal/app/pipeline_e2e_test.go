@@ -548,12 +548,12 @@ func TestPipelineScansScrapesAndWritesSidecarsEndToEnd(t *testing.T) {
 	}
 }
 
-func TestPipelineUsesNFOCodeButScrapesCatalogueMetadata(t *testing.T) {
+func TestPipelineImports115NFOWithoutScraping(t *testing.T) {
 	fixture := newPipelineFixture(t)
 	ctx := t.Context()
 	fixture.addCatalogueMovie(fixtureDetail())
 	fixture.drive.addDirectory("11", "10", "ABP-123")
-	fixture.drive.addFile("101", "11", "ABP-123.mp4", 2<<30, []byte("video"))
+	fixture.drive.addFile("101", "11", "ABP-123-C.mp4", 2<<30, []byte("video"))
 	poster, fanart := fixtureJPEG(t, 200, 300), fixtureJPEG(t, 600, 400)
 	fixture.drive.addFile("102", "11", "poster.jpg", int64(len(poster)), poster)
 	fixture.drive.addFile("103", "11", "fanart.jpg", int64(len(fanart)), fanart)
@@ -567,7 +567,7 @@ func TestPipelineUsesNFOCodeButScrapesCatalogueMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.drive.addFile("104", "11", "ABP-123.nfo", int64(len(body)), body)
+	fixture.drive.addFile("104", "11", "ABP-123-C.nfo", int64(len(body)), body)
 
 	if _, err := fixture.library.StartScan(ctx); err != nil {
 		t.Fatal(err)
@@ -580,34 +580,60 @@ func TestPipelineUsesNFOCodeButScrapesCatalogueMetadata(t *testing.T) {
 			}
 		}
 	}
-	if len(fixture.catalogue.calls) == 0 {
-		t.Fatalf("NFO must not bypass catalogue scraping: %v", fixture.catalogue.calls)
+	if fixture.catalogue.calls["detail"] != 0 || fixture.catalogue.calls["media"] != 0 {
+		t.Fatalf("115 NFO must replace catalogue scraping: %v", fixture.catalogue.calls)
 	}
 	record, err := fixture.store.Client.Movie.Query().Where(movie.CodeEQ("ABP-123")).WithActors().Only(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if record.Title != fixtureDetail().Title || domain.ValueOrZero(record.JavdbID) != fixtureDetail().ID || len(record.Edges.Actors) != len(fixtureDetail().Actors) || record.ScrapeStatus != movie.ScrapeStatusDone {
+	if record.Title != doc.Title || domain.ValueOrZero(record.JavdbID) != "movie-user" || len(record.Edges.Actors) != 1 || record.ScrapeStatus != movie.ScrapeStatusDone {
 		t.Fatalf("movie from NFO = %+v actors %d", record, len(record.Edges.Actors))
 	}
-
-	if len(fixture.drive.reads) != 1 || fixture.drive.reads[0] != "pc-104" {
-		t.Fatalf("only the scan should read the NFO; reads = %v", fixture.drive.reads)
+	if record.Metadata == nil || record.Metadata.FieldSources["metadata"] != scrapePkg.NFOProvider || record.Metadata.FieldSources["cover"] != scrapePkg.NFOProvider {
+		t.Fatalf("NFO sources not recorded: %+v", record.Metadata)
 	}
+	for _, name := range []string{"ABP-123.nfo", "ABP-123.strm", "poster.jpg", "fanart.jpg"} {
+		if _, err := os.Stat(filepath.Join(fixture.embyDir, "ABP", "ABP-123", name)); err != nil {
+			t.Fatalf("export missing %s: %v", name, err)
+		}
+	}
+	if want := []string{"pc-104", "pc-104", "pc-102", "pc-103"}; !slices.Equal(fixture.drive.reads, want) {
+		t.Fatalf("reads = %v, want %v", fixture.drive.reads, want)
+	}
+
 	calls := maps.Clone(fixture.catalogue.calls)
-	doc.Title = "Edited remote title"
-	body, err = nfo.Encode(doc)
-	if err != nil {
+	reads := len(fixture.drive.reads)
+	if _, err := fixture.library.StartScan(ctx); err != nil {
 		t.Fatal(err)
 	}
-	fixture.drive.addFile("104", "11", "ABP-123.nfo", int64(len(body)), body)
-	fixture.drive.addFile("102", "11", "poster.jpg", 6, []byte("broken"))
+	if executed := fixture.runQueue(t); len(executed) != 1 || executed[0].Type != tasks.KindScan {
+		t.Fatalf("unchanged scan started work: %+v", executed)
+	}
+	if !maps.Equal(fixture.catalogue.calls, calls) || len(fixture.drive.reads) != reads+1 {
+		t.Fatalf("unchanged scan re-imported: calls=%v reads=%v", fixture.catalogue.calls, fixture.drive.reads)
+	}
+}
+
+func TestPipelineScrapesWhen115NFOIsMissing(t *testing.T) {
+	fixture := newPipelineFixture(t)
+	ctx := t.Context()
+	fixture.addCatalogueMovie(fixtureDetail())
+	fixture.drive.addDirectory("11", "10", "ABP-123")
+	fixture.drive.addFile("101", "11", "ABP-123.mp4", 2<<30, []byte("video"))
+	broken := []byte("<movie><title></title></movie>")
+	fixture.drive.addFile("104", "11", "ABP-123.nfo", int64(len(broken)), broken)
+
 	if _, err := fixture.library.StartScan(ctx); err != nil {
 		t.Fatal(err)
 	}
 	fixture.runQueue(t)
-	if !maps.Equal(fixture.catalogue.calls, calls) || len(fixture.drive.reads) != 2 {
-		t.Fatalf("remote artwork changes caused redundant scraping: calls=%v reads=%v", fixture.catalogue.calls, fixture.drive.reads)
+	record, err := fixture.store.Client.Movie.Query().Where(movie.CodeEQ("ABP-123")).Only(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if record.Title != fixtureDetail().Title || record.ScrapeStatus != movie.ScrapeStatusDone || fixture.catalogue.calls["detail"] == 0 {
+		t.Fatalf("NFO without a title must fall back to scraping: %+v calls=%v", record, fixture.catalogue.calls)
 	}
 }
 

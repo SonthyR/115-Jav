@@ -217,7 +217,22 @@ func (service *Service) prepareMetadata(ctx context.Context, sess drive.Session,
 		if id := domain.ValueOrZero(record.JavdbID); id != "" {
 			input.JavDBID = id
 		}
-		if err := service.resolveMetadata(ctx, input); err != nil {
+		// A rebuild asks for fresh scraping; otherwise an NFO already on 115 wins.
+		var sidecar libraryNFO
+		found := false
+		if !input.Rebuild {
+			if sidecar, found, err = service.findLibraryNFO(ctx, sess, input); err != nil {
+				return err
+			}
+		}
+		if found {
+			input.Document = sidecar.document
+			if len(sidecar.poster) > 0 {
+				if err := service.checkpointImportedArtwork(ctx, taskID, input, sidecar); err != nil {
+					return err
+				}
+			}
+		} else if err := service.resolveMetadata(ctx, input); err != nil {
 			return err
 		}
 	}

@@ -89,7 +89,8 @@ func TestCoverCleanupOnlyBlocksUntilArtworkCheckpoint(t *testing.T) {
 			t.Fatal(err)
 		}
 		if input.Artwork == nil {
-			if phase != "download" {
+			// The 115 NFO lookup lists the directory before any artwork exists.
+			if phase != "download" && (phase != "directory" || input.MetadataReady) {
 				t.Fatalf("%s: missing durable artwork checkpoint", phase)
 			}
 			return
