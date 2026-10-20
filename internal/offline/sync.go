@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -119,6 +120,15 @@ func (service *Service) UpdateTask(ctx context.Context, sess drive.Session, reco
 	_, prefs, err := service.config(ctx)
 	if err != nil {
 		return err
+	}
+
+	if service.placer != nil && remote.Status == 2 && remote.FileID != "" && record.FileID == "" && record.ScanTaskID == 0 &&
+		record.Status != offlinedownload.StatusCancelled && record.Status != offlinedownload.StatusFailed {
+		if placed, err := service.placer.Place(ctx, remote.FileID, record.Code); err == nil {
+			remote.FileID = placed
+		} else {
+			slog.InfoContext(ctx, "offline download left in place", "code", record.Code, "reason", err)
+		}
 	}
 
 	notify := false

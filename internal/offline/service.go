@@ -26,6 +26,12 @@ type Library interface {
 	EnqueueTargetedScan(ctx context.Context, tx *ent.Tx, source domain.LibrarySource, targetID string, offlineTaskID int, code, javdbID string) (int, error)
 }
 
+// Placer organizes a finished download inside the library and returns the
+// folder to scan instead. An error leaves the download where 115 saved it.
+type Placer interface {
+	Place(ctx context.Context, fileID, code string) (string, error)
+}
+
 // Service coordinates 115 offline download submissions, remote polling, and indexing transitions.
 type Service struct {
 	database  *ent.Client
@@ -33,6 +39,7 @@ type Service struct {
 	drive     *drive.Drive
 	tasks     *tasks.Service
 	library   Library
+	placer    Placer
 	// submitTimeout bounds one remote submission once it has started; the
 	// caller may have gone away but the mutation must be recorded.
 	submitTimeout time.Duration
@@ -40,6 +47,9 @@ type Service struct {
 	now           func() time.Time
 	policy        recoveryPolicy
 }
+
+// SetPlacer organizes finished downloads before they are scanned.
+func (service *Service) SetPlacer(placer Placer) { service.placer = placer }
 
 // New creates a new offline download management service.
 func New(database *ent.Client, catalogue Catalogue, drive *drive.Drive, tasks *tasks.Service, library Library, submitTimeout time.Duration) *Service {

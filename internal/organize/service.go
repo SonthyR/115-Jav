@@ -337,7 +337,11 @@ func (r *run) item(ctx context.Context, rule Rule, entry pan.File) error {
 		}
 		return nil
 	}
-	if err := r.execute(ctx, rule, item, plan); err != nil {
+	codeID, err := r.execute(ctx, rule, item, plan)
+	if err == nil {
+		err = r.service.scan(ctx, r.files.Source(), codeID, plan.code)
+	}
+	if err != nil {
 		return r.fail(ctx, rule, item, plan.code, err.Error())
 	}
 	r.service.record(ctx, Entry{Source: entry.Name, Code: plan.code, Target: plan.describe(), Status: "done"})
@@ -476,17 +480,17 @@ func releaseCode(codes []string) (code, other string) {
 }
 
 // execute creates {actor}/{code} in the library, renames and moves the files
-// there, recycles what is left of the release and queues a targeted scan.
-func (r *run) execute(ctx context.Context, rule Rule, item release, p plan) error {
+// there and recycles what is left of the release. It returns the code folder.
+func (r *run) execute(ctx context.Context, rule Rule, item release, p plan) (string, error) {
 	root := r.files.Source().Directory.ID
 	actorID, err := r.ensureActorDir(ctx, root, p.actorDir)
 	if err != nil {
-		return fmt.Errorf("创建演员目录失败：%w", err)
+		return "", fmt.Errorf("创建演员目录失败：%w", err)
 	}
 	codeName := SafeName(p.code)
 	children, err := r.files.Entries(ctx, actorID)
 	if err != nil {
-		return err
+		return "", err
 	}
 	codeID := ""
 	for _, child := range children {
@@ -497,40 +501,44 @@ func (r *run) execute(ctx context.Context, rule Rule, item release, p plan) erro
 	if codeID != "" {
 		existing, err := r.files.Entries(ctx, codeID)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if slices.ContainsFunc(existing, func(file pan.File) bool { return domain.IsVideo(file.Name) && file.Size >= domain.MinVideoSize }) {
-			return fmt.Errorf("整理后目录已有 %s/%s 的视频", p.actorDir, codeName)
+			return "", fmt.Errorf("整理后目录已有 %s/%s 的视频", p.actorDir, codeName)
 		}
 	} else if codeID, err = r.files.Mkdir(ctx, actorID, codeName); err != nil {
-		return fmt.Errorf("创建番号目录失败：%w", err)
+		return "", fmt.Errorf("创建番号目录失败：%w", err)
 	}
 	ids := make([]string, 0, len(p.moves))
 	for _, m := range p.moves {
 		if m.file.Name != m.name {
 			if err := r.files.Rename(ctx, m.file.ID, m.name); err != nil {
-				return fmt.Errorf("重命名 %s 失败：%w", m.file.Name, err)
+				return "", fmt.Errorf("重命名 %s 失败：%w", m.file.Name, err)
 			}
 		}
 		ids = append(ids, m.file.ID)
 	}
 	if err := r.files.Move(ctx, ids, codeID); err != nil {
-		return fmt.Errorf("移动失败：%w", err)
+		return "", fmt.Errorf("移动失败：%w", err)
 	}
 	if item.entry.IsDirectory && r.cfg.CleanJunk {
 		if err := r.files.Delete(ctx, []string{item.entry.ID}, rule.Source.ID); err != nil {
 			slog.WarnContext(ctx, "failed to recycle organized release folder", "name", item.entry.Name, "error", err)
 		}
 	}
-	source := r.files.Source()
-	return ent.WithTx(ctx, r.service.db, func(tx *ent.Tx) error {
-		_, err := r.service.scanner.EnqueueTargetedScan(ctx, tx, source, codeID, 0, p.code, "")
-		if err == nil && r.service.wake != nil {
+	return codeID, nil
+}
+
+// scan queues a targeted scan of an organized code folder.
+func (s *Service) scan(ctx context.Context, source domain.LibrarySource, codeID, code string) error {
+	return ent.WithTx(ctx, s.db, func(tx *ent.Tx) error {
+		_, err := s.scanner.EnqueueTargetedScan(ctx, tx, source, codeID, 0, code, "")
+		if err == nil && s.wake != nil {
 			tx.OnCommit(func(next ent.Committer) ent.Committer {
 				return ent.CommitFunc(func(ctx context.Context, tx *ent.Tx) error {
 					err := next.Commit(ctx, tx)
 					if err == nil {
-						r.service.wake()
+						s.wake()
 					}
 					return err
 				})
@@ -573,4 +581,61 @@ func (r *run) fail(ctx context.Context, rule Rule, item release, code, reason st
 	}
 	r.service.record(ctx, Entry{Source: item.entry.Name, Code: code, Status: "failed", Detail: detail})
 	return nil
+}
+
+// ErrNotPlaced means a finished download was left where 115 put it, because
+// no rule is enabled or the download could not be organized.
+var ErrNotPlaced = errors.New("download not organized")
+
+// Place organizes a finished offline download, which 115 saves in the
+// library root, and returns its code folder. The caller queues the scan.
+func (s *Service) Place(ctx context.Context, fileID, code string) (string, error) {
+	cfg, err := s.Config(ctx)
+	if err != nil {
+		return "", err
+	}
+	if !slices.ContainsFunc(cfg.Rules, func(rule Rule) bool { return rule.Enabled && !rule.DryRun }) {
+		return "", ErrNotPlaced
+	}
+	s.running.Lock()
+	defer s.running.Unlock()
+	files, err := s.open(ctx)
+	if err != nil {
+		return "", err
+	}
+	root := files.Source().Directory.ID
+	entries, err := files.Entries(ctx, root)
+	if err != nil {
+		return "", err
+	}
+	index := slices.IndexFunc(entries, func(entry pan.File) bool { return entry.ID == fileID })
+	if index < 0 {
+		return "", ErrNotPlaced // already moved, or saved below the root
+	}
+	r := &run{service: s, files: files, cfg: cfg, actorDirs: entries, listed: true}
+	item, err := r.collect(ctx, entries[index])
+	if err != nil {
+		return "", err
+	}
+	// The release folder must be a direct child of the root to be recycled.
+	rule := Rule{Source: Folder{ID: root}}
+	if len(item.videos) == 0 {
+		return "", fmt.Errorf("%w: no video", ErrNotPlaced)
+	}
+	p, failure := r.plan(ctx, item)
+	if failure == "" && code != "" && !codeid.IsEquivalent(p.code, codeid.Normalize(code)) {
+		failure = fmt.Sprintf("下载的番号 %s 与影片 %s 不一致", p.code, code)
+	}
+	var codeID string
+	if failure == "" {
+		if codeID, err = r.execute(ctx, rule, item, p); err != nil {
+			failure = err.Error()
+		}
+	}
+	if failure != "" {
+		s.record(ctx, Entry{Source: item.entry.Name, Code: p.code, Status: "failed", Detail: "离线下载：" + failure})
+		return "", fmt.Errorf("%w: %s", ErrNotPlaced, failure)
+	}
+	s.record(ctx, Entry{Source: item.entry.Name, Code: p.code, Target: p.describe(), Status: "done", Detail: "离线下载"})
+	return codeID, nil
 }

@@ -2,6 +2,7 @@ package organize
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -315,5 +316,37 @@ func TestReleaseCode(t *testing.T) {
 		if code, other := releaseCode(tc.codes); code != tc.code || other != tc.other {
 			t.Errorf("releaseCode(%v) = %s, %s", tc.codes, code, other)
 		}
+	}
+}
+
+func TestPlaceOrganizesAFinishedDownload(t *testing.T) {
+	h := newHarness(t, fakeResolver{"SSIS-001": {{Name: "X"}}}, nil)
+	download := h.files.dir("lib", "[site.com]SSIS-001")
+	h.files.add(download, "SSIS-001-C.mp4", gb)
+	h.files.add(download, "readme.txt", 1)
+	codeID, err := h.service.Place(t.Context(), download, "SSIS-001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := h.files.paths("lib"); !slices.Equal(got, []string{"X/SSIS-001/SSIS-001-C.mp4"}) {
+		t.Fatalf("library = %v", got)
+	}
+	if h.files.files[codeID].Name != "SSIS-001" || len(h.scanner.targets) != 0 {
+		t.Fatalf("code folder %q, scans %v", h.files.files[codeID].Name, h.scanner.targets)
+	}
+	if _, err := h.service.Place(t.Context(), download, "SSIS-001"); !errors.Is(err, ErrNotPlaced) {
+		t.Fatalf("placed a recycled download again: %v", err)
+	}
+}
+
+func TestPlaceLeavesDownloadsWhenNoRuleIsEnabled(t *testing.T) {
+	h := newHarness(t, fakeResolver{"SSIS-001": {{Name: "X"}}}, func(rule *Rule) { rule.Enabled = false })
+	download := h.files.dir("lib", "SSIS-001")
+	h.files.add(download, "SSIS-001.mp4", gb)
+	if _, err := h.service.Place(t.Context(), download, "SSIS-001"); !errors.Is(err, ErrNotPlaced) {
+		t.Fatalf("err = %v", err)
+	}
+	if got := h.files.paths("lib"); !slices.Equal(got, []string{"SSIS-001/SSIS-001.mp4"}) {
+		t.Fatalf("library = %v", got)
 	}
 }

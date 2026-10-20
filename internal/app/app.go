@@ -185,6 +185,7 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 
 	pools := newTaskPools(taskSvc, logger)
 	organizer := organize.New(store.Client, driveSvc, metadataSvc, libSvc, taskSvc.WakePool)
+	offlineSvc.SetPlacer(organizer)
 
 	router := api.NewRouter(api.Dependencies{
 		Logger:         logger,
