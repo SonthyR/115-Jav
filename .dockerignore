@@ -36,3 +36,5 @@ web/tests
 Dockerfile*
 README.md
 AGENTS.md
+
+deploy
