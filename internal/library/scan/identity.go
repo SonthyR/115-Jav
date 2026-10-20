@@ -135,6 +135,12 @@ func ResolveNFOCodes(ctx context.Context, sess drive.Session, sidecars []pan.Fil
 			expected = firstCode
 		}
 		if expected != "" && !codeid.IsEquivalent(expected, canonical) {
+			// Other scrapers keep subtitle markers in <num>, e.g. SONE-101-UC.
+			if parsed, ok := codeid.Parse(canonical); ok && codeid.IsEquivalent(expected, parsed) {
+				canonical = parsed
+			}
+		}
+		if expected != "" && !codeid.IsEquivalent(expected, canonical) {
 			return domain.E(domain.KindConflict, fmt.Sprintf("NFO %s 的番号 %s 与视频 %s 的番号 %s 不一致", entry.Name, canonical, video.Name, expected), nil)
 		}
 		video.Code = canonical

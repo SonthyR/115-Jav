@@ -57,7 +57,10 @@ func (service *Service) findLibraryNFO(ctx context.Context, sess drive.Session, 
 			continue
 		}
 		if code := codeid.Normalize(doc.Code); code != "" && !codeid.IsEquivalent(code, input.Code) {
-			continue
+			// Other scrapers keep subtitle markers in <num>, e.g. SONE-101-UC.
+			if parsed, ok := codeid.Parse(code); !ok || !codeid.IsEquivalent(parsed, input.Code) {
+				continue
+			}
 		}
 		doc.Code = input.Code
 		normalizeImportedNFO(&doc)

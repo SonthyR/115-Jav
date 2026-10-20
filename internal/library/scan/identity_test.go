@@ -27,6 +27,8 @@ func TestResolveNFOCodesChecksContentAndReadsEachFileOnce(t *testing.T) {
 		conflict   bool
 	}{
 		{name: "matching", code: "ABP-001"},
+		{name: "subtitle marker", code: "ABP-001-UC"},
+		{name: "glued marker", code: "ABP-001-C"},
 		{name: "conflicting content", code: "IPX-123", conflict: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
