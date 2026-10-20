@@ -9,6 +9,12 @@ import (
 
 // ExportLocalMovie repairs missing or changed outputs using saved metadata and artwork.
 func ExportLocalMovie(embyDir, publicURL, strmToken string, record *ent.Movie, images *mediaimage.Cache) (bool, error) {
+	return ExportSourceMovie(embyDir, publicURL, strmToken, "", record, images)
+}
+
+// ExportSourceMovie is ExportLocalMovie for a movie below the 115 media
+// directory sourcePath, whose export mirrors the movie's folder there.
+func ExportSourceMovie(embyDir, publicURL, strmToken, sourcePath string, record *ent.Movie, images *mediaimage.Cache) (bool, error) {
 	if record.Code == "" {
 		return false, nil
 	}
@@ -37,5 +43,16 @@ func ExportLocalMovie(embyDir, publicURL, strmToken string, record *ent.Movie, i
 	if err != nil {
 		return false, err
 	}
-	return export.WriteMedia(export.Config{EmbyDir: embyDir, PublicURL: publicURL, STRMToken: strmToken}, record.Code, doc, videos, posterBytes, fanartBytes)
+	folder := export.MovieFolder(sourcePath, record.Code, filePaths(record.Edges.Files))
+	return export.WriteMovie(export.Config{EmbyDir: embyDir, PublicURL: publicURL, STRMToken: strmToken}, folder, record.Code, doc, videos, posterBytes, fanartBytes)
+}
+
+func filePaths(files []*ent.File) []string {
+	paths := make([]string, 0, len(files))
+	for _, f := range files {
+		if f.Path != "" {
+			paths = append(paths, f.Path)
+		}
+	}
+	return paths
 }

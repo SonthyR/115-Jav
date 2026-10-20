@@ -598,7 +598,7 @@ func TestPipelineImports115NFOWithoutScraping(t *testing.T) {
 	if record.Metadata == nil || record.Metadata.FieldSources["metadata"] != scrapePkg.NFOProvider || record.Metadata.FieldSources["cover"] != scrapePkg.NFOProvider {
 		t.Fatalf("NFO sources not recorded: %+v", record.Metadata)
 	}
-	for _, name := range []string{"ABP-123.nfo", "ABP-123.strm", "poster.jpg", "fanart.jpg"} {
+	for _, name := range []string{"ABP-123-C.nfo", "ABP-123-C.strm", "poster.jpg", "fanart.jpg"} {
 		if _, err := os.Stat(filepath.Join(fixture.embyDir, "ABP", "ABP-123", name)); err != nil {
 			t.Fatalf("export missing %s: %v", name, err)
 		}

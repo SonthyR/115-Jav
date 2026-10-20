@@ -49,7 +49,7 @@ func TestCorrectedExportCleanupPreservesCustomFilesAndCanReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range 2 {
-		path, err := service.removePreviousExport(t.Context(), root, record, record.Code)
+		path, err := service.removePreviousExport(t.Context(), root, record, record.Code, nil)
 		if err != nil || path != oldDir {
 			t.Fatalf("cleanup = %q, %v", path, err)
 		}
@@ -73,7 +73,7 @@ func TestCorrectedExportCleanupPreservesCustomFilesAndCanReplay(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(oldDir, "ABP-001.strm"), []byte("another movie"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if path, err := service.removePreviousExport(t.Context(), root, record, record.Code); err != nil || path != "" {
+	if path, err := service.removePreviousExport(t.Context(), root, record, record.Code, nil); err != nil || path != "" {
 		t.Fatal("deleted another movie's export")
 	}
 	if _, err := os.Stat(filepath.Join(oldDir, "ABP-001.strm")); err != nil {
@@ -104,7 +104,7 @@ func TestCorrectedExportCleanupUsesEncodedFileStem(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := service.removePreviousExport(t.Context(), root, record, record.Code); err != nil {
+	if _, err := service.removePreviousExport(t.Context(), root, record, record.Code, nil); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range generated {

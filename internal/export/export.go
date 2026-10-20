@@ -11,9 +11,7 @@ import (
 	"strings"
 
 	"github.com/ppxb/miyabi/internal/atomicfile"
-	"github.com/ppxb/miyabi/internal/codeid"
 	"github.com/ppxb/miyabi/internal/ent"
-	"github.com/ppxb/miyabi/internal/nfo"
 )
 
 // STRMPlayPath is the API route prefix for media streaming playback in .strm files.
@@ -30,11 +28,14 @@ func ParseSTRMFileID(content string) string {
 	return ""
 }
 
-// EmbyMovieDir is the directory holding a movie's exported Emby files,
-// bucketed by catalogue prefix: <embyDir>/<prefix>/<safe-stem>.
-// embyDir must come from the resolved export configuration.
+// EmbyMovieDir is the directory holding a movie's exported Emby files: the
+// existing export for the code, or <embyDir>/<prefix>/<safe-stem> for a new
+// one. embyDir must come from the resolved export configuration.
 func EmbyMovieDir(embyDir, code string) string {
-	return filepath.Join(embyDir, nfo.FileStem(codeid.Prefix(code)), nfo.FileStem(code))
+	if dir := indexedMovieDir(embyDir, code); dir != "" {
+		return dir
+	}
+	return legacyMovieDir(embyDir, code)
 }
 
 // STRMContent is the body of a .strm file: the relay URL that resolves the

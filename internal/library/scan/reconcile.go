@@ -119,7 +119,7 @@ func (r *scanRun) prepareReconcile(ctx context.Context, cfg export.Config) (map[
 				continue
 			}
 			if cfg.EmbyDir != "" {
-				if _, err := scrape.ExportLocalMovie(cfg.EmbyDir, cfg.PublicURL, cfg.STRMToken, record, r.scanner.images); err != nil {
+				if _, err := scrape.ExportSourceMovie(cfg.EmbyDir, cfg.PublicURL, cfg.STRMToken, r.payload.Source.Directory.Path, record, r.scanner.images); err != nil {
 					return nil, fmt.Errorf("export local movie %s: %w", record.Code, err)
 				}
 			}

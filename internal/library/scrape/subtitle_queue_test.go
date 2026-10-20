@@ -127,7 +127,7 @@ func TestSubtitleTaskTargetsTheExportedSTRM(t *testing.T) {
 
 	task := service.subtitleTask(input, []pan.File{{ID: "video", Name: "SSIS-589-UC.mp4"}})
 	if task == nil || task.MovieID != 7 || task.Target.Dir != filepath.Join("emby", "SSIS", "SSIS-589") ||
-		task.Target.Stem != "SSIS-589" || task.Target.Code != "SSIS-589" ||
+		task.Target.Stem != "SSIS-589-UC" || task.Target.Code != "SSIS-589" ||
 		!task.Target.Uncensored || !task.Target.HardSubtitled {
 		t.Fatalf("subtitle task = %+v", task)
 	}

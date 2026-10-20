@@ -12,7 +12,6 @@ import (
 	"github.com/ppxb/miyabi/internal/ent/file"
 	"github.com/ppxb/miyabi/internal/ent/movie"
 	"github.com/ppxb/miyabi/internal/export"
-	"github.com/ppxb/miyabi/internal/nfo"
 	"github.com/ppxb/miyabi/internal/pan"
 	"github.com/ppxb/miyabi/internal/tasks"
 )
@@ -102,10 +101,11 @@ func (service *Service) publishMovie(ctx context.Context, sess drive.Session, jo
 				service.dirMu.Unlock()
 				return &domain.RetryError{Cause: domain.E(domain.KindConflict, "媒体文件索引已更新，等待重新导出", nil)}
 			}
-			if _, err := export.WriteMedia(cfg, input.Code, input.Document, videos, poster, fanart); err != nil {
+			folder := export.MovieFolder(input.Source.Directory.Path, input.Code, filePaths(files))
+			if _, err := export.WriteMovie(cfg, folder, input.Code, input.Document, videos, poster, fanart); err != nil {
 				return err
 			}
-			oldDir, err := service.removePreviousExport(ctx, cfg.EmbyDir, record, input.Code)
+			oldDir, err := service.removePreviousExport(ctx, cfg.EmbyDir, record, input.Code, videos)
 			if err != nil {
 				return err
 			}
@@ -158,7 +158,7 @@ func (service *Service) subtitleTask(input MetadataPayload, videos []pan.File) *
 		MovieID: input.MovieID,
 		Target: subtitlemeta.Target{
 			Dir:           export.EmbyMovieDir(service.exportConfig().EmbyDir, input.Code),
-			Stem:          nfo.FileStem(input.Code),
+			Stem:          export.MediaStem(input.Code, videos),
 			Code:          input.Code,
 			Uncensored:    subtitlemeta.IsUncensored(videos[0].Name),
 			HardSubtitled: subtitlemeta.HasHardSubtitle(videos[0].Name),

@@ -14,18 +14,30 @@ import (
 	"github.com/ppxb/miyabi/internal/pan"
 )
 
-// WriteMedia writes artwork, NFO, then STRM files and reports whether any output changed.
+// WriteMedia writes a movie's export without a known 115 folder.
+func WriteMedia(cfg Config, code string, doc nfo.Movie, videos []pan.File, poster, fanart []byte) (bool, error) {
+	return WriteMovie(cfg, "", code, doc, videos, poster, fanart)
+}
+
+// WriteMovie writes artwork, NFO, then STRM files and reports whether any output changed.
 // Compare each output independently so repairing one missing sidecar does not
 // touch complete files or trigger unnecessary media-server file events.
-func WriteMedia(cfg Config, code string, doc nfo.Movie, videos []pan.File, poster, fanart []byte) (bool, error) {
+// folder is the movie's folder on 115 (see MovieFolder); an export found in
+// another layout moves there first.
+func WriteMovie(cfg Config, folder, code string, doc nfo.Movie, videos []pan.File, poster, fanart []byte) (bool, error) {
 	if err := cfg.Validate(); err != nil {
 		return false, err
 	}
-	stem := nfo.FileStem(code)
-	destDir := EmbyMovieDir(cfg.EmbyDir, code)
+	codeStem := nfo.FileStem(code)
+	stem := MediaStem(code, videos)
+	destDir, err := moveExport(cfg.EmbyDir, folder, code)
+	if err != nil {
+		return false, fmt.Errorf("move emby directory for %s: %w", code, err)
+	}
 	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return false, fmt.Errorf("create emby directory %s: %w", destDir, err)
 	}
+	rememberMovieDir(cfg.EmbyDir, code, destDir)
 	changed := false
 	write := func(name string, body []byte) error {
 		path := filepath.Join(destDir, name)
@@ -99,7 +111,10 @@ func WriteMedia(cfg Config, code string, doc nfo.Movie, videos []pan.File, poste
 			continue
 		}
 		name := entry.Name()
-		if strings.HasSuffix(name, ".strm") && strings.HasPrefix(name, stem) && !expectedSTRMs[name] {
+		// A renamed stem (PRED-709.nfo to PRED-709-C.nfo) leaves the old pair behind.
+		stale := strings.HasSuffix(name, ".strm") && !expectedSTRMs[name] ||
+			strings.HasSuffix(name, ".nfo") && name != nfoName
+		if stale && strings.HasPrefix(name, codeStem) {
 			if err := os.Remove(filepath.Join(destDir, name)); err != nil {
 				return changed, err
 			}

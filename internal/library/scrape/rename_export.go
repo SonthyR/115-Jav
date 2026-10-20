@@ -12,11 +12,13 @@ import (
 	"github.com/ppxb/miyabi/internal/ent/movie"
 	"github.com/ppxb/miyabi/internal/export"
 	"github.com/ppxb/miyabi/internal/nfo"
+	"github.com/ppxb/miyabi/internal/pan"
 )
 
 // Remove files matching the previous movie's generated names after publishing
 // the corrected identity. Unrelated files in the old directory remain untouched.
-func (service *Service) removePreviousExport(ctx context.Context, root string, record *ent.Movie, code string) (string, error) {
+// videos are the movie's files, whose names may have given the old export its stem.
+func (service *Service) removePreviousExport(ctx context.Context, root string, record *ent.Movie, code string, videos []pan.File) (string, error) {
 	if root == "" || record.MetadataSnapshot == nil || record.MetadataSnapshot.Code == "" {
 		return "", nil
 	}
@@ -36,8 +38,13 @@ func (service *Service) removePreviousExport(ctx context.Context, root string, r
 	if err != nil {
 		return "", err
 	}
-	// Match the writer's exact naming rules, including positive disc numbers.
-	generated := regexp.MustCompile(`^` + regexp.QuoteMeta(nfo.FileStem(oldCode)) + `(?:\.nfo|(?:-cd[1-9][0-9]*)?\.strm)$`)
+	// Match the writer's exact naming rules, including positive disc numbers
+	// and a single video's own name (PRED-709-C.strm).
+	stems := regexp.QuoteMeta(nfo.FileStem(oldCode))
+	if stem := export.MediaStem(oldCode, videos); stem != nfo.FileStem(oldCode) {
+		stems += "|" + regexp.QuoteMeta(stem)
+	}
+	generated := regexp.MustCompile(`^(?:` + stems + `)(?:\.nfo|(?:-cd[1-9][0-9]*)?\.strm)$`)
 	for _, entry := range entries {
 		name := entry.Name()
 		if entry.IsDir() || (name != "poster.jpg" && name != "fanart.jpg" && !generated.MatchString(name)) {
