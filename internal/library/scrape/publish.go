@@ -137,6 +137,9 @@ func (service *Service) publishMovie(ctx context.Context, sess drive.Session, jo
 		return nil, fmt.Errorf("publish movie: %w", err)
 	}
 
+	if service.sidecars != nil {
+		service.sidecars.PublishSidecars(ctx, directories, input.Document, videos, poster, fanart)
+	}
 	subTask := service.subtitleTask(input.MetadataPayload, videos)
 
 	if service.notifier != nil {

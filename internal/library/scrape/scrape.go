@@ -87,6 +87,7 @@ type Service struct {
 
 	exportMgr     *export.Manager
 	mediaNotifier export.MediaNotifier
+	sidecars      SidecarPublisher
 }
 
 func (service *Service) exportConfig() export.Config {
@@ -100,6 +101,13 @@ type Dependencies struct {
 	ExportManager *export.Manager
 	MediaNotifier export.MediaNotifier
 	Subtitles     SubtitleExporter
+	Sidecars      SidecarPublisher
+}
+
+// SidecarPublisher stores a published movie's NFO and artwork beside its
+// videos on 115. It must not fail publication; errors are its own to report.
+type SidecarPublisher interface {
+	PublishSidecars(ctx context.Context, directories []MovieDirectory, doc nfo.Movie, videos []pan.File, poster, fanart []byte)
 }
 
 // New installs dependencies before starting subtitle workers.
@@ -114,6 +122,7 @@ func New(db *ent.Client, d *drive.Drive, metadata MetadataSource, images *mediai
 		exportMgr:     deps.ExportManager,
 		mediaNotifier: deps.MediaNotifier,
 		subtitles:     deps.Subtitles,
+		sidecars:      deps.Sidecars,
 	}
 	service.subtitleQueue = newSubtitleQueue(service)
 	return service
