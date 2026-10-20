@@ -350,3 +350,20 @@ func TestPlaceLeavesDownloadsWhenNoRuleIsEnabled(t *testing.T) {
 		t.Fatalf("library = %v", got)
 	}
 }
+
+func TestPollSummarizesWhatItSaw(t *testing.T) {
+	h := newHarness(t, fakeResolver{"SSIS-001": {{Name: "X"}}}, func(rule *Rule) { rule.DryRun = true })
+	h.files.add(h.files.dir(h.inbox, "SSIS-001"), "SSIS-001.mp4", gb)
+	h.files.add(h.files.dir(h.inbox, "sample"), "sample.mp4", 10<<20)
+	h.files.dir(h.inbox, "_skip")
+	var last *summary
+	for range 2 {
+		var err error
+		if last, err = h.service.poll(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if *last != (summary{entries: 3, skipped: 1, noVideo: 1, handled: 1}) {
+		t.Fatalf("summary = %+v", *last)
+	}
+}

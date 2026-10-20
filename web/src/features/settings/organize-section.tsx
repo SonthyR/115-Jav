@@ -175,7 +175,7 @@ export function OrganizeSection() {
             disabled={disabled || !rule.enabled || run.isPending}
             onClick={() =>
               run.mutate(undefined, {
-                onSuccess: () => toast.success('已开始整理，结果会出现在整理日志里'),
+                onSuccess: () => toast.success('已开始整理，大约半分钟后在整理日志里看到结果'),
                 onError: error => toast.error(describeApiError(error))
               })
             }
@@ -249,7 +249,8 @@ function FolderRow({
 const statusLabels: Record<OrganizeEntry['status'], string> = {
   done: '已整理',
   dry_run: '演练',
-  failed: '失败'
+  failed: '失败',
+  info: '提示'
 }
 
 function LogDialog() {
@@ -289,7 +290,9 @@ function LogDialog() {
                         ? 'destructive'
                         : entry.status === 'done'
                           ? 'success'
-                          : 'secondary'
+                          : entry.status === 'info'
+                            ? 'outline'
+                            : 'secondary'
                     }
                   >
                     {statusLabels[entry.status]}

@@ -70,7 +70,7 @@ type Entry struct {
 	Source string    `json:"source"`
 	Code   string    `json:"code,omitempty"`
 	Target string    `json:"target,omitempty"`
-	Status string    `json:"status"` // done, dry_run or failed
+	Status string    `json:"status"` // done, dry_run, failed or info
 	Detail string    `json:"detail,omitempty"`
 }
 
@@ -174,51 +174,82 @@ func (s *Service) Run(ctx context.Context) error {
 		return nil
 	}
 	defer s.running.Unlock()
+	_, err := s.poll(ctx)
+	if errors.Is(err, errNoRules) {
+		return nil
+	}
+	return err
+}
+
+var errNoRules = errors.New("没有启用的整理规则")
+
+// summary counts what one poll saw, for the manual run's closing log line.
+type summary struct {
+	entries, skipped, noVideo, waiting, handled int
+}
+
+func (s *Service) poll(ctx context.Context) (*summary, error) {
 	cfg, err := s.Config(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !slices.ContainsFunc(cfg.Rules, func(rule Rule) bool { return rule.Enabled }) {
-		return nil
+		return nil, errNoRules
 	}
 	files, err := s.open(ctx)
 	if err != nil {
 		if errors.Is(err, drive.ErrMediaDirectoryRequired) {
-			return nil
+			return nil, nil
 		}
-		return err
+		return nil, err
 	}
-	run := &run{service: s, files: files, cfg: cfg}
+	run := &run{service: s, files: files, cfg: cfg, summary: &summary{}}
 	for _, rule := range cfg.Rules {
 		if !rule.Enabled {
 			continue
 		}
 		if err := run.rule(ctx, rule); err != nil {
 			if ctx.Err() != nil {
-				return ctx.Err()
+				return nil, ctx.Err()
 			}
 			slog.WarnContext(ctx, "organize rule failed", "source", rule.Source.Path, "error", err)
+			s.record(ctx, Entry{Source: rule.Source.Path, Status: "failed", Detail: "读取整理前目录失败：" + err.Error()})
 		}
 	}
-	return nil
+	return run.summary, nil
 }
 
 // settleDelay separates the two polls of a manual run, so new releases do
 // not wait for the next periodic poll to prove their sizes are stable.
 const settleDelay = 15 * time.Second
 
-// Trigger runs the organizer twice in the background, settleDelay apart.
+// Trigger polls twice in the background, settleDelay apart. Unlike the
+// periodic Run it waits for a poll already in progress instead of skipping.
 func (s *Service) Trigger(ctx context.Context) {
 	ctx = context.WithoutCancel(ctx)
 	go func() {
-		if err := s.Run(ctx); err != nil {
-			slog.WarnContext(ctx, "organize run failed", "error", err)
+		var last *summary
+		for pass := range 2 {
+			if pass > 0 {
+				time.Sleep(settleDelay)
+			}
+			s.running.Lock()
+			result, err := s.poll(ctx)
+			s.running.Unlock()
+			if err != nil {
+				slog.WarnContext(ctx, "organize run failed", "error", err)
+				s.record(ctx, Entry{Status: "failed", Detail: "整理失败：" + err.Error()})
+				return
+			}
+			last = result
+		}
+		if last == nil {
+			s.record(ctx, Entry{Status: "info", Detail: "还没有挂载媒体目录，没有整理"})
 			return
 		}
-		time.Sleep(settleDelay)
-		if err := s.Run(ctx); err != nil {
-			slog.WarnContext(ctx, "organize run failed", "error", err)
-		}
+		s.record(ctx, Entry{Status: "info", Detail: fmt.Sprintf(
+			"立即整理完成：整理前目录有 %d 项，处理 %d 项，跳过 %d 项（_ 开头），%d 项没有达到大小的视频，%d 项还在传输中",
+			last.entries, last.handled, last.skipped, last.noVideo, last.waiting)})
 	}()
 }
 
@@ -229,6 +260,7 @@ type run struct {
 	// actorDirs caches the library root listing for one run.
 	actorDirs []pan.File
 	listed    bool
+	summary   *summary
 }
 
 func (r *run) rule(ctx context.Context, rule Rule) error {
@@ -313,16 +345,26 @@ func (r *run) stable(item release) bool {
 }
 
 func (r *run) item(ctx context.Context, rule Rule, entry pan.File) error {
+	if r.summary != nil {
+		r.summary.entries++
+	}
 	if strings.HasPrefix(entry.Name, "_") {
+		r.count(func(s *summary) { s.skipped++ })
 		return nil // reserved for helper folders such as a failed directory inside the inbox
 	}
 	item, err := r.collect(ctx, entry)
 	if err != nil {
 		return err
 	}
-	if len(item.videos) == 0 || !r.stable(item) {
+	if len(item.videos) == 0 {
+		r.count(func(s *summary) { s.noVideo++ })
 		return nil
 	}
+	if !r.stable(item) {
+		r.count(func(s *summary) { s.waiting++ })
+		return nil
+	}
+	r.count(func(s *summary) { s.handled++ })
 	plan, failure := r.plan(ctx, item)
 	if failure != "" {
 		return r.fail(ctx, rule, item, plan.code, failure)
@@ -346,6 +388,12 @@ func (r *run) item(ctx context.Context, rule Rule, entry pan.File) error {
 	}
 	r.service.record(ctx, Entry{Source: entry.Name, Code: plan.code, Target: plan.describe(), Status: "done"})
 	return nil
+}
+
+func (r *run) count(update func(*summary)) {
+	if r.summary != nil {
+		update(r.summary)
+	}
 }
 
 type move struct {

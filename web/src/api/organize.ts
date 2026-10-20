@@ -26,7 +26,7 @@ export type OrganizeEntry = {
   source: string
   code?: string
   target?: string
-  status: 'done' | 'dry_run' | 'failed'
+  status: 'done' | 'dry_run' | 'failed' | 'info'
   detail?: string
 }
 
