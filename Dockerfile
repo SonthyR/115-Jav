@@ -52,8 +52,8 @@ ENTRYPOINT ["/app/miyabi"]
 ARG VERSION=dev
 ARG REVISION=unknown
 
-LABEL org.opencontainers.image.title="Miyabi" \
-      org.opencontainers.image.description="JavDB media library with 115 cloud playback" \
-      org.opencontainers.image.source="https://github.com/ppxb/miyabi" \
+LABEL org.opencontainers.image.title="115-Jav" \
+      org.opencontainers.image.description="115 cloud organizing, scraping and STRM playback for Emby" \
+      org.opencontainers.image.source="https://github.com/SonthyR/115-Jav" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"

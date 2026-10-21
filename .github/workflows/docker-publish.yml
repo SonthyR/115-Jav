@@ -1,4 +1,4 @@
-name: Publish Miyabi image
+name: Publish 115-Jav image
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  IMAGE_NAME: ghcr.io/ppxb/miyabi
+  IMAGE_NAME: ghcr.io/sonthyr/115-jav
 
 jobs:
   version:
@@ -84,49 +84,11 @@ jobs:
           VERSION: ${{ needs.version.outputs.version }}
           RELEASE_BODY: ${{ needs.changelog.outputs.release_body }}
 
-  # 仅用于按架构预热 buildx/GHA 缓存，不推送任何镜像，
-  # 因此不会在 registry 里留下 build-<run_id>-<arch> 这类中间 tag。
-  build:
-    name: Warm cache (${{ matrix.suffix }})
-    needs: version
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: linux/amd64
-            runner: ubuntu-latest
-            suffix: amd64
-          - platform: linux/arm64
-            runner: ubuntu-24.04-arm
-            suffix: arm64
-    runs-on: ${{ matrix.runner }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Warm cache [${{ matrix.platform }}]
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: ${{ matrix.platform }}
-          push: false
-          build-args: |
-            VERSION=${{ needs.version.outputs.version }}
-            REVISION=${{ github.sha }}
-          cache-from: type=gha,scope=miyabi-${{ matrix.suffix }}
-          cache-to: type=gha,scope=miyabi-${{ matrix.suffix }},mode=max
-          provenance: false
-          sbom: false
-
-  # 一步构建并推送多架构 manifest，复用上面预热好的按架构缓存，
-  # registry 中只会出现最终的正式 tag。
+  # Go 和前端都在构建机原生架构下交叉编译，只有运行时层走 QEMU，
+  # 所以一个 job 直接构建并推送多架构镜像，不依赖 arm 专用 runner（私有仓库不可用）。
   publish:
     name: Build and push multi-arch image
-    needs: [version, build]
+    needs: version
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -174,9 +136,8 @@ jobs:
           build-args: |
             VERSION=${{ needs.version.outputs.version }}
             REVISION=${{ github.sha }}
-          cache-from: |
-            type=gha,scope=miyabi-amd64
-            type=gha,scope=miyabi-arm64
+          cache-from: type=gha,scope=115-jav
+          cache-to: type=gha,scope=115-jav,mode=max
           provenance: false
           sbom: false
 

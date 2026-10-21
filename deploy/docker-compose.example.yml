@@ -1,0 +1,44 @@
+# 115-Jav 部署示例：115-Jav（刮削、整理、STRM、302 直链）+ Emby。
+# 复制为 docker-compose.yml，改掉密码、Token 和 IP 后运行：docker compose up -d
+services:
+  miyabi:
+    image: ghcr.io/sonthyr/115-jav:latest
+    # 想用本仓库源码自己构建，把上面一行换成下面两行，再运行 docker compose up -d --build
+    # build:
+    #   context: ..
+    container_name: miyabi
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "20030:8080"
+    volumes:
+      # 数据库、图片缓存、STRM 都在这个目录，删容器不会丢
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Shanghai
+      # Web 访问密码
+      - MIYABI_ACCESS_PASSWORD=change-this-password
+      # 改成这台机器的局域网 IP 和上面映射的端口，STRM 里的播放地址用它生成
+      - MIYABI_PUBLIC_URL=http://192.168.1.100:20030
+      # 开了访问密码时必须设置，Emby 播放 STRM 时用它鉴权，随便填一串长的随机字符
+      - MIYABI_STRM_TOKEN=change-this-token
+      # Emby 连接信息（只在第一次启动时生效，之后以设置页里保存的为准）
+      # API Key 在 Emby 初始化后到「高级 → API 密钥」生成，再填到设置页
+      - MIYABI_EMBY_ENABLED=true
+      - MIYABI_EMBY_SERVER_URL=http://emby:8096
+      - MIYABI_EMBY_MEDIA_PATH=/media
+
+  emby:
+    image: amilys/embyserver:latest
+    container_name: emby
+    restart: unless-stopped
+    ports:
+      - "8096:8096"
+    volumes:
+      # Emby 自己的配置、数据库
+      - ./emby-config:/config
+      # 115-Jav 生成的 STRM/NFO/图片，在 Emby 里把媒体库目录选成 /media
+      - ./data/emby:/media
+    environment:
+      - TZ=Asia/Shanghai

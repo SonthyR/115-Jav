@@ -1,8 +1,19 @@
-# Miyabi
+# 115-Jav
 
-配合 115 网盘的一站式 Jav & Emby 管理平台。
+115 网盘一条龙：识别番号 → 刮削 → 在 115 上整理成 `演员/番号` → 生成 STRM（302 直链播放）→ 接入 Emby。
 
-Miyabi 支持直接对接 115 进行刮削、订阅，也可由 Miyabi 作为底层服务，对 Emby 提供支持。
+本项目 fork 自 [ppxb/miyabi](https://github.com/ppxb/miyabi)，在它的刮削、订阅、STRM 和 Emby 支持基础上，补上了 115 端的整理入库和一些日常使用上的改进。
+
+## 相比 Miyabi 新增的功能
+
+- **115 整理入库**：选一个「整理前」目录，新片放进去（包括离线下载完成的）会自动识别番号、刮削，移动到「整理后」目录的 `演员/番号/` 下，NFO 和封面图也一起放到 115。1–3 位演员用逗号连接，4 位以上进「多人作品」，没有演员进「未知演员」；识别失败的移到失败目录，空文件夹和垃圾文件删到 115 回收站。
+- **整理页**：查看失败目录里的片子和原因，手动填番号重新整理；整理日志可按状态筛选。
+- **演员目录合并**：找出同一演员不同写法的目录（简繁日、别名），在 115 上合并，NFO 里的演员名同步改掉，之后的新片自动进保留的目录。
+- **本地 STRM 和 115 同结构**：导出目录同样是 `演员/番号/`，保留 `-C` 等后缀文件名，115 上挪动后本地跟着挪。
+- **导入已有 NFO**：115 上已经有 NFO 的片子直接读取，不再重新刮削。
+- **快速同步**：只扫有变化的目录，上千部片子几秒完成；开机时的 Emby 本地目录检查也会跳过没改动的片子。
+- **媒体库搜索**：按番号、标题、演员搜索，只看中字，多种排序。
+- **任务列表写清楚类型和用时**，设置页按功能分标签。
 
 ## 项目预览
 
@@ -16,11 +27,13 @@ Miyabi 支持直接对接 115 进行刮削、订阅，也可由 Miyabi 作为底
 > \[!TIP]
 > 您可以借助 AI 完成项目的部署，如果要对公网访问，请注意网络安全。
 
-公开镜像：
+镜像（支持 amd64 / arm64）：
 
 ```text
-ghcr.io/ppxb/miyabi
+ghcr.io/sonthyr/115-jav
 ```
+
+[`deploy/docker-compose.example.yml`](./deploy/docker-compose.example.yml) 是一份 115-Jav + Emby 的完整示例，复制为 `docker-compose.yml`、改掉密码、Token 和 IP 即可使用。
 
 ### 1. 使用 Docker CLI 运行
 
@@ -35,7 +48,8 @@ docker run -d \
   -v /path/to/data:/app/data \
   -e MIYABI_ACCESS_PASSWORD='change-this-password' \
   -e MIYABI_PUBLIC_URL='http://<宿主机IP>:8080' \
-  ghcr.io/ppxb/miyabi:latest
+  -e MIYABI_STRM_TOKEN='change-this-token' \
+  ghcr.io/sonthyr/115-jav:latest
 ```
 
 > [!NOTE]
@@ -48,7 +62,7 @@ docker run -d \
 ```yaml
 services:
   miyabi:
-    image: ghcr.io/ppxb/miyabi:latest
+    image: ghcr.io/sonthyr/115-jav:latest
     container_name: miyabi
     restart: unless-stopped
     security_opt:
@@ -60,6 +74,8 @@ services:
     environment:
       - MIYABI_ACCESS_PASSWORD=change-this-password
       - MIYABI_PUBLIC_URL=http://<宿主机IP>:8080
+      # 开了访问密码时必须设置，Emby 播放 STRM 时用它鉴权
+      - MIYABI_STRM_TOKEN=change-this-token
       # 可选：直接通过环境变量预设 Emby 集成（也可启动后在 Web 设置页中配置）
       # - MIYABI_EMBY_ENABLED=true
       # - MIYABI_EMBY_SERVER_URL=http://<Emby_IP>:8096
@@ -86,7 +102,7 @@ docker logs -f miyabi
 升级时先拉取新镜像，再重新创建容器：
 
 ```bash
-docker pull ghcr.io/ppxb/miyabi:latest
+docker pull ghcr.io/sonthyr/115-jav:latest
 docker stop miyabi
 docker rm miyabi
 ```
@@ -110,7 +126,7 @@ docker rm miyabi
 | `MIYABI_EMBY_SERVER_URL` | Emby 服务器访问地址（如 `http://192.168.1.100:8096`） | 空，可在 Web 界面动态配置                     |
 | `MIYABI_EMBY_API_KEY`    | Emby API 密钥（在 Emby「高级」→「API 密钥」中生成）   | 空，可在 Web 界面动态配置                     |
 | `MIYABI_EMBY_MEDIA_PATH` | Emby 容器内挂载的媒体库路径（如 `/media`）            | 空（默认使用本地路径），可在 Web 界面动态配置 |
-| `MIYABI_STRM_TOKEN`      | STRM 播放直链访问鉴权 Token                           | 空，未启用 Token 鉴权                         |
+| `MIYABI_STRM_TOKEN`      | STRM 播放直链访问鉴权 Token（开了访问密码时需要设置） | 空，未启用 Token 鉴权                         |
 
 > [!TIP]
 > Emby 相关配置（服务器地址、API Key、媒体库路径等）除通过环境变量在容器初始化时配置外，也可以在服务启动后随时通过 Web 界面「设置」→「Emby」中进行可视化配置与连通性测试。
@@ -120,6 +136,8 @@ docker rm miyabi
 本软件可能存在裸露、暴力、色情或冒犯等不适宜公众场合的内容，请勿在公共场合使用本软件，避免不必要的纷争。
 
 ## 特别鸣谢
+
+感谢 [ppxb/miyabi](https://github.com/ppxb/miyabi) 及其作者，本项目的大部分功能来自 Miyabi。以下是 Miyabi 原有的鸣谢：
 
 感谢 [莫愁](https://github.com/zk020106) 的 token，感谢 [老罗](https://github.com/luoqiz) 的115账号。
 
@@ -131,10 +149,6 @@ docker rm miyabi
 
 同时感谢社区 [LinuxDO](https://linux.do) 的帮助。
 
-## 联系我们
-
-[Telegram](https://t.me/miyabi_cn)
-
 ## 免责声明
 
 本项目仅供学习、研究和技术交流使用。项目作者与任何第三方服务、原始应用或内容提供方无关。
@@ -142,4 +156,4 @@ docker rm miyabi
 
 ## License
 
-遵循 [GNU GPL v3](./LICENSE) 协议。
+与上游 Miyabi 相同，遵循 [GNU GPL v3](./LICENSE) 协议。
