@@ -3,9 +3,9 @@ package library
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
-	"entgo.io/ent/dialect/sql"
 	"github.com/ppxb/miyabi/internal/database"
 	"github.com/ppxb/miyabi/internal/domain"
 	"github.com/ppxb/miyabi/internal/drive"
@@ -224,25 +224,65 @@ func libraryScope(source *domain.LibrarySource) predicate.File {
 }
 
 func (s *Service) Movies(ctx context.Context, page, limit int) (Page, error) {
+	return s.SearchMovies(ctx, MovieFilter{Page: page, Limit: limit})
+}
+
+// MovieFilter narrows and orders the library listing.
+type MovieFilter struct {
+	Page, Limit int
+	// Query matches the code, title or an actor's name.
+	Query string
+	// Chinese keeps movies whose video names mark Chinese subtitles.
+	Chinese bool
+	// Sort is added (default), release, code or rating.
+	Sort string
+}
+
+// chineseMarks are the name fragments that mark Chinese subtitles, as
+// substrings SQLite can match: -C and -UC as organizing names them, and a
+// ch glued to the code (pred-709ch.mp4) as many releases do.
+var chineseMarks = []string{"-c.", "-c-", "-c_", "-c ", "_c.", "-uc.", "-uc-", "ch.", "-ch-", "中字", "中文字幕"}
+
+func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, error) {
+	page, limit := max(filter.Page, 1), filter.Limit
 	result := Page{Movies: []Movie{}, Page: page, Source: s.Source()}
 	scope := libraryScope(result.Source)
+	where := []predicate.Movie{movie.HasFilesWith(scope)}
+	if query := strings.TrimSpace(filter.Query); query != "" {
+		where = append(where, movie.Or(movie.CodeContainsFold(query), movie.TitleContainsFold(query),
+			movie.HasActorsWith(actor.Or(actor.NameContainsFold(query), actor.NameZhtContainsFold(query)))))
+	}
+	if filter.Chinese {
+		marks := make([]predicate.File, len(chineseMarks))
+		for i, mark := range chineseMarks {
+			marks[i] = file.NameContainsFold(mark)
+		}
+		where = append(where, movie.HasFilesWith(scope, file.Or(marks...)))
+	}
+	order := []movie.OrderOption{ent.Desc(movie.FieldCreatedAt), ent.Desc(movie.FieldID)}
+	switch filter.Sort {
+	case "release":
+		order = []movie.OrderOption{ent.Desc(movie.FieldReleaseDate), ent.Desc(movie.FieldID)}
+	case "code":
+		order = []movie.OrderOption{ent.Asc(movie.FieldCode), ent.Asc(movie.FieldID)}
+	case "rating":
+		order = []movie.OrderOption{ent.Desc(movie.FieldRating), ent.Desc(movie.FieldID)}
+	}
 	var err error
-	result.Total, err = s.database.File.Query().Where(scope).Aggregate(func(selector *sql.Selector) string {
-		return sql.As("COUNT(DISTINCT "+selector.C(file.FieldMovieID)+")", "total")
-	}).Int(ctx)
+	result.Total, err = s.database.Movie.Query().Where(where...).Count(ctx)
 	if err != nil {
 		return result, fmt.Errorf("count library index: %w", err)
 	}
 	if result.Total == 0 {
 		return result, nil
 	}
-	records, err := s.database.Movie.Query().Where(movie.HasFilesWith(scope)).
+	records, err := s.database.Movie.Query().Where(where...).
 		Select(movie.FieldID, movie.FieldCode, movie.FieldTitle, movie.FieldJavdbID, movie.FieldCover, movie.FieldPoster,
 			movie.FieldFanarts, movie.FieldReleaseDate, movie.FieldDuration, movie.FieldRating,
 			movie.FieldDirectorID, movie.FieldDirectorName, movie.FieldMakerID, movie.FieldMakerName,
 			movie.FieldSeriesID, movie.FieldSeriesName,
 			movie.FieldScrapeStatus).
-		Order(ent.Desc(movie.FieldCreatedAt), ent.Desc(movie.FieldID)).
+		Order(order...).
 		Offset((page - 1) * limit).Limit(limit).
 		WithActors(func(query *ent.ActorQuery) {
 			query.Select(actor.FieldID, actor.FieldProvider, actor.FieldSourceID, actor.FieldName).Order(ent.Asc(actor.FieldName), ent.Asc(actor.FieldID))

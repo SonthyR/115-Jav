@@ -92,6 +92,7 @@ func (r *scanRun) quick(ctx context.Context) (bool, error) {
 		}
 	}
 	slog.InfoContext(ctx, "quick scan", "videos", len(listed), "unchanged", len(unchanged), "folders", len(dirty))
+	r.payload.Scan.Quick = true
 	r.payload.Scan.FilesScanned = len(listed)
 	r.payload.Scan.VideoFiles = len(unchanged)
 	r.payload.Scan.MatchedFiles = len(unchanged)

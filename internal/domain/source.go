@@ -33,4 +33,7 @@ type ScanProgress struct {
 	MetadataCompleted     int    `json:"metadata_completed"`
 	MetadataRetrying      int    `json:"metadata_retrying,omitempty"`
 	MetadataFailed        int    `json:"metadata_failed,omitempty"`
+	// Quick is set when the scan listed every video at once instead of
+	// walking the folders.
+	Quick bool `json:"quick,omitempty"`
 }

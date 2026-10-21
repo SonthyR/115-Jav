@@ -112,7 +112,7 @@ func goldenSource() domain.LibrarySource {
 
 func goldenTime() time.Time { return time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC) }
 
-func (goldenLibrary) Movies(context.Context, int, int) (library.Page, error) {
+func (goldenLibrary) SearchMovies(context.Context, library.MovieFilter) (library.Page, error) {
 	source := goldenSource()
 	cover, poster, javdbID := "/api/library/artwork/aa.jpg", "/api/library/artwork/bb.jpg", "movie-exact"
 	return library.Page{Source: &source, Total: 2, Page: 1, HasMore: false, Movies: []library.Movie{

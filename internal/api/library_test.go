@@ -101,9 +101,9 @@ func TestLibraryPreviewRoutesSavedSourceAndRejectsInvalidTargets(t *testing.T) {
 	}
 }
 
-func (stub *libraryPageStub) Movies(_ context.Context, page, limit int) (library.Page, error) {
-	stub.page, stub.limit = page, limit
-	return library.Page{Page: page, Movies: []library.Movie{}}, nil
+func (stub *libraryPageStub) SearchMovies(_ context.Context, filter library.MovieFilter) (library.Page, error) {
+	stub.page, stub.limit = filter.Page, filter.Limit
+	return library.Page{Page: filter.Page, Movies: []library.Movie{}}, nil
 }
 
 func TestLibraryMoviesDefaultToTwentyPerPage(t *testing.T) {

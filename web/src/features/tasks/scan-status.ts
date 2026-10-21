@@ -28,7 +28,34 @@ export function scanStage(task: ScanTask): ScanTask['scan']['stage'] {
   return task.scan.stage === 'done' ? 'reconciling' : task.scan.stage
 }
 
+// scanKind names what a scan task does, so the startup check of the local
+// export folder is not mistaken for a full 115 scan.
+export function scanKind(task: ScanTask) {
+  if (task.source.account_id === 'local') return 'Emby 本地目录检查'
+  if (task.movie_id) return `${task.code ?? ''} 重新刮削`.trim()
+  if (task.offline_task_id) return `${task.code ?? ''} 离线下载入库`.trim()
+  if (task.code) return `${task.code} 整理入库`
+  if (task.rebuild) return '全量重建'
+  return task.scan.quick ? '115 快速同步' : '115 同步'
+}
+
+// scanDuration is the time since the task was created, or until it finished.
+export function scanDuration(task: ScanTask, now = Date.now()) {
+  const end = isTaskActive(task) ? now : new Date(task.updated_at).getTime()
+  const seconds = Math.max(0, Math.round((end - new Date(task.created_at).getTime()) / 1000))
+  const text =
+    seconds < 60
+      ? `${seconds} 秒`
+      : seconds < 3600
+        ? `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`
+        : `${Math.floor(seconds / 3600)} 小时 ${Math.floor((seconds % 3600) / 60)} 分`
+  return isTaskActive(task) ? `已用 ${text}` : `用时 ${text}`
+}
+
 export function scanCount(task: ScanTask) {
+  if (task.source.account_id === 'local' && task.scan.metadata_total === 0) {
+    return task.status === 'done' ? `新导入 ${task.scan.movies} 部` : '检查导出文件'
+  }
   const count =
     task.scan.metadata_total > 0
       ? `${task.scan.metadata_completed} / ${task.scan.metadata_total} 部`

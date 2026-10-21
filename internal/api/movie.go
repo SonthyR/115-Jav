@@ -11,7 +11,7 @@ import (
 
 type LibraryManager interface {
 	ViewedManager
-	Movies(context.Context, int, int) (lib.Page, error)
+	SearchMovies(context.Context, lib.MovieFilter) (lib.Page, error)
 	Movie(context.Context, int) (lib.MovieDetail, error)
 	Preview(context.Context, int, int) (domain.ImageCandidate, error)
 	StartScan(context.Context) (domain.TaskInfo, error)
@@ -105,8 +105,11 @@ func libraryArtworkHandler(artwork ArtworkReader) gin.HandlerFunc {
 }
 
 type libraryPageQuery struct {
-	Page  int `form:"page,default=1" binding:"min=1"`
-	Limit int `form:"limit,default=20" binding:"min=1,max=100"`
+	Page    int    `form:"page,default=1" binding:"min=1"`
+	Limit   int    `form:"limit,default=20" binding:"min=1,max=100"`
+	Query   string `form:"q" binding:"max=200"`
+	Chinese bool   `form:"chinese"`
+	Sort    string `form:"sort" binding:"omitempty,oneof=added release code rating"`
 }
 
 func libraryMoviesHandler(library LibraryManager) gin.HandlerFunc {
@@ -115,7 +118,9 @@ func libraryMoviesHandler(library LibraryManager) gin.HandlerFunc {
 		if !ok {
 			return
 		}
-		movies, err := library.Movies(c.Request.Context(), query.Page, query.Limit)
+		movies, err := library.SearchMovies(c.Request.Context(), lib.MovieFilter{
+			Page: query.Page, Limit: query.Limit, Query: query.Query, Chinese: query.Chinese, Sort: query.Sort,
+		})
 		respond(c, movies, err)
 	}
 }

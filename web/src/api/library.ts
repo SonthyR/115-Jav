@@ -1,4 +1,10 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient
+} from '@tanstack/react-query'
 
 import { apiGet, apiPost } from '@/api/client'
 import type { DiscoverMovieDetail } from '@/api/discover'
@@ -41,7 +47,7 @@ type LibraryPage = {
 export const libraryKeys = {
   all: ['library'] as const,
   detail: (id: number) => ['library', 'detail', id] as const,
-  movies: (page: number) => ['library', 'movies', page] as const
+  movies: (page: number, filter: LibraryFilter = {}) => ['library', 'movies', page, filter] as const
 }
 
 export type LibraryMovieDetail = Omit<DiscoverMovieDetail, 'release_status'> & {
@@ -57,11 +63,30 @@ export function useLibraryMovie(id: number) {
   })
 }
 
-export function useLibraryMovies(page: number) {
+export type LibrarySort = 'added' | 'release' | 'code' | 'rating'
+
+export type LibraryFilter = {
+  q?: string
+  chinese?: boolean
+  sort?: LibrarySort
+}
+
+export function useLibraryMovies(page: number, filter: LibraryFilter = {}) {
   return useQuery({
-    queryKey: libraryKeys.movies(page),
+    queryKey: libraryKeys.movies(page, filter),
     queryFn: ({ signal }) =>
-      apiGet<LibraryPage>('/api/library/movies', { page, limit: LIBRARY_PAGE_SIZE }, signal)
+      apiGet<LibraryPage>(
+        '/api/library/movies',
+        {
+          page,
+          limit: LIBRARY_PAGE_SIZE,
+          q: filter.q,
+          chinese: filter.chinese ? 'true' : undefined,
+          sort: filter.sort
+        },
+        signal
+      ),
+    placeholderData: keepPreviousData
   })
 }
 

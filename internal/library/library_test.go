@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -110,7 +111,8 @@ func TestLibraryPageLoadsCardMetadataWithScopedCounts(t *testing.T) {
 	if page.Source == nil || *page.Source != payload.Source || page.Total != 2 || page.HasMore || len(page.Movies) != 2 {
 		t.Fatalf("library statistics escaped the mounted source: %#v", page)
 	}
-	wantQueries := map[string]int{"*ent.FileQuery": 1, "*ent.MovieQuery": 1, "*ent.TagQuery": 1, "*ent.ActorQuery": 1}
+	// One query counts the filtered movies, one loads the page.
+	wantQueries := map[string]int{"*ent.MovieQuery": 2, "*ent.TagQuery": 1, "*ent.ActorQuery": 1}
 	if !reflect.DeepEqual(queries, wantQueries) {
 		t.Fatalf("library cards made redundant queries: %#v", queries)
 	}
@@ -248,5 +250,56 @@ func TestLibraryMatchingMovies(t *testing.T) {
 	}
 	if !found1 || !found2 {
 		t.Fatalf("expected matches for film1 and film2, got %+v", matches)
+	}
+}
+
+func TestLibrarySearchFiltersAndSorts(t *testing.T) {
+	lib, _, _ := libraryFixture(t)
+	ctx := t.Context()
+	mikami := lib.database.Actor.Create().SetProvider("javdb").SetSourceID("m").SetName("三上悠亜").SetNameZht("三上悠亞").SaveX(ctx)
+	for i, entry := range []struct{ code, title, video, released string }{
+		{"SSIS-001", "First", "SSIS-001-C.mp4", "2024-01-01"},
+		{"ABP-002", "Second story", "ABP-002.mp4", "2025-01-01"},
+		{"MIDE-003", "Third", "MIDE-003ch.mp4", "2023-01-01"},
+	} {
+		released, _ := time.Parse(time.DateOnly, entry.released)
+		create := lib.database.Movie.Create().SetCode(entry.code).SetTitle(entry.title).SetReleaseDate(released)
+		if i == 0 {
+			create.AddActors(mikami)
+		}
+		film := create.SaveX(ctx)
+		lib.database.File.Create().SetFileID(entry.code).SetName(entry.video).SetSize(1024).
+			SetAccountID("100").SetRootID("10").SetMovieID(film.ID).ExecX(ctx)
+	}
+	codes := func(filter MovieFilter) []string {
+		t.Helper()
+		filter.Page, filter.Limit = 1, 20
+		page, err := lib.SearchMovies(ctx, filter)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, film := range page.Movies {
+			out = append(out, film.Code)
+		}
+		if page.Total != len(out) {
+			t.Fatalf("total %d for %v", page.Total, out)
+		}
+		return out
+	}
+	for _, c := range []struct {
+		filter MovieFilter
+		want   []string
+	}{
+		{MovieFilter{Query: "ssis"}, []string{"SSIS-001"}},
+		{MovieFilter{Query: "story"}, []string{"ABP-002"}},
+		{MovieFilter{Query: "三上悠亞"}, []string{"SSIS-001"}},
+		{MovieFilter{Chinese: true, Sort: "code"}, []string{"MIDE-003", "SSIS-001"}},
+		{MovieFilter{Sort: "release"}, []string{"ABP-002", "SSIS-001", "MIDE-003"}},
+		{MovieFilter{Sort: "code"}, []string{"ABP-002", "MIDE-003", "SSIS-001"}},
+	} {
+		if got := codes(c.filter); !slices.Equal(got, c.want) {
+			t.Errorf("%+v = %v, want %v", c.filter, got, c.want)
+		}
 	}
 }

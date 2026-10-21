@@ -5,6 +5,7 @@ import { InlineError } from '@/components/error-state'
 import { SettingRow, SettingsSection } from '@/features/settings/shared'
 import { LibraryPauseButton } from '@/features/tasks/library-pause-button'
 import { ScanProgressView } from '@/features/tasks/scan-progress'
+import { scanDuration, scanKind } from '@/features/tasks/scan-status'
 import { useTaskConnection } from '@/features/tasks/task-events'
 
 export function TasksSection() {
@@ -17,7 +18,7 @@ export function TasksSection() {
     <SettingsSection icon={<ListChecksIcon className="size-4" />} title="任务">
       <SettingRow
         title="媒体库进度"
-        description="查看同步与重建进度，暂停会作用于所有扫描与刮削任务并保留进度"
+        description="最近的同步、整理入库和开机检查；暂停会作用于所有扫描与刮削任务并保留进度"
       >
         {activeScan ? <LibraryPauseButton paused={!!activeScan.paused} /> : null}
       </SettingRow>
@@ -37,10 +38,10 @@ export function TasksSection() {
       <div className="divide-y divide-border">
         {scans?.slice(0, 3).map(task => (
           <div key={task.id} className="space-y-2 py-3 first:pt-0 last:pb-0">
-            {task.movie_id ? <p className="text-sm">{task.code} · 重新刮削</p> : null}
+            <p className="text-sm font-medium">{scanKind(task)}</p>
             <ScanProgressView task={task} />
             <p className="text-xs text-muted-foreground">
-              {new Date(task.created_at).toLocaleString('zh-CN')}
+              {new Date(task.created_at).toLocaleString('zh-CN')} · {scanDuration(task)}
             </p>
           </div>
         ))}

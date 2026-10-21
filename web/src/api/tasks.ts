@@ -49,6 +49,7 @@ export type ScanTask = TaskBase & {
     metadata_completed: number
     metadata_retrying?: number
     metadata_failed?: number
+    quick?: boolean
   }
 }
 

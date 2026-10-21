@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
-import { LIBRARY_PAGE_SIZE, useLibraryMovies } from '@/api/library'
+import { LIBRARY_PAGE_SIZE, type LibraryFilter, useLibraryMovies } from '@/api/library'
 import { isScanTask, isTaskActive, useTasks } from '@/api/tasks'
 import { AppPage } from '@/components/app-page'
 import { EmptyState } from '@/components/empty-state'
@@ -10,6 +10,7 @@ import { MovieGridLayout } from '@/components/movie/movie-grid-layout'
 import { MovieGridSkeleton } from '@/components/movie/movie-grid-skeleton'
 import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
+import { LibraryFilters } from '@/features/library/filters'
 import { LibraryMovieCard } from '@/features/library/movie-card'
 import { LibraryScanButton } from '@/features/library/scan-button'
 import { useTaskConnection } from '@/features/tasks/task-events'
@@ -17,12 +18,17 @@ import { sameSource } from '@/lib/source'
 
 export function LibraryPage({
   page,
-  onPageChange
+  filter = {},
+  onPageChange,
+  onFilterChange
 }: {
   page: number
+  filter?: LibraryFilter
   onPageChange: (page: number) => void
+  onFilterChange?: (filter: LibraryFilter) => void
 }) {
-  const library = useLibraryMovies(page)
+  const library = useLibraryMovies(page, filter)
+  const filtered = !!(filter.q || filter.chinese)
   const tasks = useTasks()
   const connection = useTaskConnection()
   const source = library.data?.source
@@ -48,6 +54,10 @@ export function LibraryPage({
           </Button>
         ) : null}
       </PageHeader>
+
+      {onFilterChange && source ? (
+        <LibraryFilters filter={filter} onChange={onFilterChange} />
+      ) : null}
 
       {tasks.isError ? (
         <InlineError
@@ -85,11 +95,13 @@ export function LibraryPage({
               title={
                 !source
                   ? '登录 115 并挂载媒体目录后，将自动同步入库'
-                  : scanning
-                    ? connection.status === 'connected'
-                      ? `${latest?.rebuild ? '正在重建' : '正在同步'}，识别到的影片会陆续显示`
-                      : '连接中，等待更新媒体库进度'
-                    : '未识别到影片'
+                  : filtered
+                    ? '没有符合条件的影片'
+                    : scanning
+                      ? connection.status === 'connected'
+                        ? `${latest?.rebuild ? '正在重建' : '正在同步'}，识别到的影片会陆续显示`
+                        : '连接中，等待更新媒体库进度'
+                      : '未识别到影片'
               }
             />
           )}
