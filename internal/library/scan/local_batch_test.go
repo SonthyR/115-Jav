@@ -80,8 +80,10 @@ func TestLocalScannerBatchesQueriesAndPreservesRemoteFileIdentity(t *testing.T) 
 		if err != nil {
 			t.Fatal(err)
 		}
-		if movieQueries != 3 || fileQueries != 3 {
-			t.Fatalf("run %d: movie queries=%d file queries=%d, want 3 each for %d files", run, movieQueries, fileQueries, count)
+		// Each batch first looks up exports it can skip, then imports the rest;
+		// only the batch holding the 115 video loads its movie early.
+		if movieQueries != 4 || fileQueries != 6 {
+			t.Fatalf("run %d: movie queries=%d file queries=%d, want 4 and 6 for %d files", run, movieQueries, fileQueries, count)
 		}
 		wantAdded := count
 		if run == 1 {
@@ -300,4 +302,51 @@ func TestLocalArtworkPreparationAllowsWritesAndBlocksPruningUntilCommit(t *testi
 		t.Fatal("artwork lock leaked after commit")
 	}
 	scraper.UnlockArtwork()
+}
+
+func TestLocalScanSkipsUnchangedExports(t *testing.T) {
+	scanner := localScannerFixture(t)
+	ctx, root := t.Context(), t.TempDir()
+	writeLocalFile(t, root, "ABP-001-C.strm", []byte("http://localhost/api/strm/play/remote-1"))
+	body, err := nfo.Encode(nfo.Movie{Code: "ABP-001", Title: "edited"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeLocalFile(t, root, "ABP-001-C.nfo", body)
+	writeLocalFile(t, root, "ABP-001-C.zh.srt", []byte("1\n00:00:01,000 --> 00:00:02,000\nhi\n"))
+	past := time.Now().Add(-time.Hour)
+	for _, name := range []string{"ABP-001-C.strm", "ABP-001-C.nfo"} {
+		if err := os.Chtimes(filepath.Join(root, name), past, past); err != nil {
+			t.Fatal(err)
+		}
+	}
+	record := scanner.db.Movie.Create().SetCode("ABP-001").SetTitle("saved").SetScrapeStatus(movie.ScrapeStatusDone).SaveX(ctx)
+	scanner.db.File.Create().SetFileID("remote-1").SetName("ABP-001-C.mp4").SetSize(1 << 30).
+		SetAccountID("account").SetRootID("root").SetMovieID(record.ID).ExecX(ctx)
+
+	result, err := scanner.Scan(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.NFORead != 0 || scanner.db.Movie.GetX(ctx, record.ID).Title != "saved" {
+		t.Fatalf("unchanged export was imported again: %+v", result)
+	}
+	if got := scanner.db.Subtitle.Query().CountX(ctx); got != 1 {
+		t.Fatalf("subtitles = %d, want 1", got)
+	}
+
+	// An NFO edited after the movie was saved is still read.
+	now := time.Now().Add(time.Minute)
+	if err := os.Chtimes(filepath.Join(root, "ABP-001-C.nfo"), now, now); err != nil {
+		t.Fatal(err)
+	}
+	if result, err = scanner.Scan(ctx, root); err != nil {
+		t.Fatal(err)
+	}
+	if result.NFORead != 1 || scanner.db.Movie.GetX(ctx, record.ID).Title != "edited" {
+		t.Fatalf("edited NFO was skipped: %+v", result)
+	}
+	if got := scanner.db.Subtitle.Query().CountX(ctx); got != 1 {
+		t.Fatalf("subtitles = %d, want 1", got)
+	}
 }

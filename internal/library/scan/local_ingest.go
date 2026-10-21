@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/ppxb/miyabi/internal/codeid"
 	"github.com/ppxb/miyabi/internal/domain"
@@ -90,6 +91,10 @@ func (s *LocalScanner) prepareMedia(ctx context.Context, rootDir string, media *
 }
 
 func (s *LocalScanner) ingestBatch(ctx context.Context, rootDir string, batch []localMedia, result *LocalScanResult) error {
+	batch, err := s.skipCurrentExports(ctx, batch)
+	if err != nil || len(batch) == 0 {
+		return err
+	}
 	if s.images != nil {
 		for _, media := range batch {
 			if media.posterPath != "" {
@@ -109,7 +114,7 @@ func (s *LocalScanner) ingestBatch(ctx context.Context, rootDir string, batch []
 		codes[i], fileIDs[i] = batch[i].code, batch[i].fileID
 	}
 	var added, nfoRead int
-	err := ent.WithTx(ctx, s.db, func(tx *ent.Tx) error {
+	err = ent.WithTx(ctx, s.db, func(tx *ent.Tx) error {
 		records, err := tx.File.Query().Where(file.FileIDIn(fileIDs...)).All(ctx)
 		if err != nil {
 			return err
@@ -223,4 +228,79 @@ func (s *LocalScanner) ingestBatch(ctx context.Context, rootDir string, batch []
 	result.MoviesAdded += added
 	result.NFORead += nfoRead
 	return nil
+}
+
+// skipCurrentExports drops STRMs this library exported for an indexed 115
+// video when none of their sidecars changed after the movie was last saved.
+// Reading their NFO and artwork again only repeats what the index holds, and
+// on a large library that is most of the startup scan. Subtitles placed next
+// to them are still indexed.
+func (s *LocalScanner) skipCurrentExports(ctx context.Context, batch []localMedia) ([]localMedia, error) {
+	ids := make([]string, len(batch))
+	for i, media := range batch {
+		if domain.IsSTRM(media.name) {
+			body, _ := os.ReadFile(media.path)
+			ids[i] = export.ParseSTRMFileID(string(body))
+		}
+	}
+	files, err := s.db.File.Query().Where(file.FileIDIn(ids...), file.AccountIDNEQ(domain.LocalAccountID), file.MovieIDNotNil()).
+		Select(file.FieldFileID, file.FieldMovieID).All(ctx)
+	if err != nil || len(files) == 0 {
+		return batch, err
+	}
+	owners := make(map[string]int, len(files))
+	movieIDs := make([]int, 0, len(files))
+	for _, entry := range files {
+		owners[entry.FileID] = *entry.MovieID
+		movieIDs = append(movieIDs, *entry.MovieID)
+	}
+	movies, err := s.db.Movie.Query().Where(movie.IDIn(movieIDs...)).
+		Select(movie.FieldID, movie.FieldCode, movie.FieldUpdatedAt).All(ctx)
+	if err != nil {
+		return batch, err
+	}
+	byID := make(map[int]*ent.Movie, len(movies))
+	for _, record := range movies {
+		byID[record.ID] = record
+	}
+	kept := batch[:0]
+	subtitles := make(map[int][]string)
+	for i, media := range batch {
+		record := byID[owners[ids[i]]]
+		if ids[i] == "" || record == nil || !codeid.IsEquivalent(record.Code, media.code) ||
+			changedSince(record.UpdatedAt, media.path, media.nfoPath, media.posterPath, media.fanartPath) {
+			kept = append(kept, media)
+			continue
+		}
+		subtitles[record.ID] = append(subtitles[record.ID], media.subPaths...)
+	}
+	for movieID, paths := range subtitles {
+		if len(paths) == 0 {
+			continue
+		}
+		if err := ent.WithTx(ctx, s.db, func(tx *ent.Tx) error {
+			for _, subPath := range paths {
+				if err := indexLocalSubtitle(ctx, tx, movieID, subPath); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+	}
+	return kept, nil
+}
+
+func changedSince(saved time.Time, paths ...string) bool {
+	for _, path := range paths {
+		if path == "" {
+			continue
+		}
+		info, err := os.Stat(path)
+		if err != nil || !info.ModTime().Before(saved) {
+			return true
+		}
+	}
+	return false
 }
