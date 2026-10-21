@@ -1,11 +1,11 @@
 import { FolderInputIcon, FolderOpenIcon, ListIcon, LoaderCircleIcon, PlayIcon } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { describeApiError } from '@/api/client'
 import {
   type OrganizeConfig,
-  type OrganizeEntry,
   type OrganizeFolder,
   type OrganizeRule,
   useOrganizeConfig,
@@ -15,7 +15,6 @@ import {
 } from '@/api/organize'
 import { usePanAccount } from '@/api/pan'
 import { InlineError } from '@/components/error-state'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -33,6 +32,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { OrganizeLogList } from '@/features/organize/log-list'
 import { ActorMergeDialog } from './actor-merge-dialog'
 import { PanFolderDialog } from './pan-folder-dialog'
 import { SettingRow, SettingsSection } from './shared'
@@ -258,13 +258,6 @@ function FolderRow({
   )
 }
 
-const statusLabels: Record<OrganizeEntry['status'], string> = {
-  done: '已整理',
-  dry_run: '演练',
-  failed: '失败',
-  info: '提示'
-}
-
 function LogDialog() {
   const [open, setOpen] = useState(false)
   const log = useOrganizeLog(open)
@@ -280,7 +273,13 @@ function LogDialog() {
       <DialogContent className="max-h-[calc(100dvh-2rem)] grid-cols-1 overflow-x-hidden overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>整理日志</DialogTitle>
-          <DialogDescription>最近 300 条，最新的在最上面</DialogDescription>
+          <DialogDescription>
+            最近 300 条，最新的在最上面；失败的片子可以在
+            <Link to="/organize" className="mx-1 underline underline-offset-4">
+              整理页
+            </Link>
+            填番号重试
+          </DialogDescription>
         </DialogHeader>
         {log.isPending ? (
           <p className="text-sm text-muted-foreground">正在读取…</p>
@@ -289,39 +288,7 @@ function LogDialog() {
         ) : log.data.length === 0 ? (
           <p className="text-sm text-muted-foreground">还没有整理记录。</p>
         ) : (
-          <ul className="min-w-0 space-y-3">
-            {log.data.map((entry, index) => (
-              <li
-                key={`${entry.time}-${index}`}
-                className="min-w-0 space-y-1 rounded-xl border p-3"
-              >
-                <div className="flex items-center gap-2 text-sm">
-                  <Badge
-                    variant={
-                      entry.status === 'failed'
-                        ? 'destructive'
-                        : entry.status === 'done'
-                          ? 'success'
-                          : entry.status === 'info'
-                            ? 'outline'
-                            : 'secondary'
-                    }
-                  >
-                    {statusLabels[entry.status]}
-                  </Badge>
-                  <span className="font-medium">{entry.code || '—'}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {new Date(entry.time).toLocaleString()}
-                  </span>
-                </div>
-                <div className="text-xs break-all text-muted-foreground">{entry.source}</div>
-                {entry.target ? <div className="text-xs break-all">→ {entry.target}</div> : null}
-                {entry.detail ? (
-                  <div className="text-xs break-all text-muted-foreground">{entry.detail}</div>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <OrganizeLogList entries={log.data} />
         )}
       </DialogContent>
     </Dialog>

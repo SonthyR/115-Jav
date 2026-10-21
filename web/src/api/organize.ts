@@ -109,3 +109,30 @@ export function useMergeActors() {
     }
   })
 }
+
+export type FailedItem = {
+  name: string
+  folder: string
+  code?: string
+  reason?: string
+}
+
+export function useFailedItems() {
+  return useQuery({
+    queryKey: ['organize', 'failed'] as const,
+    queryFn: ({ signal }) => apiGet<FailedItem[]>('/api/organize/failed', undefined, signal),
+    staleTime: 0
+  })
+}
+
+export function useRetryOrganize() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (request: { name: string; code: string }) =>
+      apiPost<OrganizeEntry>('/api/organize/retry', request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: organizeKeys.log })
+      void queryClient.invalidateQueries({ queryKey: ['organize', 'failed'] })
+    }
+  })
+}

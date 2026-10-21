@@ -15,6 +15,8 @@ type OrganizeManager interface {
 	Trigger(context.Context)
 	FindActorFolders(context.Context) (organize.ActorFolders, error)
 	MergeActors(context.Context, []organize.ActorMerge) error
+	Failed(context.Context) ([]organize.FailedItem, error)
+	Retry(ctx context.Context, name, code string) (organize.Entry, error)
 }
 
 func organizeConfigHandler(manager OrganizeManager) gin.HandlerFunc {
@@ -71,5 +73,28 @@ func organizeMergeActorsHandler(manager OrganizeManager) gin.HandlerFunc {
 		}
 		err := manager.MergeActors(c.Request.Context(), request.Merges)
 		accepted(c, gin.H{"started": err == nil}, err)
+	}
+}
+
+func organizeFailedHandler(manager OrganizeManager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		items, err := manager.Failed(c.Request.Context())
+		respond(c, items, err)
+	}
+}
+
+type organizeRetryRequest struct {
+	Name string `json:"name" binding:"required"`
+	Code string `json:"code" binding:"required,max=64"`
+}
+
+func organizeRetryHandler(manager OrganizeManager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		request, ok := bindJSON[organizeRetryRequest](c)
+		if !ok {
+			return
+		}
+		entry, err := manager.Retry(c.Request.Context(), request.Name, request.Code)
+		respond(c, entry, err)
 	}
 }

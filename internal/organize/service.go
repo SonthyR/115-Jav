@@ -293,6 +293,8 @@ type release struct {
 	entry     pan.File
 	videos    []pan.File
 	subtitles []pan.File
+	// code is set when the user named the release's code by hand.
+	code string
 }
 
 func (r *run) collect(ctx context.Context, entry pan.File) (release, error) {
@@ -429,11 +431,13 @@ func (r *run) plan(ctx context.Context, item release) (plan, string) {
 		}
 	}
 	code, other := releaseCode(codes)
-	if other != "" {
+	if other != "" && item.code == "" {
 		return p, fmt.Sprintf("文件夹里有多部影片（%s、%s）", code, other)
 	}
 	p.code = code
-	if p.code == "" {
+	if item.code != "" {
+		p.code = item.code
+	} else if p.code == "" {
 		code, ok := codeid.Parse(item.entry.Name)
 		if !ok {
 			return p, "无法识别番号"
