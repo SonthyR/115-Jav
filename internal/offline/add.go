@@ -10,10 +10,27 @@ import (
 	"github.com/ppxb/miyabi/internal/domain/download"
 	"github.com/ppxb/miyabi/internal/ent"
 	"github.com/ppxb/miyabi/internal/ent/offlinedownload"
+	"github.com/ppxb/miyabi/internal/magnet"
 )
 
-// Add validates and records a new offline download for the given movie ID and magnet hash.
+// Add validates and records a new offline download for the given movie ID and
+// magnet hash. An empty hash picks the best magnet by the subscription preferences.
 func (service *Service) Add(ctx context.Context, movieID, hash string) (domain.OfflineSubmission, error) {
+	_, prefs, err := service.config(ctx)
+	if err != nil {
+		return domain.OfflineSubmission{}, err
+	}
+	if hash == "" {
+		magnets, err := service.catalogue.CatalogueMagnets(ctx, movieID)
+		if err != nil {
+			return domain.OfflineSubmission{}, err
+		}
+		best, found := magnet.NewPicker(prefs).Pick(magnets)
+		if !found {
+			return domain.OfflineSubmission{}, ErrNoPreferredMagnet
+		}
+		hash = best.Hash
+	}
 	hash = strings.ToLower(hash)
 	has, err := service.catalogue.HasMagnet(ctx, movieID, hash)
 	if err != nil {
@@ -27,10 +44,6 @@ func (service *Service) Add(ctx context.Context, movieID, hash string) (domain.O
 		return domain.OfflineSubmission{}, err
 	}
 	code := codeid.Normalize(rawCode)
-	_, prefs, err := service.config(ctx)
-	if err != nil {
-		return domain.OfflineSubmission{}, err
-	}
 
 	sess, err := service.drive.Open(ctx)
 	if err != nil {

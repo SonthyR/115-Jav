@@ -1,5 +1,5 @@
 import { useDiscoverTags } from '@/api/discover'
-import type { CategoryFilters as CategoryValues } from './search'
+import type { CategoryFilters as CategoryValues, DiscoverSort } from './search'
 import { BrowseResults } from './browse-results'
 import { CategoryFilters, MAIN_CATEGORY, UNSUPPORTED_CATEGORIES } from './category-filters'
 import { categoryBrowseParams } from './category-params'
@@ -8,11 +8,15 @@ import { DISCOVER_PAGE_SIZE as PAGE_SIZE } from './constants'
 export function CategoryContent({
   category,
   onCategoryChange,
+  sort,
+  onSortChange,
   page,
   onPageChange
 }: {
   category: CategoryValues
   onCategoryChange: (filters: Partial<CategoryValues>) => void
+  sort: DiscoverSort
+  onSortChange: (sort: DiscoverSort) => void
   page: number
   onPageChange: (page: number) => void
 }) {
@@ -25,12 +29,17 @@ export function CategoryContent({
 
   return (
     <div className="space-y-6">
-      <CategoryFilters category={category} updateCategory={onCategoryChange} />
+      <CategoryFilters
+        category={category}
+        updateCategory={onCategoryChange}
+        sort={sort}
+        onSortChange={onSortChange}
+      />
       <BrowseResults
         params={{
           page,
           limit: PAGE_SIZE,
-          sort: 'release',
+          sort,
           order: 'desc',
           ...categoryBrowseParams({ ...category, categoryID: selectedCategory?.id ?? '' })
         }}

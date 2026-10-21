@@ -2,7 +2,12 @@ import { AppPage } from '@/components/app-page'
 import { PageHeader } from '@/components/page-header'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getRouteApi } from '@tanstack/react-router'
-import { categoryFromSearch, updateCategorySearch, type DiscoverView } from './search'
+import {
+  categoryFromSearch,
+  updateCategorySearch,
+  updateSortSearch,
+  type DiscoverView
+} from './search'
 import { BrowseResults } from './browse-results'
 import { CategoryContent } from './category-content'
 import { DISCOVER_PAGE_SIZE as PAGE_SIZE } from './constants'
@@ -40,6 +45,10 @@ export function DiscoverPage() {
             category={categoryFromSearch(search)}
             onCategoryChange={filters =>
               void navigate({ search: previous => updateCategorySearch(previous, filters) })
+            }
+            sort={search.sort ?? 'release'}
+            onSortChange={sort =>
+              void navigate({ search: previous => updateSortSearch(previous, sort) })
             }
             page={page}
             onPageChange={next => setPage('category', next)}

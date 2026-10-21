@@ -13,6 +13,9 @@ import (
 // ErrMagnetNotFound is returned when attempting to add a magnet hash that does not belong to the movie.
 var ErrMagnetNotFound = domain.E(domain.KindInvalid, "磁力链不属于当前影片，请刷新后重试", nil)
 
+// ErrNoPreferredMagnet is returned when no magnet of the movie meets the subscription preferences.
+var ErrNoPreferredMagnet = domain.E(domain.KindInvalid, "没有符合偏好的磁力，请打开详情手动选择", nil)
+
 // Catalogue supplies movie metadata and magnet availability verification.
 type Catalogue interface {
 	HasMagnet(ctx context.Context, movieID, hash string) (bool, error)

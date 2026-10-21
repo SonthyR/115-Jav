@@ -42,7 +42,7 @@ func offlineActivityHandler(offline OfflineManager) gin.HandlerFunc {
 }
 
 type offlineInput struct {
-	Hash string `json:"hash" binding:"required,len=40,hexadecimal"`
+	Hash string `json:"hash" binding:"omitempty,len=40,hexadecimal"`
 }
 
 func offlineAddHandler(offline OfflineManager) gin.HandlerFunc {

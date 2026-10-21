@@ -5,6 +5,7 @@ import { categoryBrowseParams } from '@/features/discover/category-params'
 import {
   categoryFromSearch,
   updateCategorySearch,
+  updateSortSearch,
   validateDiscoverSearch
 } from '@/features/discover/search'
 
@@ -81,4 +82,18 @@ test('selecting a common filter replaces the previous choice and resets paginati
   assert.deepEqual(categoryBrowseParams(categoryFromSearch(validateDiscoverSearch({}))), {
     zone: 'censored'
   })
+})
+
+test('sort changes reset only the category page and omit the default from the URL', () => {
+  const search = validateDiscoverSearch({
+    categoryID: 'category-1',
+    categoryPage: 3,
+    releasedPage: 2
+  })
+  const next = updateSortSearch(search, 'score')
+  assert.equal(next.sort, 'score')
+  assert.equal(next.categoryPage, undefined)
+  assert.equal(next.releasedPage, 2)
+  assert.equal(updateSortSearch(next, 'release').sort, undefined)
+  assert.throws(() => validateDiscoverSearch({ sort: 'other' }))
 })

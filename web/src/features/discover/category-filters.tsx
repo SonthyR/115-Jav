@@ -10,9 +10,9 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { CategoryFilters as CategoryValues } from './search'
+import type { CategoryFilters as CategoryValues, DiscoverSort } from './search'
 import { CommonFilterSelect } from './common-filter-select'
-import { DISCOVER_ZONES as zones } from './constants'
+import { DISCOVER_SORTS as sorts, DISCOVER_ZONES as zones } from './constants'
 
 export const MAIN_CATEGORY = 'main'
 // Month requires a year; duration has no slot in the upstream filter mask.
@@ -20,10 +20,14 @@ export const UNSUPPORTED_CATEGORIES = new Set(['month', 'duration'])
 
 export function CategoryFilters({
   category,
-  updateCategory
+  updateCategory,
+  sort,
+  onSortChange
 }: {
   category: CategoryValues
   updateCategory: (filters: Partial<CategoryValues>) => void
+  sort: DiscoverSort
+  onSortChange: (sort: DiscoverSort) => void
 }) {
   const { zone, categoryID, tagID, main } = category
   const taxonomy = useDiscoverTags(zone)
@@ -121,6 +125,21 @@ export function CategoryFilters({
           ) : null}
         </>
       )}
+
+      <Select value={sort} onValueChange={value => onSortChange(value as DiscoverSort)}>
+        <SelectTrigger className="w-full sm:w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent position="popper" align="start">
+          <SelectGroup>
+            {sorts.map(item => (
+              <SelectItem key={item.value} value={item.value}>
+                按{item.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
     </div>
   )
 }

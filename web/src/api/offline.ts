@@ -75,7 +75,8 @@ export function useOfflineTasks(movieID: string, accountID: string, directoryID:
 export function useAddOffline(movieID: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (hash: string) =>
+    // Without a hash the server picks a magnet by the subscription preferences.
+    mutationFn: (hash?: string) =>
       apiPost<OfflineSubmission>(`/api/discover/movies/${encodeURIComponent(movieID)}/offline`, {
         hash
       }),

@@ -45,6 +45,26 @@ func TestOfflineAddRejectsUnknownMagnetBeforeSubmission(t *testing.T) {
 	}
 }
 
+func TestOfflineAddWithoutHashPicksPreferredMagnet(t *testing.T) {
+	service, client := offlineAddFixture(t)
+	catalogue := service.catalogue.(*stubCatalogue)
+	catalogue.magnets["fixture-movie"][1].HasSubtitle = true
+	var submitted string
+	client.addOffline = func(_ context.Context, _, uri, _ string) (string, error) {
+		submitted = strings.TrimPrefix(uri, "magnet:?xt=urn:btih:")
+		return submitted, nil
+	}
+	submission, err := service.Add(t.Context(), "fixture-movie", "")
+	if err != nil || submitted != offlineHashB || submission.Hash != offlineHashB {
+		t.Fatalf("submitted=%q submission=%+v error=%v, want the subtitled magnet", submitted, submission, err)
+	}
+
+	catalogue.magnets["fixture-movie"] = nil
+	if _, err := service.Add(t.Context(), "fixture-movie", ""); !errors.Is(err, ErrNoPreferredMagnet) {
+		t.Fatalf("error = %v, want ErrNoPreferredMagnet", err)
+	}
+}
+
 func TestOfflineConcurrentAddsDeduplicateWithoutBlockingOtherHashes(t *testing.T) {
 	service, client := offlineAddFixture(t)
 	started := make(chan struct{}, 1)

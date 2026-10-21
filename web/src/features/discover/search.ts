@@ -1,11 +1,13 @@
 import type { JavDBZone } from '@/api/discover'
 import { parseSearchPage } from '@/lib/search-schema'
-import { DISCOVER_ZONES } from './constants'
+import { DISCOVER_SORTS, DISCOVER_ZONES } from './constants'
 
 export type DiscoverView = 'released' | 'upcoming' | 'category'
+export type DiscoverSort = 'release' | 'score' | 'want_watch_count' | 'watched_count'
 export type CategoryFilters = { zone: JavDBZone; categoryID: string; tagID: string; main: string }
 export type DiscoverSearch = Partial<CategoryFilters> & {
   view?: DiscoverView
+  sort?: DiscoverSort
   releasedPage?: number
   upcomingPage?: number
   categoryPage?: number
@@ -21,9 +23,12 @@ export function validateMainSearch(search: Record<string, unknown>): { main?: st
 }
 
 export function validateDiscoverSearch(search: Record<string, unknown>): DiscoverSearch {
-  const { view, zone, categoryID, tagID } = search
+  const { view, sort, zone, categoryID, tagID } = search
   if (view !== undefined && view !== 'released' && view !== 'upcoming' && view !== 'category') {
     throw new Error('浏览类型无效')
+  }
+  if (sort !== undefined && !DISCOVER_SORTS.some(item => item.value === sort)) {
+    throw new Error('排序方式无效')
   }
   if (zone !== undefined && !DISCOVER_ZONES.some(item => item.value === zone)) {
     throw new Error('影片分区无效')
@@ -38,6 +43,7 @@ export function validateDiscoverSearch(search: Record<string, unknown>): Discove
   }
   return {
     view: view === 'upcoming' || view === 'category' ? view : undefined,
+    sort: sort && sort !== 'release' ? (sort as DiscoverSort) : undefined,
     releasedPage: parseSearchPage(search.releasedPage),
     upcomingPage: parseSearchPage(search.upcomingPage),
     categoryPage: parseSearchPage(search.categoryPage),
@@ -55,6 +61,10 @@ export function categoryFromSearch(search: DiscoverSearch): CategoryFilters {
     tagID: search.tagID ?? '',
     main: search.main ?? ''
   }
+}
+
+export function updateSortSearch(search: DiscoverSearch, sort: DiscoverSort): DiscoverSearch {
+  return validateDiscoverSearch({ ...search, sort, categoryPage: undefined })
 }
 
 export function updateCategorySearch(
