@@ -68,3 +68,44 @@ export function useRunOrganize() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: organizeKeys.log })
   })
 }
+
+export type ActorFolder = {
+  name: string
+  movies: number
+}
+
+export type ActorGroup = {
+  folders: ActorFolder[]
+  suggested: string
+}
+
+export type ActorFolders = {
+  groups: ActorGroup[]
+  folders: ActorFolder[]
+}
+
+export type ActorMerge = {
+  target: string
+  sources: string[]
+}
+
+export function useActorFolders(enabled: boolean) {
+  return useQuery({
+    queryKey: ['organize', 'actors'] as const,
+    queryFn: ({ signal }) => apiGet<ActorFolders>('/api/organize/actors', undefined, signal),
+    enabled,
+    staleTime: 0
+  })
+}
+
+export function useMergeActors() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (merges: ActorMerge[]) =>
+      apiPost<{ started: boolean }>('/api/organize/actors/merge', { merges }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: organizeKeys.log })
+      void queryClient.invalidateQueries({ queryKey: ['organize', 'actors'] })
+    }
+  })
+}

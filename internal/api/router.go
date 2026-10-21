@@ -100,6 +100,8 @@ func NewRouter(deps Dependencies) *gin.Engine {
 
 	protected.GET("/organize/log", noStore(), organizeLogHandler(deps.Organize))
 	protected.POST("/organize/run", organizeRunHandler(deps.Organize))
+	protected.GET("/organize/actors", noStore(), organizeActorsHandler(deps.Organize))
+	protected.POST("/organize/actors/merge", organizeMergeActorsHandler(deps.Organize))
 
 	protected.GET("/tasks", noStore(), tasksHandler(deps.Tasks))
 	protected.POST("/tasks/:id/retry", taskRetryHandler(deps.Tasks))

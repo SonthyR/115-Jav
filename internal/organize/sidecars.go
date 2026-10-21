@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/ppxb/miyabi/internal/actorname"
 	"github.com/ppxb/miyabi/internal/domain"
 	"github.com/ppxb/miyabi/internal/drive"
 	"github.com/ppxb/miyabi/internal/library/scrape"
@@ -100,9 +101,7 @@ func plannedSidecars(directory scrape.MovieDirectory, doc nfo.Movie, videos []pa
 	}
 	slices.Sort(names)
 	stem := partStem.ReplaceAllString(strings.TrimSuffix(names[0], path.Ext(names[0])), "")
-	doc.Thumbs = []nfo.Thumb{{Aspect: "poster", Path: posterName}}
-	doc.Fanart = fanartName
-	body, err := nfo.Encode(doc)
+	body, err := sidecarNFO(doc)
 	if err != nil {
 		return nil
 	}
@@ -113,4 +112,12 @@ func plannedSidecars(directory scrape.MovieDirectory, doc nfo.Movie, videos []pa
 		}
 	}
 	return uploads
+}
+
+// sidecarNFO encodes the NFO kept next to a movie's videos on 115.
+func sidecarNFO(doc nfo.Movie) ([]byte, error) {
+	doc.Thumbs = []nfo.Thumb{{Aspect: "poster", Path: posterName}}
+	doc.Fanart = fanartName
+	doc.Actors = actorname.Current().Rename(doc.Actors)
+	return nfo.Encode(doc)
 }

@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/ppxb/miyabi/internal/actorname"
 	"github.com/ppxb/miyabi/internal/atomicfile"
 	"github.com/ppxb/miyabi/internal/nfo"
 	"github.com/ppxb/miyabi/internal/pan"
@@ -75,6 +76,8 @@ func WriteMovie(cfg Config, folder, code string, doc nfo.Movie, videos []pan.Fil
 	nfoName := stem + ".nfo"
 	doc.Thumbs = []nfo.Thumb{{Aspect: "poster", Path: posterName}}
 	doc.Fanart = fanartName
+	// Emby lists actors by name, so merged spellings must share one.
+	doc.Actors = actorname.Current().Rename(doc.Actors)
 	nfoBody, err := nfo.Encode(doc)
 	if err != nil {
 		return changed, fmt.Errorf("encode nfo: %w", err)

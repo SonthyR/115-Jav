@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ppxb/miyabi/internal/actorname"
 	"github.com/ppxb/miyabi/internal/nfo"
 	"github.com/ppxb/miyabi/internal/pan"
 )
@@ -106,5 +107,30 @@ func TestWriteMovieMovesLegacyExport(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(embyDir, "三上悠亚")); !os.IsNotExist(err) {
 		t.Errorf("empty actor folder kept: %v", err)
+	}
+}
+
+func TestWriteMovieUsesMergedActorNames(t *testing.T) {
+	actorname.Set(actorname.Aliases{actorname.Key("三上悠亜"): "三上悠亚"})
+	t.Cleanup(func() { actorname.Set(nil) })
+	embyDir := t.TempDir()
+	cfg := Config{EmbyDir: embyDir, PublicURL: "http://localhost:8080"}
+	doc := nfo.Movie{Title: "t", Actors: []nfo.Actor{{Name: "三上悠亜"}, {Name: "河北彩花"}}}
+	if _, err := WriteMovie(cfg, "三上悠亚", "SSIS-001", doc, []pan.File{{ID: "v", Name: "SSIS-001.mp4"}}, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(filepath.Join(embyDir, "三上悠亚", "SSIS-001", "SSIS-001.nfo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := nfo.Decode(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Actors) != 2 || got.Actors[0].Name != "三上悠亚" || got.Actors[1].Name != "河北彩花" {
+		t.Fatalf("actors = %+v", got.Actors)
+	}
+	if doc.Actors[0].Name != "三上悠亜" {
+		t.Fatal("caller's document was changed")
 	}
 }

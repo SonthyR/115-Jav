@@ -22,6 +22,7 @@ type fakeFiles struct {
 	parent  map[string]string
 	next    int
 	deleted []string
+	bodies  map[string][]byte
 }
 
 func newFakeFiles() *fakeFiles {
@@ -97,6 +98,15 @@ func (f *fakeFiles) Delete(_ context.Context, ids []string, _ string) error {
 		f.deleted = append(f.deleted, f.files[id].Name)
 	}
 	return nil
+}
+
+func (f *fakeFiles) Upload(_ context.Context, parentID, name string, body []byte) (pan.UploadedFile, error) {
+	id := f.add(parentID, name, int64(len(body)))
+	if f.bodies == nil {
+		f.bodies = make(map[string][]byte)
+	}
+	f.bodies[id] = body
+	return pan.UploadedFile{}, nil
 }
 
 type fakeResolver map[string][]domain.Actor

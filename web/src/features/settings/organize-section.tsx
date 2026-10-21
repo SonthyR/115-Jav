@@ -33,6 +33,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { ActorMergeDialog } from './actor-merge-dialog'
 import { PanFolderDialog } from './pan-folder-dialog'
 import { SettingRow, SettingsSection } from './shared'
 
@@ -60,7 +61,11 @@ export function OrganizeSection() {
   function save(patch: Partial<OrganizeConfig>, rulePatch?: Partial<OrganizeRule>) {
     if (!config) return
     const nextRule = { ...rule, ...rulePatch }
-    const next = { ...config, ...patch, rules: nextRule.source.id ? [nextRule] : [] }
+    const next = {
+      ...config,
+      ...patch,
+      rules: nextRule.source.id ? [nextRule] : []
+    }
     if (rulePatch && !nextRule.source.id) {
       toast.error('请先选择整理前目录')
       return
@@ -189,6 +194,13 @@ export function OrganizeSection() {
           </Button>
           <LogDialog />
         </div>
+      </SettingRow>
+
+      <SettingRow
+        title="演员目录合并"
+        description="找出同一个演员的不同写法（三上悠亜 / 三上悠亚、日文名 / 中文译名），合并成一个目录"
+      >
+        <ActorMergeDialog disabled={disabled || !mounted} />
       </SettingRow>
 
       {!mounted && account.data ? (

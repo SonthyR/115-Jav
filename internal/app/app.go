@@ -186,6 +186,13 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 	pools := newTaskPools(taskSvc, logger)
 	organizer := organize.New(store.Client, driveSvc, metadataSvc, libSvc, taskSvc.WakePool)
 	offlineSvc.SetPlacer(organizer)
+	organizer.SetSync(func(ctx context.Context) error {
+		_, err := libSvc.StartScan(ctx)
+		return err
+	})
+	if err := organizer.LoadAliases(ctx); err != nil {
+		logger.ErrorContext(ctx, "failed to load merged actor names", "error", err)
+	}
 
 	router := api.NewRouter(api.Dependencies{
 		Logger:         logger,

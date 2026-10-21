@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ppxb/miyabi/internal/actorname"
 	"github.com/ppxb/miyabi/internal/codeid"
 	"github.com/ppxb/miyabi/internal/database"
 	"github.com/ppxb/miyabi/internal/domain"
@@ -82,6 +83,7 @@ type Files interface {
 	Move(ctx context.Context, fileIDs []string, targetID string) error
 	Rename(ctx context.Context, fileID, name string) error
 	Delete(ctx context.Context, fileIDs []string, parentID string) error
+	Upload(ctx context.Context, parentID, name string, body []byte) (pan.UploadedFile, error)
 }
 
 // Resolver looks up a code's metadata; the metadata service caches it, so the
@@ -101,6 +103,7 @@ type Service struct {
 	metadata Resolver
 	scanner  Scanner
 	wake     func()
+	sync     func(context.Context) error
 
 	running sync.Mutex
 	mu      sync.Mutex
@@ -443,6 +446,7 @@ func (r *run) plan(ctx context.Context, item release) (plan, string) {
 		return p, "刮削失败：" + err.Error()
 	}
 	var actors []Actor
+	aliases := actorname.Current()
 	for _, actor := range metadata.Detail.Actors {
 		if actor.Gender == "male" {
 			continue
@@ -450,6 +454,14 @@ func (r *run) plan(ctx context.Context, item release) (plan, string) {
 		known := Actor{Name: actor.Name}
 		if actor.NameZHT != "" && actor.NameZHT != actor.Name {
 			known.Aliases = []string{actor.NameZHT}
+		}
+		// A merged actor keeps the folder chosen for the merge.
+		if kept := aliases.Canonical(actor.Name); kept != actor.Name {
+			known = Actor{Name: kept, Aliases: append([]string{actor.Name}, known.Aliases...)}
+		} else if actor.NameZHT != "" {
+			if kept := aliases.Canonical(actor.NameZHT); kept != actor.NameZHT {
+				known = Actor{Name: kept, Aliases: []string{actor.Name, actor.NameZHT}}
+			}
 		}
 		actors = append(actors, known)
 	}
