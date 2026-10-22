@@ -16,7 +16,8 @@ import (
 // terminal task with confirmed absent video content is removed, never files.
 // The caller holds the account/hash lock, never the shared Pan state lock.
 func (service *Service) submit(ctx context.Context, sess drive.Session, hash string) (pan.OfflineTask, error) {
-	infoHash, err := sess.AddOffline(ctx, "magnet:?xt=urn:btih:"+hash)
+	inbox := service.inbox(ctx)
+	infoHash, err := sess.AddOffline(ctx, "magnet:?xt=urn:btih:"+hash, inbox)
 	if err == nil {
 		return pan.OfflineTask{Hash: infoHash}, nil
 	}
@@ -29,7 +30,7 @@ func (service *Service) submit(ctx context.Context, sess drive.Session, hash str
 	}
 	source := sess.Source()
 	if remote.Status == 0 || remote.Status == 1 {
-		if remote.DirectoryID != source.Directory.ID {
+		if !service.savedIn(ctx, source.Directory.ID, remote.DirectoryID) {
 			return pan.OfflineTask{}, domain.E(domain.KindConflict, "115 已有该磁力的下载任务，目标目录与当前媒体目录不一致", nil)
 		}
 		return remote, nil
@@ -53,7 +54,7 @@ func (service *Service) submit(ctx context.Context, sess drive.Session, hash str
 	if err := sess.RemoveOffline(ctx, remote.Hash); err != nil {
 		return pan.OfflineTask{}, fmt.Errorf("remove stale 115 task history: %w", err)
 	}
-	infoHash, err = sess.AddOffline(ctx, "magnet:?xt=urn:btih:"+hash)
+	infoHash, err = sess.AddOffline(ctx, "magnet:?xt=urn:btih:"+hash, inbox)
 	return pan.OfflineTask{Hash: infoHash}, err
 }
 
@@ -99,7 +100,14 @@ func (service *Service) remoteHasVideo(ctx context.Context, sess drive.Session, 
 		return false, fmt.Errorf("check existing 115 resource: %w", err)
 	}
 	source := sess.Source()
-	if !drive.WithinSource(info, source) {
+	roots := []string{source.Directory.ID}
+	if inbox := service.inbox(ctx); inbox != "" {
+		roots = append(roots, inbox)
+	}
+	within := func(path []pan.Directory) bool {
+		return slices.ContainsFunc(path, func(dir pan.Directory) bool { return slices.Contains(roots, dir.ID) })
+	}
+	if !drive.WithinSource(info, source) && !within(info.Path) {
 		return false, domain.E(domain.KindConflict, "该磁力的资源已在媒体目录之外，请先在 115 中移动资源", nil)
 	}
 	if !info.IsDirectory {
@@ -113,7 +121,7 @@ func (service *Service) remoteHasVideo(ctx context.Context, sess drive.Session, 
 		err := drive.WalkFilePages(ctx, func(offset int) (pan.FilePage, error) {
 			return sess.List(ctx, dirID, offset)
 		}, func(page pan.FilePage) (bool, error) {
-			if !slices.ContainsFunc(page.Path, func(dir pan.Directory) bool { return dir.ID == source.Directory.ID }) {
+			if !within(page.Path) {
 				return false, domain.E(domain.KindNotFound, "下载目录已移出媒体目录", nil)
 			}
 			for _, entry := range page.Files {

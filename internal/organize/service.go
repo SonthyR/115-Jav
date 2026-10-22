@@ -104,6 +104,8 @@ type Service struct {
 	scanner  Scanner
 	wake     func()
 	sync     func(context.Context) error
+	// placeDelay separates Place's attempts to find a download.
+	placeDelay time.Duration
 
 	running sync.Mutex
 	mu      sync.Mutex
@@ -119,6 +121,7 @@ func New(db *ent.Client, d *drive.Drive, metadata Resolver, scanner Scanner, wak
 		db: db, metadata: metadata, scanner: scanner, wake: wake,
 		open:  func(ctx context.Context) (Files, error) { return d.OpenFiles(ctx) },
 		sizes: make(map[string]string), failed: make(map[string]string),
+		placeDelay: 5 * time.Second,
 	}
 }
 
@@ -651,8 +654,30 @@ func (r *run) fail(ctx context.Context, rule Rule, item release, code, reason st
 // no rule is enabled or the download could not be organized.
 var ErrNotPlaced = errors.New("download not organized")
 
-// Place organizes a finished offline download, which 115 saves in the
-// library root, and returns its code folder. The caller queues the scan.
+// Inbox is the folder offline downloads should be saved to: the source of the
+// first enabled rule that moves files, or "" to save them in the library root.
+func (s *Service) Inbox(ctx context.Context) string {
+	cfg, err := s.Config(ctx)
+	if err != nil {
+		slog.WarnContext(ctx, "failed to load organize config", "error", err)
+		return ""
+	}
+	for _, rule := range cfg.Rules {
+		if rule.Enabled && !rule.DryRun {
+			return rule.Source.ID
+		}
+	}
+	return ""
+}
+
+// placeAttempts bounds how often Place looks for a finished download. 115
+// listings briefly change length or lag behind while other downloads finish,
+// which used to leave downloads unorganized in the library root.
+const placeAttempts = 3
+
+// Place organizes a finished offline download, which 115 saves in a rule's
+// source folder or in the library root, and returns its code folder. The
+// caller queues the scan.
 func (s *Service) Place(ctx context.Context, fileID, code string) (string, error) {
 	cfg, err := s.Config(ctx)
 	if err != nil {
@@ -668,21 +693,60 @@ func (s *Service) Place(ctx context.Context, fileID, code string) (string, error
 		return "", err
 	}
 	root := files.Source().Directory.ID
-	entries, err := files.Entries(ctx, root)
-	if err != nil {
-		return "", err
+	// The release folder must be a direct child of the rule's source to be
+	// recycled; downloads in the root use a rule without a failed folder.
+	rules := []Rule{{Source: Folder{ID: root}}}
+	for _, rule := range cfg.Rules {
+		if rule.Enabled && !rule.DryRun {
+			rules = append([]Rule{rule}, rules...)
+		}
 	}
-	index := slices.IndexFunc(entries, func(entry pan.File) bool { return entry.ID == fileID })
-	if index < 0 {
+	var (
+		rule    Rule
+		entry   pan.File
+		found   bool
+		listErr error
+		rootDir []pan.File
+	)
+	for attempt := range placeAttempts {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			case <-time.After(s.placeDelay):
+			}
+		}
+		listErr = nil
+		for _, candidate := range rules {
+			entries, err := files.Entries(ctx, candidate.Source.ID)
+			if err != nil {
+				listErr = err
+				continue
+			}
+			if candidate.Source.ID == root {
+				rootDir = entries
+			}
+			if index := slices.IndexFunc(entries, func(entry pan.File) bool { return entry.ID == fileID }); index >= 0 {
+				rule, entry, found = candidate, entries[index], true
+				break
+			}
+		}
+		if found {
+			break
+		}
+	}
+	if !found {
+		if listErr != nil {
+			s.record(ctx, Entry{Source: code, Code: code, Status: "failed", Detail: "离线下载：读取目录失败：" + listErr.Error()})
+			return "", fmt.Errorf("%w: %w", ErrNotPlaced, listErr)
+		}
 		return "", ErrNotPlaced // already moved, or saved below the root
 	}
-	r := &run{service: s, files: files, cfg: cfg, actorDirs: entries, listed: true}
-	item, err := r.collect(ctx, entries[index])
+	r := &run{service: s, files: files, cfg: cfg, actorDirs: rootDir, listed: rootDir != nil}
+	item, err := r.collect(ctx, entry)
 	if err != nil {
 		return "", err
 	}
-	// The release folder must be a direct child of the root to be recycled.
-	rule := Rule{Source: Folder{ID: root}}
 	if len(item.videos) == 0 {
 		return "", fmt.Errorf("%w: no video", ErrNotPlaced)
 	}
@@ -697,7 +761,12 @@ func (s *Service) Place(ctx context.Context, fileID, code string) (string, error
 		}
 	}
 	if failure != "" {
-		s.record(ctx, Entry{Source: item.entry.Name, Code: p.code, Status: "failed", Detail: "离线下载：" + failure})
+		if rule.Source.ID != root {
+			// The periodic run retries the release from the source folder.
+			r.fail(ctx, rule, item, p.code, "离线下载："+failure)
+		} else {
+			s.record(ctx, Entry{Source: item.entry.Name, Code: p.code, Status: "failed", Detail: "离线下载：" + failure})
+		}
 		return "", fmt.Errorf("%w: %s", ErrNotPlaced, failure)
 	}
 	s.record(ctx, Entry{Source: item.entry.Name, Code: p.code, Target: p.describe(), Status: "done", Detail: "离线下载"})

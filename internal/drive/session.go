@@ -28,7 +28,9 @@ type Session interface {
 
 	PlayURL(ctx context.Context, pickCode, userAgent string) ([]pan.PlaySource, error)
 	DownloadURL(ctx context.Context, pickCode, userAgent string) (string, error)
-	AddOffline(ctx context.Context, magnet string) (string, error)
+	// AddOffline saves the download in directoryID, or in the mounted media
+	// directory when it is empty.
+	AddOffline(ctx context.Context, magnet, directoryID string) (string, error)
 	RemoveOffline(ctx context.Context, hash string) error
 	OfflineTasks(ctx context.Context, page int) (pan.OfflinePage, error)
 }
@@ -139,13 +141,16 @@ func (s *sourceSession) DownloadURL(ctx context.Context, pickCode, userAgent str
 	})
 }
 
-func (s *sourceSession) AddOffline(ctx context.Context, magnet string) (string, error) {
+func (s *sourceSession) AddOffline(ctx context.Context, magnet, directoryID string) (string, error) {
 	state, err := s.drive.sourceState(s.source, s.version)
 	if err != nil {
 		return "", err
 	}
+	if directoryID == "" {
+		directoryID = s.source.Directory.ID
+	}
 	return withPanSourceToken(ctx, s.drive, state, func(token string) (string, error) {
-		return s.drive.client.AddOffline(ctx, token, magnet, s.source.Directory.ID)
+		return s.drive.client.AddOffline(ctx, token, magnet, directoryID)
 	})
 }
 

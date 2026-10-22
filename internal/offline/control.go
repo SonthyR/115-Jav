@@ -227,7 +227,7 @@ func (s *Service) resumeSubmission(ctx context.Context, sess drive.Session, reco
 			return err
 		}
 		if found && (remote.Status == 0 || remote.Status == 1 || remote.Status == 2) {
-			if remote.DirectoryID != record.DirectoryID {
+			if !s.savedIn(ctx, record.DirectoryID, remote.DirectoryID) {
 				return domain.E(domain.KindConflict, "115 任务位于其他目录", nil)
 			}
 			return s.recordSubmission(ctx, record, state, remote)
@@ -254,7 +254,9 @@ func (s *Service) recordSubmission(ctx context.Context, record *ent.OfflineDownl
 		if err := tx.OfflineDownload.UpdateOneID(record.ID).SetInfoHash(remote.Hash).SetRecovery(state).SetProgress(remote.Progress).ClearError().Exec(ctx); err != nil {
 			return err
 		}
-		if remote.Status == 2 {
+		// A download saved in the organizer's inbox completes on the next sync,
+		// which organizes it first.
+		if remote.Status == 2 && remote.DirectoryID == record.DirectoryID {
 			record.Recovery = state
 			return s.completeTask(ctx, tx, record, remote.FileID)
 		}

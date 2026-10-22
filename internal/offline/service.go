@@ -33,6 +33,8 @@ type Library interface {
 // folder to scan instead. An error leaves the download where 115 saved it.
 type Placer interface {
 	Place(ctx context.Context, fileID, code string) (string, error)
+	// Inbox is the folder new downloads are saved to, or "" for the library root.
+	Inbox(ctx context.Context) string
 }
 
 // Service coordinates 115 offline download submissions, remote polling, and indexing transitions.
@@ -72,4 +74,18 @@ func New(database *ent.Client, catalogue Catalogue, drive *drive.Drive, tasks *t
 			maxAttempts:         3,
 		},
 	}
+}
+
+// inbox is the organizer's source folder that downloads are saved to, or "".
+func (service *Service) inbox(ctx context.Context) string {
+	if service.placer == nil {
+		return ""
+	}
+	return service.placer.Inbox(ctx)
+}
+
+// savedIn reports whether 115 saves downloads of the library rooted at root
+// in directoryID: the library root itself or the organizer's inbox.
+func (service *Service) savedIn(ctx context.Context, root, directoryID string) bool {
+	return directoryID == root || directoryID != "" && directoryID == service.inbox(ctx)
 }

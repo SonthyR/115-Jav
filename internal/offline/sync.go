@@ -126,6 +126,11 @@ func (service *Service) UpdateTask(ctx context.Context, sess drive.Session, reco
 		record.Status != offlinedownload.StatusCancelled && record.Status != offlinedownload.StatusFailed {
 		if placed, err := service.placer.Place(ctx, remote.FileID, record.Code); err == nil {
 			remote.FileID = placed
+		} else if remote.DirectoryID != "" && remote.DirectoryID != record.DirectoryID {
+			// Scanning the inbox would index the release outside the library;
+			// the periodic organize run moves and scans it instead.
+			slog.InfoContext(ctx, "offline download left in the organize inbox", "code", record.Code, "reason", err)
+			return service.handOff(ctx, sess, record)
 		} else {
 			slog.InfoContext(ctx, "offline download left in place", "code", record.Code, "reason", err)
 		}
@@ -189,6 +194,35 @@ func (service *Service) UpdateTask(ctx context.Context, sess drive.Session, reco
 	if notify {
 		service.tasks.NotifyOfflineChanged()
 	}
+	return nil
+}
+
+// handOff completes a download that stays in the organizer's inbox without
+// scanning it.
+func (service *Service) handOff(ctx context.Context, sess drive.Session, record *ent.OfflineDownload) error {
+	err := sess.CommitAccount(ctx, func(tx *ent.Tx) error {
+		current, err := tx.OfflineDownload.Get(ctx, record.ID)
+		if err != nil {
+			return err
+		}
+		if current.Hash != record.Hash || current.InfoHash != record.InfoHash || current.Status != offlinedownload.StatusRunning ||
+			current.Recovery != nil && current.Recovery.Action != "" {
+			return nil
+		}
+		update := tx.OfflineDownload.UpdateOneID(current.ID).SetStatus(offlinedownload.StatusDone).SetProgress(100).
+			SetFileID("").SetAwaitingLocation(false).SetError("已下载到整理前目录，没能立即整理，稍后由自动整理处理，结果见设置里的整理日志")
+		if current.Recovery != nil {
+			state := recovery(current, current.Recovery.Preferences)
+			state.Stalled, state.Exhausted = false, false
+			state.RemoteStatus, state.Progress = 2, 100
+			update.SetRecovery(state)
+		}
+		return update.Exec(ctx)
+	})
+	if err != nil {
+		return fmt.Errorf("update offline task %d: %w", record.ID, err)
+	}
+	service.tasks.NotifyOfflineChanged()
 	return nil
 }
 

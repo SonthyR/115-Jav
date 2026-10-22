@@ -23,6 +23,8 @@ type fakeFiles struct {
 	next    int
 	deleted []string
 	bodies  map[string][]byte
+	// listFailures makes the next listings of a directory fail.
+	listFailures map[string]int
 }
 
 func newFakeFiles() *fakeFiles {
@@ -64,6 +66,10 @@ func (f *fakeFiles) Source() domain.LibrarySource {
 }
 
 func (f *fakeFiles) Entries(_ context.Context, dirID string) ([]pan.File, error) {
+	if f.listFailures[dirID] > 0 {
+		f.listFailures[dirID]--
+		return nil, errors.New("directory changed while listing")
+	}
 	var out []pan.File
 	for id, parent := range f.parent {
 		if parent == dirID {
@@ -375,5 +381,47 @@ func TestPollSummarizesWhatItSaw(t *testing.T) {
 	}
 	if *last != (summary{entries: 3, skipped: 1, noVideo: 1, handled: 1}) {
 		t.Fatalf("summary = %+v", *last)
+	}
+}
+
+func TestInboxIsTheFirstRuleThatMovesFiles(t *testing.T) {
+	h := newHarness(t, nil, nil)
+	if got := h.service.Inbox(t.Context()); got != h.inbox {
+		t.Fatalf("inbox = %q", got)
+	}
+	dry := newHarness(t, nil, func(rule *Rule) { rule.DryRun = true })
+	if got := dry.service.Inbox(t.Context()); got != "" {
+		t.Fatalf("dry-run inbox = %q", got)
+	}
+}
+
+func TestPlaceOrganizesADownloadSavedInTheInbox(t *testing.T) {
+	h := newHarness(t, fakeResolver{"SSIS-001": {{Name: "X"}}}, nil)
+	download := h.files.dir(h.inbox, "ssis-001ch")
+	h.files.add(download, "ssis-001ch.mp4", gb)
+	h.files.add(download, "广告.mp4", 10<<20)
+	h.files.listFailures = map[string]int{h.inbox: 1}
+	if _, err := h.service.Place(t.Context(), download, "SSIS-001"); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.files.paths("lib"); !slices.Equal(got, []string{"X/SSIS-001/SSIS-001-C.mp4"}) {
+		t.Fatalf("library = %v", got)
+	}
+	if !slices.Contains(h.files.deleted, "ssis-001ch") {
+		t.Fatalf("release folder was not recycled: %v", h.files.deleted)
+	}
+}
+
+func TestPlaceLeavesAFailedInboxDownloadForTheOrganizer(t *testing.T) {
+	h := newHarness(t, fakeResolver{}, func(rule *Rule) { rule.Failed = Folder{} })
+	download := h.files.dir(h.inbox, "SSIS-001")
+	h.files.add(download, "SSIS-001.mp4", gb)
+	if _, err := h.service.Place(t.Context(), download, "SSIS-001"); !errors.Is(err, ErrNotPlaced) {
+		t.Fatalf("err = %v", err)
+	}
+	h.service.metadata = fakeResolver{"SSIS-001": {{Name: "X"}}}
+	h.poll(t)
+	if got := h.files.paths("lib"); !slices.Equal(got, []string{"X/SSIS-001/SSIS-001.mp4"}) {
+		t.Fatalf("library = %v", got)
 	}
 }
