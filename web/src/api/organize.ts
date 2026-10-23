@@ -79,6 +79,8 @@ export type ActorFolder = {
 export type ActorGroup = {
   folders: ActorFolder[]
   suggested: string
+  // The folder named as JavDB names the actor, when one is.
+  catalogue?: string
 }
 
 export type ActorFolders = {

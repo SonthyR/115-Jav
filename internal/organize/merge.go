@@ -11,6 +11,7 @@ import (
 	"github.com/ppxb/miyabi/internal/actorname"
 	"github.com/ppxb/miyabi/internal/database"
 	"github.com/ppxb/miyabi/internal/domain"
+	"github.com/ppxb/miyabi/internal/ent/actor"
 	"github.com/ppxb/miyabi/internal/ent/file"
 	"github.com/ppxb/miyabi/internal/ent/movie"
 	"github.com/ppxb/miyabi/internal/pan"
@@ -28,6 +29,8 @@ type ActorFolder struct {
 type ActorGroup struct {
 	Folders   []ActorFolder `json:"folders"`
 	Suggested string        `json:"suggested"`
+	// Catalogue is the folder named as JavDB names the actor, when one is.
+	Catalogue string `json:"catalogue,omitempty"`
 }
 
 // ActorFolders lists the media directory's actor folders and the groups that
@@ -231,6 +234,10 @@ func (s *Service) FindActorFolders(ctx context.Context) (ActorFolders, error) {
 	if err != nil {
 		return ActorFolders{}, err
 	}
+	catalogueNames, err := s.catalogueNames(ctx)
+	if err != nil {
+		return ActorFolders{}, err
+	}
 	result := ActorFolders{Groups: []ActorGroup{}, Folders: make([]ActorFolder, 0, len(folders))}
 	byCast := make(map[string][]ActorFolder)
 	var casts []string
@@ -255,9 +262,33 @@ func (s *Service) FindActorFolders(ctx context.Context) (ActorFolders, error) {
 			}
 			return strings.Compare(a.Name, b.Name)
 		})
-		result.Groups = append(result.Groups, ActorGroup{Folders: group, Suggested: group[0].Name})
+		catalogue := ""
+		for _, folder := range group {
+			if catalogueNames[folder.Name] {
+				catalogue = folder.Name
+				break
+			}
+		}
+		result.Groups = append(result.Groups, ActorGroup{Folders: group, Suggested: group[0].Name, Catalogue: catalogue})
 	}
 	slices.SortFunc(result.Groups, func(a, b ActorGroup) int { return strings.Compare(a.Suggested, b.Suggested) })
+	return result, nil
+}
+
+// catalogueNames are the actor names JavDB uses: those of scraped actors and
+// the catalogue side of translated names.
+func (s *Service) catalogueNames(ctx context.Context) (map[string]bool, error) {
+	names, err := s.db.Actor.Query().Where(actor.ProviderEQ("javdb")).Select(actor.FieldName).Strings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]bool, len(names))
+	for _, name := range names {
+		result[name] = true
+	}
+	for _, alias := range s.aliases.Aliases(ctx) {
+		result[alias.Name] = true
+	}
 	return result, nil
 }
 
