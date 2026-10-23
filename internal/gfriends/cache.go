@@ -1,6 +1,7 @@
 package gfriends
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
@@ -10,11 +11,17 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/disintegration/imaging"
 )
 
 // Portraits fetched for the web pages are kept on disk; a missing one is
 // remembered for a day so a page full of unknown names stays cheap.
 const missingTTL = 24 * time.Hour
+
+// GFriends serves originals of a megabyte or more; pages show small circles,
+// so the cached copy is scaled down to this width.
+const portraitWidth = 320
 
 // Downloads run a few at a time so a page of portraits does not flood the mirrors.
 var downloads = make(chan struct{}, 4)
@@ -38,7 +45,7 @@ func (c *Client) CachedAvatar(ctx context.Context, name string) ([]byte, error) 
 		return nil, os.ErrNotExist
 	}
 	sum := sha1.Sum([]byte(key))
-	file := filepath.Join(c.dataDir, "gfriends_avatars", hex.EncodeToString(sum[:]))
+	file := filepath.Join(c.dataDir, "actor_portraits", hex.EncodeToString(sum[:]))
 	if data, err := os.ReadFile(file); err == nil {
 		return data, nil
 	}
@@ -60,6 +67,7 @@ func (c *Client) CachedAvatar(ctx context.Context, name string) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
+	data = shrink(data)
 	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
 		return data, nil
 	}
@@ -87,4 +95,18 @@ func (a *avatarCache) markMissing(key string) {
 		a.missing = make(map[string]time.Time)
 	}
 	a.missing[key] = time.Now().Add(missingTTL)
+}
+
+// shrink keeps the original when it is already small or cannot be decoded.
+func shrink(data []byte) []byte {
+	source, err := imaging.Decode(bytes.NewReader(data), imaging.AutoOrientation(true))
+	if err != nil || source.Bounds().Dx() <= portraitWidth {
+		return data
+	}
+	var out bytes.Buffer
+	small := imaging.Resize(source, portraitWidth, 0, imaging.Lanczos)
+	if err := imaging.Encode(&out, small, imaging.JPEG, imaging.JPEGQuality(85)); err != nil {
+		return data
+	}
+	return out.Bytes()
 }

@@ -1,7 +1,11 @@
 package gfriends
 
 import (
+	"bytes"
 	"encoding/json"
+	"image"
+	_ "image/jpeg"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -92,5 +96,19 @@ func TestGFriendsClient_PrefersFirstFolderDeterministically(t *testing.T) {
 		if rel, _ := client.Lookup("三上悠亜"); rel != "Content/0-Manual/三上悠亜.jpg?t=0" {
 			t.Fatalf("Lookup chose %q", rel)
 		}
+	}
+}
+
+func TestShrinkScalesLargePortraitsDown(t *testing.T) {
+	var large bytes.Buffer
+	if err := png.Encode(&large, image.NewRGBA(image.Rect(0, 0, 1000, 1500))); err != nil {
+		t.Fatal(err)
+	}
+	decoded, _, err := image.Decode(bytes.NewReader(shrink(large.Bytes())))
+	if err != nil || decoded.Bounds().Dx() != portraitWidth || decoded.Bounds().Dy() != 480 {
+		t.Fatalf("shrink = %v, %v", decoded.Bounds(), err)
+	}
+	if small := []byte("not an image"); !bytes.Equal(shrink(small), small) {
+		t.Fatal("undecodable data was changed")
 	}
 }
