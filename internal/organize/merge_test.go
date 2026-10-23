@@ -97,9 +97,9 @@ func TestFindAndMergeActorFolders(t *testing.T) {
 		for _, folder := range group.Folders {
 			names = append(names, folder.Name)
 		}
-		groups = append(groups, group.Suggested+"="+strings.Join(names, "|"))
+		groups = append(groups, group.Suggested+"/"+group.Catalogue+"="+strings.Join(names, "|"))
 	}
-	want := []string{"三上悠亚=三上悠亚|三上悠亜", "枫花恋=枫花恋|楓カレン"}
+	want := []string{"三上悠亚/三上悠亜=三上悠亚|三上悠亜", "枫花恋/楓カレン=枫花恋|楓カレン"}
 	if !slices.Equal(groups, want) {
 		t.Fatalf("groups = %v, want %v", groups, want)
 	}

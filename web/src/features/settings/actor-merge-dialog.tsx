@@ -28,6 +28,7 @@ type Plan = {
   folders: ActorFolder[]
   target: string
   include: boolean
+  catalogue?: string
 }
 
 const manualLimit = 60
@@ -70,7 +71,12 @@ export function ActorMergeDialog({ disabled }: { disabled: boolean }) {
 function MergePlanner({ data, onDone }: { data: ActorFolders; onDone: () => void }) {
   const merge = useMergeActors()
   const [plans, setPlans] = useState<Plan[]>(() =>
-    data.groups.map(group => ({ folders: group.folders, target: group.suggested, include: true }))
+    data.groups.map(group => ({
+      folders: group.folders,
+      target: group.suggested,
+      include: true,
+      catalogue: group.catalogue
+    }))
   )
   const [filter, setFilter] = useState('')
   const [picked, setPicked] = useState<string[]>([])
@@ -87,6 +93,14 @@ function MergePlanner({ data, onDone }: { data: ActorFolders; onDone: () => void
       .slice(0, manualLimit)
   }, [filter, data.folders, planned])
   const selected = plans.filter(plan => plan.include)
+  const catalogued = plans.filter(plan => plan.catalogue).length
+
+  // Keeping JavDB's spelling matches the actor names in the NFOs and GFriends.
+  function pickCatalogue() {
+    setPlans(current =>
+      current.map(plan => (plan.catalogue ? { ...plan, target: plan.catalogue } : plan))
+    )
+  }
 
   function update(index: number, patch: Partial<Plan>) {
     setPlans(current => current.map((plan, i) => (i === index ? { ...plan, ...patch } : plan)))
@@ -126,36 +140,53 @@ function MergePlanner({ data, onDone }: { data: ActorFolders; onDone: () => void
             没有找到重复的演员目录，可以在下面手动合并。
           </p>
         ) : (
-          <ul className="space-y-2">
-            {plans.map((plan, index) => (
-              <li
-                key={plan.folders.map(f => f.name).join('|')}
-                className="flex min-w-0 gap-3 rounded-xl border p-3"
-              >
-                <Checkbox
-                  className="mt-1"
-                  checked={plan.include}
-                  onCheckedChange={checked => update(index, { include: checked === true })}
-                />
-                <div className="flex min-w-0 flex-wrap gap-2">
-                  {plan.folders.map(folder => (
-                    <Button
-                      key={folder.name}
-                      type="button"
-                      size="sm"
-                      variant={folder.name === plan.target ? 'default' : 'outline'}
-                      className="h-auto max-w-full py-1 break-all whitespace-normal"
-                      onClick={() => update(index, { target: folder.name })}
-                    >
-                      {folder.name}
-                      <span className="opacity-70">{folder.movies} 部</span>
-                      {folder.name === plan.target ? <Badge variant="secondary">保留</Badge> : null}
-                    </Button>
-                  ))}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <>
+            {catalogued > 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted p-3 text-sm">
+                <span className="text-muted-foreground">
+                  {catalogued} 组能认出 JavDB 的日文名，保留它和 NFO 里的演员名一致
+                </span>
+                <Button type="button" size="sm" variant="secondary" onClick={pickCatalogue}>
+                  全部选 JavDB 名字
+                </Button>
+              </div>
+            ) : null}
+            <ul className="space-y-2">
+              {plans.map((plan, index) => (
+                <li
+                  key={plan.folders.map(f => f.name).join('|')}
+                  className="flex min-w-0 gap-3 rounded-xl border p-3"
+                >
+                  <Checkbox
+                    className="mt-1"
+                    checked={plan.include}
+                    onCheckedChange={checked => update(index, { include: checked === true })}
+                  />
+                  <div className="flex min-w-0 flex-wrap gap-2">
+                    {plan.folders.map(folder => (
+                      <Button
+                        key={folder.name}
+                        type="button"
+                        size="sm"
+                        variant={folder.name === plan.target ? 'default' : 'outline'}
+                        className="h-auto max-w-full py-1 break-all whitespace-normal"
+                        onClick={() => update(index, { target: folder.name })}
+                      >
+                        {folder.name}
+                        <span className="opacity-70">{folder.movies} 部</span>
+                        {folder.name === plan.catalogue ? (
+                          <span className="text-xs opacity-70">JavDB</span>
+                        ) : null}
+                        {folder.name === plan.target ? (
+                          <Badge variant="secondary">保留</Badge>
+                        ) : null}
+                      </Button>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
 
         <div className="space-y-2 rounded-xl border p-3">
