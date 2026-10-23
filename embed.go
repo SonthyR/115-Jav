@@ -7,7 +7,10 @@ import (
 	"io/fs"
 )
 
-//go:embed web/dist
+// all: keeps Vite chunks named after pathless routes, such as _watch-<hash>.js,
+// which a plain pattern drops for starting with an underscore.
+//
+//go:embed all:web/dist
 var embeddedFrontend embed.FS
 
 func Frontend() fs.FS {
