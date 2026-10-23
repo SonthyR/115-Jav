@@ -23,7 +23,7 @@ export function PageHeader({
       )}
     >
       <div className="flex flex-col gap-2">
-        <h1 className="text-4xl font-bold">{title}</h1>
+        <h1 className="text-2xl font-bold sm:text-3xl">{title}</h1>
         <p className="text-muted-foreground">{description}</p>
       </div>
       {children ? (

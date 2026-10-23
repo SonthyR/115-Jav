@@ -61,21 +61,28 @@ function SettingsPage() {
 
       <Tabs
         value={tab}
+        orientation="vertical"
+        className="flex-col gap-6 md:flex-row md:items-start"
         onValueChange={value =>
           void navigate({ search: value === 'pan' ? {} : { tab: value as SettingsTab } })
         }
       >
-        <div className="max-w-full overflow-x-auto">
-          <TabsList>
+        {/* A side list on desktop; a row that scrolls sideways on phones. */}
+        <div className="-mx-4 overflow-x-auto px-4 md:sticky md:top-8 md:mx-0 md:w-40 md:shrink-0 md:px-0">
+          <TabsList className="h-auto w-max flex-row! gap-1 bg-transparent p-0 md:w-full md:flex-col! md:items-stretch">
             {tabs.map(item => (
-              <TabsTrigger key={item.id} value={item.id}>
+              <TabsTrigger
+                key={item.id}
+                value={item.id}
+                className="h-9 w-auto! flex-none rounded-lg px-3 data-active:bg-muted data-active:shadow-none md:w-full! dark:data-active:border-transparent"
+              >
                 {item.label}
               </TabsTrigger>
             ))}
           </TabsList>
         </div>
         {tabs.map(item => (
-          <TabsContent key={item.id} value={item.id}>
+          <TabsContent key={item.id} value={item.id} className="min-w-0 flex-1">
             <Card>
               <CardContent className="space-y-8">
                 {item.sections.map((section, index) => (
