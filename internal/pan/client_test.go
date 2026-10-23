@@ -358,3 +358,23 @@ func TestPanResponseDeadlineEndsAtEOFOrClose(t *testing.T) {
 		})
 	}
 }
+
+func TestAPIRequestReportsFailureBeforeDecodingData(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"state":false,"code":40140125,"message":"access_token 无效","data":[]}`))
+	}))
+	defer ts.Close()
+
+	type objectWire struct {
+		apiResponse
+		Data struct {
+			ID string `json:"user_id"`
+		} `json:"data"`
+	}
+	client := &Client{http: resty.New()}
+	_, err := apiRequest[objectWire](client, client.http.R().SetContext(t.Context()), http.MethodGet, ts.URL, "account")
+	if !errors.Is(err, ErrUnauthorized) {
+		t.Fatalf("err = %v, want an expired token", err)
+	}
+}

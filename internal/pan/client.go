@@ -265,6 +265,14 @@ func apiRequest[T apiPayload](client *Client, request *resty.Request, method, en
 	if err != nil {
 		return result, err
 	}
+	// Failures carry "data": [] instead of an object, so check the envelope
+	// first; otherwise an expired token surfaces as a decode error and is never refreshed.
+	var envelope apiResponse
+	if err := json.Unmarshal(response.Body(), &envelope); err == nil {
+		if err := envelope.err(); err != nil {
+			return result, err
+		}
+	}
 	if err := json.Unmarshal(response.Body(), &result); err != nil {
 		return result, fmt.Errorf("decode 115 %s: %w", action, err)
 	}
