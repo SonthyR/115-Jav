@@ -10,11 +10,10 @@ import { AppPage } from '@/components/app-page'
 import { EmptyState } from '@/components/empty-state'
 import { ErrorState } from '@/components/error-state'
 import { ListPagination } from '@/components/list-pagination'
-import { MovieGridLayout } from '@/components/movie/movie-grid-layout'
 import { MovieGridSkeleton } from '@/components/movie/movie-grid-skeleton'
 import { PageHeader } from '@/components/page-header'
 import { LibraryFilters } from '@/features/library/filters'
-import { WatchMovieCard } from './movie-card'
+import { PosterCard, PosterGrid } from './poster-card'
 
 export function WatchBrowse({
   page,
@@ -53,11 +52,11 @@ export function WatchBrowse({
       ) : (
         <>
           {library.data.movies.length > 0 ? (
-            <MovieGridLayout>
+            <PosterGrid>
               {library.data.movies.map(movie => (
-                <WatchMovieCard key={movie.id} movie={movie} />
+                <PosterCard key={movie.id} movie={movie} />
               ))}
-            </MovieGridLayout>
+            </PosterGrid>
           ) : (
             <EmptyState className="min-h-0 flex-1 py-12" title="没有符合条件的影片" />
           )}

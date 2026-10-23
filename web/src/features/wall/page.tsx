@@ -1,20 +1,11 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { ArrowLeftIcon, PlayIcon, ShuffleIcon } from 'lucide-react'
-import {
-  type CSSProperties,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState
-} from 'react'
+import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { imageURL } from '@/api/client'
 import type { LibraryMovie } from '@/api/library'
 import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
-import { MovieDetailDialogContext } from '@/features/movie-detail/dialog-context'
 import { useWallMovies } from './use-wall-movies'
 
 // A press that moves less than this is a click, not a drag.
@@ -84,7 +75,7 @@ export function WallPage() {
 }
 
 function Wall({ movies }: { movies: LibraryMovie[] }) {
-  const openMovie = useContext(MovieDetailDialogContext)
+  const navigate = useNavigate()
   const viewport = useRef<HTMLDivElement>(null)
   const layer = useRef<HTMLDivElement>(null)
   const offset = useRef<Point>({ x: 0, y: 0 })
@@ -205,7 +196,12 @@ function Wall({ movies }: { movies: LibraryMovie[] }) {
             key={key}
             movie={movie}
             style={{ left: x, top: y, width: cell.w, height: cell.h }}
-            onOpen={(play, element) => openMovie?.({ libraryId: movie.id, play }, element)}
+            onOpen={play =>
+              void navigate({
+                to: play ? '/play/$id' : '/movie/$id',
+                params: { id: String(movie.id) }
+              })
+            }
           />
         ))}
       </div>
@@ -220,7 +216,7 @@ function Poster({
 }: {
   movie: LibraryMovie
   style: CSSProperties
-  onOpen: (play: boolean, element: HTMLDivElement) => void
+  onOpen: (play: boolean) => void
 }) {
   const source = movie.poster ?? movie.cover
   return (
@@ -229,9 +225,9 @@ function Poster({
       tabIndex={0}
       className="group absolute p-1 outline-none sm:p-1.5"
       style={style}
-      onClick={event => onOpen(false, event.currentTarget)}
+      onClick={() => onOpen(false)}
       onKeyDown={event => {
-        if (event.key === 'Enter') onOpen(false, event.currentTarget)
+        if (event.key === 'Enter') onOpen(false)
       }}
     >
       <div className="relative h-full overflow-hidden rounded-lg bg-neutral-800 ring-1 ring-white/5 transition-transform duration-200 group-hover:z-10 group-hover:scale-[1.04] group-focus-visible:ring-2 group-focus-visible:ring-white">
@@ -258,7 +254,7 @@ function Poster({
           className="absolute top-1/2 left-1/2 flex size-11 -translate-1/2 items-center justify-center rounded-full bg-black/60 opacity-0 backdrop-blur transition-opacity group-hover:opacity-100 focus-visible:opacity-100 max-sm:hidden"
           onClick={event => {
             event.stopPropagation()
-            onOpen(true, event.currentTarget.closest('[role=button]') as HTMLDivElement)
+            onOpen(true)
           }}
         >
           <PlayIcon className="size-5 translate-x-px fill-current" />

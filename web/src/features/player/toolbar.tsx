@@ -1,5 +1,15 @@
-import { CaptionsIcon, FileUpIcon, LoaderCircleIcon, SearchIcon } from 'lucide-react'
-import { useRef, useState } from 'react'
+import {
+  CaptionsIcon,
+  CheckIcon,
+  FileUpIcon,
+  GaugeIcon,
+  LayersIcon,
+  LoaderCircleIcon,
+  type LucideIcon,
+  MaximizeIcon,
+  SearchIcon
+} from 'lucide-react'
+import { type ReactNode, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { describeApiError } from '@/api/client'
@@ -12,13 +22,6 @@ import {
 } from '@/api/playback'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
 import { formatSize } from '@/lib/format'
 import { subtitleFormat, toVTT } from '@/lib/subtitles'
 import { useSubtitleStyle } from '@/stores/subtitle-style'
@@ -34,7 +37,11 @@ function vttTrack(key: string, label: string, text: string, language = ''): Play
   return { key, label, src, language }
 }
 
+const overlayButton =
+  'h-9 rounded-full bg-black/45 px-3 text-white backdrop-blur hover:bg-black/70 hover:text-white data-open:bg-black/70 data-open:text-white'
+
 export function PlayerToolbar({
+  container,
   movieId,
   files,
   fileIndex,
@@ -46,8 +53,10 @@ export function PlayerToolbar({
   tracks,
   activeTrack,
   onTrackChange,
-  onAddTrack
+  onAddTrack,
+  onFullscreen
 }: {
+  container: HTMLElement | null
   movieId: number
   files: PlayFile[]
   fileIndex: number
@@ -60,73 +69,153 @@ export function PlayerToolbar({
   activeTrack?: string
   onTrackChange: (key?: string) => void
   onAddTrack: (track: PlayerTrack) => void
+  onFullscreen: () => void
 }) {
+  const qualities: Array<'direct' | TranscodeSource> = ['direct', ...(transcodes ?? [])]
+  if (mode !== 'direct' && !transcodes?.includes(mode)) qualities.push(mode)
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-1.5">
       {files.length > 1 ? (
-        <Select value={String(fileIndex)} onValueChange={value => onFileChange(Number(value))}>
-          <SelectTrigger className="max-w-full min-w-0 sm:max-w-80" aria-label="版本与分卷">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {files.map((item, index) => (
-              <SelectItem key={item.file_id} value={String(index)}>
-                {item.name}（{formatSize(item.size)}）
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <OverlayMenu
+          container={container}
+          label={`${fileIndex + 1}/${files.length}`}
+          icon={LayersIcon}
+        >
+          {close =>
+            files.map((item, index) => (
+              <MenuOption
+                key={item.file_id}
+                active={index === fileIndex}
+                label={item.name}
+                detail={formatSize(item.size)}
+                onSelect={() => {
+                  close()
+                  onFileChange(index)
+                }}
+              />
+            ))
+          }
+        </OverlayMenu>
       ) : null}
-
-      <Select
-        value={mode === 'direct' ? 'direct' : String(mode.height)}
-        onOpenChange={open => {
-          if (open && !transcodes) {
+      <OverlayMenu
+        container={container}
+        label={mode === 'direct' ? '原画' : `${mode.height}P`}
+        icon={GaugeIcon}
+        onOpen={() => {
+          if (!transcodes) {
             onLoadTranscodes().catch(error =>
               toast.error(`没有可用的转码版本：${describeApiError(error)}`)
             )
           }
         }}
-        onValueChange={value => {
-          if (value === 'direct') onModeChange('direct')
-          const source = transcodes?.find(item => String(item.height) === value)
-          if (source) onModeChange(source)
-        }}
       >
-        <SelectTrigger aria-label="画质">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="direct">原画直连</SelectItem>
-          {mode !== 'direct' && !transcodes?.includes(mode) ? (
-            <SelectItem value={String(mode.height)}>转码 {mode.height}P</SelectItem>
-          ) : null}
-          {transcodes?.map(item => (
-            <SelectItem key={item.height} value={String(item.height)}>
-              转码 {item.height}P
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
+        {close =>
+          qualities.map(item => (
+            <MenuOption
+              key={item === 'direct' ? 'direct' : item.height}
+              active={item === mode}
+              label={item === 'direct' ? '原画直连' : `115 转码 ${item.height}P`}
+              onSelect={() => {
+                close()
+                onModeChange(item)
+              }}
+            />
+          ))
+        }
+      </OverlayMenu>
       <SubtitleMenu
+        container={container}
         movieId={movieId}
         tracks={tracks}
         activeTrack={activeTrack}
         onTrackChange={onTrackChange}
         onAddTrack={onAddTrack}
       />
+      <Button
+        variant="ghost"
+        size="icon"
+        className={overlayButton + ' w-9 px-0'}
+        aria-label="全屏"
+        onClick={onFullscreen}
+      >
+        <MaximizeIcon />
+      </Button>
     </div>
   )
 }
 
+function OverlayMenu({
+  container,
+  label,
+  icon: Icon,
+  onOpen,
+  children
+}: {
+  container: HTMLElement | null
+  label: string
+  icon: LucideIcon
+  onOpen?: () => void
+  children: (close: () => void) => ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Popover
+      open={open}
+      onOpenChange={next => {
+        setOpen(next)
+        if (next) onOpen?.()
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button variant="ghost" className={overlayButton}>
+          <Icon data-icon="inline-start" />
+          {label}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        container={container}
+        align="end"
+        className="max-h-[60dvh] w-[min(20rem,calc(100vw-1rem))] overflow-y-auto p-1.5"
+      >
+        {children(() => setOpen(false))}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function MenuOption({
+  active,
+  label,
+  detail,
+  onSelect
+}: {
+  active: boolean
+  label: string
+  detail?: string
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left hover:bg-muted ${active ? 'bg-muted font-medium' : ''}`}
+      onClick={onSelect}
+    >
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {detail ? <span className="shrink-0 text-xs text-muted-foreground">{detail}</span> : null}
+      {active ? <CheckIcon className="size-4 shrink-0 text-primary" /> : null}
+    </button>
+  )
+}
+
 function SubtitleMenu({
+  container,
   movieId,
   tracks,
   activeTrack,
   onTrackChange,
   onAddTrack
 }: {
+  container: HTMLElement | null
   movieId: number
   tracks: PlayerTrack[]
   activeTrack?: string
@@ -167,13 +256,14 @@ function SubtitleMenu({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline">
+        <Button variant="ghost" className={overlayButton}>
           <CaptionsIcon data-icon="inline-start" />
           字幕
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        align="start"
+        container={container}
+        align="end"
         className="max-h-[70dvh] w-[min(22rem,calc(100vw-2rem))] space-y-4 overflow-y-auto"
       >
         <div className="space-y-1">

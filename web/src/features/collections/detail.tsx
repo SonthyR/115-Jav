@@ -1,6 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
 import { PencilIcon, PlayIcon, Trash2Icon } from 'lucide-react'
-import { useContext, useEffect } from 'react'
 import { toast } from 'sonner'
 
 import { apiGet, describeApiError } from '@/api/client'
@@ -9,7 +8,6 @@ import type { LibraryFilter, LibraryMovie } from '@/api/library'
 import { Button } from '@/components/ui/button'
 import { WatchBrowse } from '@/features/watch/browse'
 import type { LibrarySearch } from '@/features/library/search'
-import { MovieDetailDialogContext } from '@/features/movie-detail/dialog-context'
 import { usePlaylist } from '@/features/player/playlist'
 
 export function CollectionDetail({ id, search }: { id: number; search: LibrarySearch }) {
@@ -17,14 +15,11 @@ export function CollectionDetail({ id, search }: { id: number; search: LibrarySe
   const collections = useCollections()
   const rename = useRenameCollection()
   const remove = useDeleteCollection()
-  const openMovie = useContext(MovieDetailDialogContext)
   const startPlaylist = usePlaylist(state => state.start)
-  const clearPlaylist = usePlaylist(state => state.clear)
-  useEffect(() => clearPlaylist, [clearPlaylist])
   const collection = collections.data?.find(item => item.id === id)
   const { page, ...filter } = search
 
-  const playAll = async (trigger: HTMLDivElement) => {
+  const playAll = async () => {
     try {
       // The whole collection plays in the order shown, one movie after another.
       const result = await apiGet<{ movies: LibraryMovie[] }>('/api/library/movies', {
@@ -35,7 +30,7 @@ export function CollectionDetail({ id, search }: { id: number; search: LibrarySe
       const ids = result.movies.map(movie => movie.id)
       if (ids.length === 0) return
       startPlaylist(ids)
-      openMovie?.({ libraryId: ids[0]!, play: true }, trigger)
+      void navigate({ to: '/play/$id', params: { id: String(ids[0]) }, search: { list: true } })
     } catch (error) {
       toast.error(describeApiError(error))
     }
@@ -49,10 +44,7 @@ export function CollectionDetail({ id, search }: { id: number; search: LibrarySe
       description={collection ? `${collection.count} 部影片` : '收藏夹'}
       header={
         <div className="flex flex-wrap gap-2">
-          <Button
-            disabled={!collection?.count}
-            onClick={event => void playAll(event.currentTarget.parentElement as HTMLDivElement)}
-          >
+          <Button disabled={!collection?.count} onClick={() => void playAll()}>
             <PlayIcon data-icon="inline-start" />
             顺序播放
           </Button>

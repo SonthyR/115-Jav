@@ -14,10 +14,15 @@ function PopoverContent({
   className,
   align = 'center',
   sideOffset = 4,
+  container,
   ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+}: React.ComponentProps<typeof PopoverPrimitive.Content> & {
+  // A fullscreen element hides everything outside it, so menus inside a
+  // fullscreen player render into the player itself.
+  container?: HTMLElement | null
+}) {
   return (
-    <PopoverPrimitive.Portal data-slot="popover-portal">
+    <PopoverPrimitive.Portal data-slot="popover-portal" container={container}>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}

@@ -81,7 +81,7 @@ export function MovieHero({
   )
 }
 
-function MovieStats({
+export function MovieStats({
   movie
 }: {
   movie: Pick<
