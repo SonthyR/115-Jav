@@ -452,6 +452,11 @@ func (r *run) plan(ctx context.Context, item release) (plan, string) {
 	if err != nil {
 		return p, "刮削失败：" + err.Error()
 	}
+	// A subtitle marker glued to the serial is dropped once the metadata
+	// confirms the plain serial, so the folder and files use the real number.
+	if base, ok := codeid.GluedSubtitleBase(p.code); ok && codeid.IsEquivalent(base, metadata.Detail.Code) {
+		p.code = base
+	}
 	var actors []Actor
 	aliases := actorname.Current()
 	for _, actor := range metadata.Detail.Actors {

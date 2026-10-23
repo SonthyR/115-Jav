@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ppxb/miyabi/internal/codeid"
 	"github.com/ppxb/miyabi/internal/database"
 	"github.com/ppxb/miyabi/internal/domain"
 	"github.com/ppxb/miyabi/internal/ent"
@@ -117,14 +118,19 @@ func (f *fakeFiles) Upload(_ context.Context, parentID, name string, body []byte
 
 type fakeResolver map[string][]domain.Actor
 
+// Resolve falls back through the same candidates as the metadata service.
 func (r fakeResolver) Resolve(_ context.Context, ref domain.MovieRef) (domain.MovieMetadata, error) {
-	actors, ok := r[ref.Code]
-	if !ok {
-		return domain.MovieMetadata{}, fmt.Errorf("not found")
+	for _, layer := range codeid.Layers(ref.Code) {
+		for _, code := range layer {
+			if actors, ok := r[code]; ok {
+				var metadata domain.MovieMetadata
+				metadata.Detail.Code = code
+				metadata.Detail.Actors = actors
+				return metadata, nil
+			}
+		}
 	}
-	var metadata domain.MovieMetadata
-	metadata.Detail.Actors = actors
-	return metadata, nil
+	return domain.MovieMetadata{}, fmt.Errorf("not found")
 }
 
 type fakeScanner struct{ targets []string }
@@ -409,6 +415,18 @@ func TestPlaceOrganizesADownloadSavedInTheInbox(t *testing.T) {
 	}
 	if !slices.Contains(h.files.deleted, "ssis-001ch") {
 		t.Fatalf("release folder was not recycled: %v", h.files.deleted)
+	}
+}
+
+func TestPlaceDropsASubtitleMarkerGluedToTheSerial(t *testing.T) {
+	h := newHarness(t, fakeResolver{"ATID-641": {{Name: "X"}}}, nil)
+	download := h.files.dir(h.inbox, "ATID-641C")
+	h.files.add(download, "ATID-641C.mp4", gb)
+	if _, err := h.service.Place(t.Context(), download, "ATID-641"); err != nil {
+		t.Fatalf("place: %v; log %+v", err, h.log(t))
+	}
+	if got := h.files.paths("lib"); !slices.Equal(got, []string{"X/ATID-641/ATID-641-C.mp4"}) {
+		t.Fatalf("library = %v", got)
 	}
 }
 

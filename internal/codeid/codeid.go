@@ -51,7 +51,10 @@ var (
 	fileMarker  = regexp.MustCompile(`^(?:C|U|UC|CHS|CHT|SUB|HD|FHD|UHD|(?:CD|DISC|PART)[0-9]+)$`)
 	// SSNI releases append C directly to the numeric serial for subtitles.
 	// Limit this filename alias to the known family; other catalogues have real letter variants.
-	ssniSubtitle  = regexp.MustCompile(`^(SSNI-[0-9]+)C$`)
+	ssniSubtitle = regexp.MustCompile(`^(SSNI-[0-9]+)C$`)
+	// Other releases also glue a subtitle marker to the serial (ATID-641C).
+	// Only a metadata lookup can tell it from a real letter variant.
+	gluedSubtitle = regexp.MustCompile(`^([A-Z][A-Z0-9]*-[0-9]{3,})(?:C|UC|U|CH)$`)
 	versionSuffix = regexp.MustCompile(`^[-_]([A-Z])(?:[^A-Z0-9]|$)`)
 	layerToken    = regexp.MustCompile(`[A-Z0-9]+(?:[-_.][A-Z0-9]+)*`)
 	layerSerial   = regexp.MustCompile(`[A-Z][A-Z0-9]*[-_.]?[0-9]`)
@@ -96,6 +99,16 @@ func Parse(name string) (string, bool) {
 	return code, code != ""
 }
 
+// GluedSubtitleBase returns the serial without a subtitle marker glued to
+// its digits, such as ATID-641 for ATID-641C.
+func GluedSubtitleBase(code string) (string, bool) {
+	match := gluedSubtitle.FindStringSubmatch(code)
+	if match == nil {
+		return "", false
+	}
+	return match[1], true
+}
+
 func removeNameNoise(name string) string {
 	return codecNoise.ReplaceAllString(domainNoise.ReplaceAllString(name, " "), " ")
 }
@@ -135,6 +148,9 @@ func Layers(name string) [][]string {
 			if fileMarker.MatchString(tail) || layerPart.MatchString(tail) {
 				alts = append(alts, code[:index])
 			}
+		}
+		if base, ok := GluedSubtitleBase(code); ok {
+			alts = append(alts, base)
 		}
 		return alts
 	}

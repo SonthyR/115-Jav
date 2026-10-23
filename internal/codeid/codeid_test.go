@@ -351,6 +351,8 @@ func TestLayersUsesCataloguePrefixRules(t *testing.T) {
 		{"1PONDO-060326-001.mp4", [][]string{{"1PONDO-060326-001"}, {"PONDO-060326-001", "060326-001"}}},
 		{"CARIB-060326-001-C.mp4", [][]string{{"CARIB-060326-001-C"}, {"CARIB-060326-001"}, {"060326-001"}}},
 		{"200START-637-C.mp4", [][]string{{"200START-637-C"}, {"START-637-C"}, {"200START-637"}, {"START-637"}}},
+		{"ATID-641C.mp4", [][]string{{"ATID-641C"}, {"ATID-641"}}},
+		{"IPX-123UC.mp4", [][]string{{"IPX-123UC"}, {"IPX-123"}}},
 	} {
 		t.Run(tt.input, func(t *testing.T) {
 			got := Layers(tt.input)
