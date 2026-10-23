@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/ppxb/miyabi/internal/domain"
 	"golang.org/x/time/rate"
 )
 
@@ -376,5 +377,32 @@ func TestAPIRequestReportsFailureBeforeDecodingData(t *testing.T) {
 	_, err := apiRequest[objectWire](client, client.http.R().SetContext(t.Context()), http.MethodGet, ts.URL, "account")
 	if !errors.Is(err, ErrUnauthorized) {
 		t.Fatalf("err = %v, want an expired token", err)
+	}
+}
+
+func TestAPIRequestHoldsRequestsAtTheAccessLimit(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"state":false,"code":770004,"message":"已达到当前访问上限，请稍后再试","data":[]}`))
+	}))
+	defer ts.Close()
+
+	transport := newPanTransport(http.DefaultTransport, rate.NewLimiter(rate.Inf, 1), 2)
+	client := &Client{http: resty.New().SetTransport(transport), transport: transport}
+	_, err := apiRequest[apiResponse](client, client.http.R().SetContext(t.Context()), http.MethodGet, ts.URL, "files")
+	if !errors.Is(err, ErrRateLimited) {
+		t.Fatalf("err = %v, want the access limit", err)
+	}
+	if wait := time.Until(transport.retryAfter); wait < 4*time.Minute || wait > minLimitPause {
+		t.Fatalf("held for %v", wait)
+	}
+	// A limit that outlasts the pause doubles it.
+	client.limitUntil = time.Now().Add(-time.Second)
+	client.noteLimit(err)
+	if client.limitPause != 2*minLimitPause {
+		t.Fatalf("pause = %v", client.limitPause)
+	}
+	if delay, retry := domain.RetryDelay(err); !retry || delay != 0 {
+		t.Fatalf("retry = %v %v", delay, retry)
 	}
 }
