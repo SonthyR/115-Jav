@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 
 import type { JavDBEntityType, JavDBZone } from '@/api/discover'
@@ -15,7 +16,15 @@ export type MovieMetadataValues = {
   zone?: JavDBZone | 'unknown'
 }
 
-export function MovieMetadata({ movie }: { movie: MovieMetadataValues }) {
+// Library details link names to the library's own profile pages instead of JavDB.
+export function MovieMetadata({
+  movie,
+  library = false
+}: {
+  movie: MovieMetadataValues
+  library?: boolean
+}) {
+  const EntityLink = library ? LibraryEntityLink : CatalogueEntityLink
   return (
     <dl className="space-y-3 text-sm">
       {movie.maker ? (
@@ -51,7 +60,18 @@ export function MovieMetadata({ movie }: { movie: MovieMetadataValues }) {
           <dt className="w-10 shrink-0 pt-0.5 leading-5 text-muted-foreground">标签</dt>
           <dd className="flex min-w-0 flex-wrap gap-2">
             {movie.tags.map((tag, index) =>
-              !tag.id || tag.provider !== 'javdb' || movie.zone === 'unknown' ? (
+              library ? (
+                <Badge
+                  key={`${tag.provider}:${tag.id || tag.name}:${index}`}
+                  variant="outline"
+                  className="h-auto max-w-full break-words whitespace-normal"
+                  asChild
+                >
+                  <Link to="/library/$kind/$name" params={{ kind: 'tag', name: tag.name }}>
+                    {tag.name}
+                  </Link>
+                </Badge>
+              ) : !tag.id || tag.provider !== 'javdb' || movie.zone === 'unknown' ? (
                 <Badge
                   key={`${tag.provider}:${tag.id || tag.name}:${index}`}
                   variant="outline"
@@ -77,7 +97,20 @@ export function MovieMetadata({ movie }: { movie: MovieMetadataValues }) {
   )
 }
 
-function EntityLink({ kind, entity }: { kind: JavDBEntityType; entity: MetadataEntity }) {
+function LibraryEntityLink({ kind, entity }: { kind: JavDBEntityType; entity: MetadataEntity }) {
+  if (kind === 'director') return <span className="max-w-full break-words">{entity.name}</span>
+  return (
+    <Link
+      to="/library/$kind/$name"
+      params={{ kind, name: entity.name }}
+      className="max-w-full break-words outline-ring transition-colors hover:text-muted-foreground"
+    >
+      {entity.name}
+    </Link>
+  )
+}
+
+function CatalogueEntityLink({ kind, entity }: { kind: JavDBEntityType; entity: MetadataEntity }) {
   return entity.id && entity.provider === 'javdb' ? (
     <MetadataLink kind={kind} id={entity.id} name={entity.name} />
   ) : (

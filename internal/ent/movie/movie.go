@@ -70,6 +70,8 @@ const (
 	EdgeSubtitles = "subtitles"
 	// EdgeProgress holds the string denoting the progress edge name in mutations.
 	EdgeProgress = "progress"
+	// EdgeCollectionItems holds the string denoting the collection_items edge name in mutations.
+	EdgeCollectionItems = "collection_items"
 	// Table holds the table name of the movie in the database.
 	Table = "movies"
 	// ActorsTable is the table that holds the actors relation/edge. The primary key declared below.
@@ -103,6 +105,13 @@ const (
 	ProgressInverseTable = "playback_progresses"
 	// ProgressColumn is the table column denoting the progress relation/edge.
 	ProgressColumn = "movie_id"
+	// CollectionItemsTable is the table that holds the collection_items relation/edge.
+	CollectionItemsTable = "collection_items"
+	// CollectionItemsInverseTable is the table name for the CollectionItem entity.
+	// It exists in this package in order to avoid circular dependency with the "collectionitem" package.
+	CollectionItemsInverseTable = "collection_items"
+	// CollectionItemsColumn is the table column denoting the collection_items relation/edge.
+	CollectionItemsColumn = "movie_id"
 )
 
 // Columns holds all SQL columns for movie fields.
@@ -368,6 +377,20 @@ func ByProgressField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newProgressStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByCollectionItemsCount orders the results by collection_items count.
+func ByCollectionItemsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCollectionItemsStep(), opts...)
+	}
+}
+
+// ByCollectionItems orders the results by collection_items terms.
+func ByCollectionItems(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCollectionItemsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newActorsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -401,5 +424,12 @@ func newProgressStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ProgressInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2O, false, ProgressTable, ProgressColumn),
+	)
+}
+func newCollectionItemsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CollectionItemsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CollectionItemsTable, CollectionItemsColumn),
 	)
 }

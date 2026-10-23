@@ -111,8 +111,9 @@ func TestLibraryPageLoadsCardMetadataWithScopedCounts(t *testing.T) {
 	if page.Source == nil || *page.Source != payload.Source || page.Total != 2 || page.HasMore || len(page.Movies) != 2 {
 		t.Fatalf("library statistics escaped the mounted source: %#v", page)
 	}
-	// One query counts the filtered movies, one loads the page.
-	wantQueries := map[string]int{"*ent.MovieQuery": 2, "*ent.TagQuery": 1, "*ent.ActorQuery": 1}
+	// One query counts the filtered movies, one loads the page, and each edge
+	// loads once for the whole page; files give the version and part count.
+	wantQueries := map[string]int{"*ent.MovieQuery": 2, "*ent.TagQuery": 1, "*ent.ActorQuery": 1, "*ent.FileQuery": 1}
 	if !reflect.DeepEqual(queries, wantQueries) {
 		t.Fatalf("library cards made redundant queries: %#v", queries)
 	}
@@ -143,12 +144,12 @@ func TestLibraryPageLoadsCardMetadataWithScopedCounts(t *testing.T) {
 		if err := json.Unmarshal(body, &fields); err != nil {
 			t.Fatal(err)
 		}
-		for _, removed := range []string{"file_count", "size", "watched"} {
+		for _, removed := range []string{"size", "watched"} {
 			if _, exists := fields[removed]; exists {
 				t.Errorf("card still exposes unused field %s", removed)
 			}
 		}
-		for _, required := range []string{"scrape_status"} {
+		for _, required := range []string{"scrape_status", "file_count"} {
 			if _, exists := fields[required]; !exists {
 				t.Errorf("card omits badge field %s", required)
 			}

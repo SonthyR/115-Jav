@@ -14,6 +14,10 @@ type Tx struct {
 	config
 	// Actor is the client for interacting with the Actor builders.
 	Actor *ActorClient
+	// Collection is the client for interacting with the Collection builders.
+	Collection *CollectionClient
+	// CollectionItem is the client for interacting with the CollectionItem builders.
+	CollectionItem *CollectionItemClient
 	// EmbyNotification is the client for interacting with the EmbyNotification builders.
 	EmbyNotification *EmbyNotificationClient
 	// File is the client for interacting with the File builders.
@@ -170,6 +174,8 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.Actor = NewActorClient(tx.config)
+	tx.Collection = NewCollectionClient(tx.config)
+	tx.CollectionItem = NewCollectionItemClient(tx.config)
 	tx.EmbyNotification = NewEmbyNotificationClient(tx.config)
 	tx.File = NewFileClient(tx.config)
 	tx.MetadataCache = NewMetadataCacheClient(tx.config)

@@ -21,6 +21,30 @@ func (f ActorFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ActorMutation", m)
 }
 
+// The CollectionFunc type is an adapter to allow the use of ordinary
+// function as Collection mutator.
+type CollectionFunc func(context.Context, *ent.CollectionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CollectionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CollectionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CollectionMutation", m)
+}
+
+// The CollectionItemFunc type is an adapter to allow the use of ordinary
+// function as CollectionItem mutator.
+type CollectionItemFunc func(context.Context, *ent.CollectionItemMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CollectionItemFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CollectionItemMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CollectionItemMutation", m)
+}
+
 // The EmbyNotificationFunc type is an adapter to allow the use of ordinary
 // function as EmbyNotification mutator.
 type EmbyNotificationFunc func(context.Context, *ent.EmbyNotificationMutation) (ent.Value, error)

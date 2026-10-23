@@ -15,6 +15,8 @@ import (
 	"github.com/ppxb/miyabi/internal/domain"
 	"github.com/ppxb/miyabi/internal/domain/download"
 	"github.com/ppxb/miyabi/internal/ent/actor"
+	"github.com/ppxb/miyabi/internal/ent/collection"
+	"github.com/ppxb/miyabi/internal/ent/collectionitem"
 	"github.com/ppxb/miyabi/internal/ent/embynotification"
 	"github.com/ppxb/miyabi/internal/ent/file"
 	"github.com/ppxb/miyabi/internal/ent/metadatacache"
@@ -41,6 +43,8 @@ const (
 
 	// Node types.
 	TypeActor            = "Actor"
+	TypeCollection       = "Collection"
+	TypeCollectionItem   = "CollectionItem"
 	TypeEmbyNotification = "EmbyNotification"
 	TypeFile             = "File"
 	TypeMetadataCache    = "MetadataCache"
@@ -891,6 +895,1124 @@ func (m *ActorMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Actor edge %s", name)
+}
+
+// CollectionMutation represents an operation that mutates the Collection nodes in the graph.
+type CollectionMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int
+	created_at    *time.Time
+	updated_at    *time.Time
+	name          *string
+	clearedFields map[string]struct{}
+	items         map[int]struct{}
+	removeditems  map[int]struct{}
+	cleareditems  bool
+	done          bool
+	oldValue      func(context.Context) (*Collection, error)
+	predicates    []predicate.Collection
+}
+
+var _ ent.Mutation = (*CollectionMutation)(nil)
+
+// collectionOption allows management of the mutation configuration using functional options.
+type collectionOption func(*CollectionMutation)
+
+// newCollectionMutation creates new mutation for the Collection entity.
+func newCollectionMutation(c config, op Op, opts ...collectionOption) *CollectionMutation {
+	m := &CollectionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeCollection,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withCollectionID sets the ID field of the mutation.
+func withCollectionID(id int) collectionOption {
+	return func(m *CollectionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Collection
+		)
+		m.oldValue = func(ctx context.Context) (*Collection, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Collection.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withCollection sets the old Collection of the mutation.
+func withCollection(node *Collection) collectionOption {
+	return func(m *CollectionMutation) {
+		m.oldValue = func(context.Context) (*Collection, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m CollectionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m CollectionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *CollectionMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *CollectionMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Collection.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *CollectionMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *CollectionMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the Collection entity.
+// If the Collection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollectionMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *CollectionMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *CollectionMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *CollectionMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the Collection entity.
+// If the Collection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollectionMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *CollectionMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetName sets the "name" field.
+func (m *CollectionMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *CollectionMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the Collection entity.
+// If the Collection object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollectionMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *CollectionMutation) ResetName() {
+	m.name = nil
+}
+
+// AddItemIDs adds the "items" edge to the CollectionItem entity by ids.
+func (m *CollectionMutation) AddItemIDs(ids ...int) {
+	if m.items == nil {
+		m.items = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.items[ids[i]] = struct{}{}
+	}
+}
+
+// ClearItems clears the "items" edge to the CollectionItem entity.
+func (m *CollectionMutation) ClearItems() {
+	m.cleareditems = true
+}
+
+// ItemsCleared reports if the "items" edge to the CollectionItem entity was cleared.
+func (m *CollectionMutation) ItemsCleared() bool {
+	return m.cleareditems
+}
+
+// RemoveItemIDs removes the "items" edge to the CollectionItem entity by IDs.
+func (m *CollectionMutation) RemoveItemIDs(ids ...int) {
+	if m.removeditems == nil {
+		m.removeditems = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.items, ids[i])
+		m.removeditems[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedItems returns the removed IDs of the "items" edge to the CollectionItem entity.
+func (m *CollectionMutation) RemovedItemsIDs() (ids []int) {
+	for id := range m.removeditems {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ItemsIDs returns the "items" edge IDs in the mutation.
+func (m *CollectionMutation) ItemsIDs() (ids []int) {
+	for id := range m.items {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetItems resets all changes to the "items" edge.
+func (m *CollectionMutation) ResetItems() {
+	m.items = nil
+	m.cleareditems = false
+	m.removeditems = nil
+}
+
+// Where appends a list predicates to the CollectionMutation builder.
+func (m *CollectionMutation) Where(ps ...predicate.Collection) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the CollectionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *CollectionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Collection, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *CollectionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *CollectionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Collection).
+func (m *CollectionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *CollectionMutation) Fields() []string {
+	fields := make([]string, 0, 3)
+	if m.created_at != nil {
+		fields = append(fields, collection.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, collection.FieldUpdatedAt)
+	}
+	if m.name != nil {
+		fields = append(fields, collection.FieldName)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *CollectionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case collection.FieldCreatedAt:
+		return m.CreatedAt()
+	case collection.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case collection.FieldName:
+		return m.Name()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *CollectionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case collection.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case collection.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case collection.FieldName:
+		return m.OldName(ctx)
+	}
+	return nil, fmt.Errorf("unknown Collection field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CollectionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case collection.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case collection.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case collection.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Collection field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *CollectionMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *CollectionMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CollectionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Collection numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *CollectionMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *CollectionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *CollectionMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Collection nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *CollectionMutation) ResetField(name string) error {
+	switch name {
+	case collection.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case collection.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case collection.FieldName:
+		m.ResetName()
+		return nil
+	}
+	return fmt.Errorf("unknown Collection field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *CollectionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.items != nil {
+		edges = append(edges, collection.EdgeItems)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *CollectionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case collection.EdgeItems:
+		ids := make([]ent.Value, 0, len(m.items))
+		for id := range m.items {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *CollectionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.removeditems != nil {
+		edges = append(edges, collection.EdgeItems)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *CollectionMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case collection.EdgeItems:
+		ids := make([]ent.Value, 0, len(m.removeditems))
+		for id := range m.removeditems {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *CollectionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.cleareditems {
+		edges = append(edges, collection.EdgeItems)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *CollectionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case collection.EdgeItems:
+		return m.cleareditems
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *CollectionMutation) ClearEdge(name string) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Collection unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *CollectionMutation) ResetEdge(name string) error {
+	switch name {
+	case collection.EdgeItems:
+		m.ResetItems()
+		return nil
+	}
+	return fmt.Errorf("unknown Collection edge %s", name)
+}
+
+// CollectionItemMutation represents an operation that mutates the CollectionItem nodes in the graph.
+type CollectionItemMutation struct {
+	config
+	op                Op
+	typ               string
+	id                *int
+	created_at        *time.Time
+	updated_at        *time.Time
+	clearedFields     map[string]struct{}
+	collection        *int
+	clearedcollection bool
+	movie             *int
+	clearedmovie      bool
+	done              bool
+	oldValue          func(context.Context) (*CollectionItem, error)
+	predicates        []predicate.CollectionItem
+}
+
+var _ ent.Mutation = (*CollectionItemMutation)(nil)
+
+// collectionitemOption allows management of the mutation configuration using functional options.
+type collectionitemOption func(*CollectionItemMutation)
+
+// newCollectionItemMutation creates new mutation for the CollectionItem entity.
+func newCollectionItemMutation(c config, op Op, opts ...collectionitemOption) *CollectionItemMutation {
+	m := &CollectionItemMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeCollectionItem,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withCollectionItemID sets the ID field of the mutation.
+func withCollectionItemID(id int) collectionitemOption {
+	return func(m *CollectionItemMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *CollectionItem
+		)
+		m.oldValue = func(ctx context.Context) (*CollectionItem, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().CollectionItem.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withCollectionItem sets the old CollectionItem of the mutation.
+func withCollectionItem(node *CollectionItem) collectionitemOption {
+	return func(m *CollectionItemMutation) {
+		m.oldValue = func(context.Context) (*CollectionItem, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m CollectionItemMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m CollectionItemMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *CollectionItemMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *CollectionItemMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().CollectionItem.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *CollectionItemMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *CollectionItemMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the CollectionItem entity.
+// If the CollectionItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollectionItemMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *CollectionItemMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *CollectionItemMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *CollectionItemMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the CollectionItem entity.
+// If the CollectionItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollectionItemMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *CollectionItemMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetCollectionID sets the "collection_id" field.
+func (m *CollectionItemMutation) SetCollectionID(i int) {
+	m.collection = &i
+}
+
+// CollectionID returns the value of the "collection_id" field in the mutation.
+func (m *CollectionItemMutation) CollectionID() (r int, exists bool) {
+	v := m.collection
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCollectionID returns the old "collection_id" field's value of the CollectionItem entity.
+// If the CollectionItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollectionItemMutation) OldCollectionID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCollectionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCollectionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCollectionID: %w", err)
+	}
+	return oldValue.CollectionID, nil
+}
+
+// ResetCollectionID resets all changes to the "collection_id" field.
+func (m *CollectionItemMutation) ResetCollectionID() {
+	m.collection = nil
+}
+
+// SetMovieID sets the "movie_id" field.
+func (m *CollectionItemMutation) SetMovieID(i int) {
+	m.movie = &i
+}
+
+// MovieID returns the value of the "movie_id" field in the mutation.
+func (m *CollectionItemMutation) MovieID() (r int, exists bool) {
+	v := m.movie
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMovieID returns the old "movie_id" field's value of the CollectionItem entity.
+// If the CollectionItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CollectionItemMutation) OldMovieID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMovieID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMovieID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMovieID: %w", err)
+	}
+	return oldValue.MovieID, nil
+}
+
+// ResetMovieID resets all changes to the "movie_id" field.
+func (m *CollectionItemMutation) ResetMovieID() {
+	m.movie = nil
+}
+
+// ClearCollection clears the "collection" edge to the Collection entity.
+func (m *CollectionItemMutation) ClearCollection() {
+	m.clearedcollection = true
+	m.clearedFields[collectionitem.FieldCollectionID] = struct{}{}
+}
+
+// CollectionCleared reports if the "collection" edge to the Collection entity was cleared.
+func (m *CollectionItemMutation) CollectionCleared() bool {
+	return m.clearedcollection
+}
+
+// CollectionIDs returns the "collection" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CollectionID instead. It exists only for internal usage by the builders.
+func (m *CollectionItemMutation) CollectionIDs() (ids []int) {
+	if id := m.collection; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCollection resets all changes to the "collection" edge.
+func (m *CollectionItemMutation) ResetCollection() {
+	m.collection = nil
+	m.clearedcollection = false
+}
+
+// ClearMovie clears the "movie" edge to the Movie entity.
+func (m *CollectionItemMutation) ClearMovie() {
+	m.clearedmovie = true
+	m.clearedFields[collectionitem.FieldMovieID] = struct{}{}
+}
+
+// MovieCleared reports if the "movie" edge to the Movie entity was cleared.
+func (m *CollectionItemMutation) MovieCleared() bool {
+	return m.clearedmovie
+}
+
+// MovieIDs returns the "movie" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// MovieID instead. It exists only for internal usage by the builders.
+func (m *CollectionItemMutation) MovieIDs() (ids []int) {
+	if id := m.movie; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetMovie resets all changes to the "movie" edge.
+func (m *CollectionItemMutation) ResetMovie() {
+	m.movie = nil
+	m.clearedmovie = false
+}
+
+// Where appends a list predicates to the CollectionItemMutation builder.
+func (m *CollectionItemMutation) Where(ps ...predicate.CollectionItem) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the CollectionItemMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *CollectionItemMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.CollectionItem, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *CollectionItemMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *CollectionItemMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (CollectionItem).
+func (m *CollectionItemMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *CollectionItemMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.created_at != nil {
+		fields = append(fields, collectionitem.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, collectionitem.FieldUpdatedAt)
+	}
+	if m.collection != nil {
+		fields = append(fields, collectionitem.FieldCollectionID)
+	}
+	if m.movie != nil {
+		fields = append(fields, collectionitem.FieldMovieID)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *CollectionItemMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case collectionitem.FieldCreatedAt:
+		return m.CreatedAt()
+	case collectionitem.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case collectionitem.FieldCollectionID:
+		return m.CollectionID()
+	case collectionitem.FieldMovieID:
+		return m.MovieID()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *CollectionItemMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case collectionitem.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case collectionitem.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case collectionitem.FieldCollectionID:
+		return m.OldCollectionID(ctx)
+	case collectionitem.FieldMovieID:
+		return m.OldMovieID(ctx)
+	}
+	return nil, fmt.Errorf("unknown CollectionItem field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CollectionItemMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case collectionitem.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case collectionitem.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case collectionitem.FieldCollectionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCollectionID(v)
+		return nil
+	case collectionitem.FieldMovieID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMovieID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown CollectionItem field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *CollectionItemMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *CollectionItemMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *CollectionItemMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown CollectionItem numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *CollectionItemMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *CollectionItemMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *CollectionItemMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown CollectionItem nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *CollectionItemMutation) ResetField(name string) error {
+	switch name {
+	case collectionitem.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case collectionitem.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case collectionitem.FieldCollectionID:
+		m.ResetCollectionID()
+		return nil
+	case collectionitem.FieldMovieID:
+		m.ResetMovieID()
+		return nil
+	}
+	return fmt.Errorf("unknown CollectionItem field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *CollectionItemMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.collection != nil {
+		edges = append(edges, collectionitem.EdgeCollection)
+	}
+	if m.movie != nil {
+		edges = append(edges, collectionitem.EdgeMovie)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *CollectionItemMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case collectionitem.EdgeCollection:
+		if id := m.collection; id != nil {
+			return []ent.Value{*id}
+		}
+	case collectionitem.EdgeMovie:
+		if id := m.movie; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *CollectionItemMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *CollectionItemMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *CollectionItemMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedcollection {
+		edges = append(edges, collectionitem.EdgeCollection)
+	}
+	if m.clearedmovie {
+		edges = append(edges, collectionitem.EdgeMovie)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *CollectionItemMutation) EdgeCleared(name string) bool {
+	switch name {
+	case collectionitem.EdgeCollection:
+		return m.clearedcollection
+	case collectionitem.EdgeMovie:
+		return m.clearedmovie
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *CollectionItemMutation) ClearEdge(name string) error {
+	switch name {
+	case collectionitem.EdgeCollection:
+		m.ClearCollection()
+		return nil
+	case collectionitem.EdgeMovie:
+		m.ClearMovie()
+		return nil
+	}
+	return fmt.Errorf("unknown CollectionItem unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *CollectionItemMutation) ResetEdge(name string) error {
+	switch name {
+	case collectionitem.EdgeCollection:
+		m.ResetCollection()
+		return nil
+	case collectionitem.EdgeMovie:
+		m.ResetMovie()
+		return nil
+	}
+	return fmt.Errorf("unknown CollectionItem edge %s", name)
 }
 
 // EmbyNotificationMutation represents an operation that mutates the EmbyNotification nodes in the graph.
@@ -3211,52 +4333,55 @@ func (m *MetadataCacheMutation) ResetEdge(name string) error {
 // MovieMutation represents an operation that mutates the Movie nodes in the graph.
 type MovieMutation struct {
 	config
-	op                Op
-	typ               string
-	id                *int
-	created_at        *time.Time
-	updated_at        *time.Time
-	code              *string
-	manual_code       *string
-	canonical_code    *string
-	javdb_id          *string
-	title             *string
-	release_date      *time.Time
-	duration          *int
-	addduration       *int
-	director_id       *string
-	director_name     *string
-	maker_id          *string
-	maker_name        *string
-	series_id         *string
-	series_name       *string
-	rating            *float64
-	addrating         *float64
-	cover             *string
-	poster            *string
-	fanarts           *[]string
-	appendfanarts     []string
-	metadata          **nfo.Movie
-	metadata_snapshot **domain.MetadataSnapshot
-	scrape_status     *movie.ScrapeStatus
-	clearedFields     map[string]struct{}
-	actors            map[int]struct{}
-	removedactors     map[int]struct{}
-	clearedactors     bool
-	tags              map[int]struct{}
-	removedtags       map[int]struct{}
-	clearedtags       bool
-	files             map[int]struct{}
-	removedfiles      map[int]struct{}
-	clearedfiles      bool
-	subtitles         map[int]struct{}
-	removedsubtitles  map[int]struct{}
-	clearedsubtitles  bool
-	progress          *int
-	clearedprogress   bool
-	done              bool
-	oldValue          func(context.Context) (*Movie, error)
-	predicates        []predicate.Movie
+	op                      Op
+	typ                     string
+	id                      *int
+	created_at              *time.Time
+	updated_at              *time.Time
+	code                    *string
+	manual_code             *string
+	canonical_code          *string
+	javdb_id                *string
+	title                   *string
+	release_date            *time.Time
+	duration                *int
+	addduration             *int
+	director_id             *string
+	director_name           *string
+	maker_id                *string
+	maker_name              *string
+	series_id               *string
+	series_name             *string
+	rating                  *float64
+	addrating               *float64
+	cover                   *string
+	poster                  *string
+	fanarts                 *[]string
+	appendfanarts           []string
+	metadata                **nfo.Movie
+	metadata_snapshot       **domain.MetadataSnapshot
+	scrape_status           *movie.ScrapeStatus
+	clearedFields           map[string]struct{}
+	actors                  map[int]struct{}
+	removedactors           map[int]struct{}
+	clearedactors           bool
+	tags                    map[int]struct{}
+	removedtags             map[int]struct{}
+	clearedtags             bool
+	files                   map[int]struct{}
+	removedfiles            map[int]struct{}
+	clearedfiles            bool
+	subtitles               map[int]struct{}
+	removedsubtitles        map[int]struct{}
+	clearedsubtitles        bool
+	progress                *int
+	clearedprogress         bool
+	collection_items        map[int]struct{}
+	removedcollection_items map[int]struct{}
+	clearedcollection_items bool
+	done                    bool
+	oldValue                func(context.Context) (*Movie, error)
+	predicates              []predicate.Movie
 }
 
 var _ ent.Mutation = (*MovieMutation)(nil)
@@ -4643,6 +5768,60 @@ func (m *MovieMutation) ResetProgress() {
 	m.clearedprogress = false
 }
 
+// AddCollectionItemIDs adds the "collection_items" edge to the CollectionItem entity by ids.
+func (m *MovieMutation) AddCollectionItemIDs(ids ...int) {
+	if m.collection_items == nil {
+		m.collection_items = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.collection_items[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCollectionItems clears the "collection_items" edge to the CollectionItem entity.
+func (m *MovieMutation) ClearCollectionItems() {
+	m.clearedcollection_items = true
+}
+
+// CollectionItemsCleared reports if the "collection_items" edge to the CollectionItem entity was cleared.
+func (m *MovieMutation) CollectionItemsCleared() bool {
+	return m.clearedcollection_items
+}
+
+// RemoveCollectionItemIDs removes the "collection_items" edge to the CollectionItem entity by IDs.
+func (m *MovieMutation) RemoveCollectionItemIDs(ids ...int) {
+	if m.removedcollection_items == nil {
+		m.removedcollection_items = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.collection_items, ids[i])
+		m.removedcollection_items[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCollectionItems returns the removed IDs of the "collection_items" edge to the CollectionItem entity.
+func (m *MovieMutation) RemovedCollectionItemsIDs() (ids []int) {
+	for id := range m.removedcollection_items {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CollectionItemsIDs returns the "collection_items" edge IDs in the mutation.
+func (m *MovieMutation) CollectionItemsIDs() (ids []int) {
+	for id := range m.collection_items {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCollectionItems resets all changes to the "collection_items" edge.
+func (m *MovieMutation) ResetCollectionItems() {
+	m.collection_items = nil
+	m.clearedcollection_items = false
+	m.removedcollection_items = nil
+}
+
 // Where appends a list predicates to the MovieMutation builder.
 func (m *MovieMutation) Where(ps ...predicate.Movie) {
 	m.predicates = append(m.predicates, ps...)
@@ -5247,7 +6426,7 @@ func (m *MovieMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *MovieMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.actors != nil {
 		edges = append(edges, movie.EdgeActors)
 	}
@@ -5262,6 +6441,9 @@ func (m *MovieMutation) AddedEdges() []string {
 	}
 	if m.progress != nil {
 		edges = append(edges, movie.EdgeProgress)
+	}
+	if m.collection_items != nil {
+		edges = append(edges, movie.EdgeCollectionItems)
 	}
 	return edges
 }
@@ -5298,13 +6480,19 @@ func (m *MovieMutation) AddedIDs(name string) []ent.Value {
 		if id := m.progress; id != nil {
 			return []ent.Value{*id}
 		}
+	case movie.EdgeCollectionItems:
+		ids := make([]ent.Value, 0, len(m.collection_items))
+		for id := range m.collection_items {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *MovieMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removedactors != nil {
 		edges = append(edges, movie.EdgeActors)
 	}
@@ -5316,6 +6504,9 @@ func (m *MovieMutation) RemovedEdges() []string {
 	}
 	if m.removedsubtitles != nil {
 		edges = append(edges, movie.EdgeSubtitles)
+	}
+	if m.removedcollection_items != nil {
+		edges = append(edges, movie.EdgeCollectionItems)
 	}
 	return edges
 }
@@ -5348,13 +6539,19 @@ func (m *MovieMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case movie.EdgeCollectionItems:
+		ids := make([]ent.Value, 0, len(m.removedcollection_items))
+		for id := range m.removedcollection_items {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *MovieMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.clearedactors {
 		edges = append(edges, movie.EdgeActors)
 	}
@@ -5369,6 +6566,9 @@ func (m *MovieMutation) ClearedEdges() []string {
 	}
 	if m.clearedprogress {
 		edges = append(edges, movie.EdgeProgress)
+	}
+	if m.clearedcollection_items {
+		edges = append(edges, movie.EdgeCollectionItems)
 	}
 	return edges
 }
@@ -5387,6 +6587,8 @@ func (m *MovieMutation) EdgeCleared(name string) bool {
 		return m.clearedsubtitles
 	case movie.EdgeProgress:
 		return m.clearedprogress
+	case movie.EdgeCollectionItems:
+		return m.clearedcollection_items
 	}
 	return false
 }
@@ -5420,6 +6622,9 @@ func (m *MovieMutation) ResetEdge(name string) error {
 		return nil
 	case movie.EdgeProgress:
 		m.ResetProgress()
+		return nil
+	case movie.EdgeCollectionItems:
+		m.ResetCollectionItems()
 		return nil
 	}
 	return fmt.Errorf("unknown Movie edge %s", name)

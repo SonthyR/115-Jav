@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import Hls from 'hls.js'
 import { LoaderCircleIcon } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import {
@@ -19,6 +19,8 @@ import {
 import { describeApiError } from '@/api/client'
 import { ErrorState } from '@/components/error-state'
 import { useSubtitleStyle } from '@/stores/subtitle-style'
+import { MovieDetailDialogContext } from '@/features/movie-detail/dialog-context'
+import { usePlaylist } from './playlist'
 import { PlayerToolbar, type PlayerTrack } from './toolbar'
 
 // Progress is saved this often while playing, and on pause and exit.
@@ -54,6 +56,7 @@ type Mode = 'direct' | TranscodeSource
 
 function Player({ movieId, info }: { movieId: number; info: PlayInfo }) {
   const queryClient = useQueryClient()
+  const openMovie = useContext(MovieDetailDialogContext)
   const videoRef = useRef<HTMLVideoElement>(null)
   const resumed = info.files.findIndex(item => item.file_id === info.progress?.file_id)
   const [fileIndex, setFileIndex] = useState(Math.max(resumed, 0))
@@ -196,13 +199,20 @@ function Player({ movieId, info }: { movieId: number; info: PlayInfo }) {
             if (Date.now() - lastSaved.current > saveInterval) save()
           }}
           onPause={save}
-          onEnded={() => {
+          onEnded={event => {
             if (fileIndex + 1 < info.files.length) {
               selectFile(fileIndex + 1)
               return
             }
             lastSaved.current = Date.now()
             void clearProgress(movieId).catch(() => undefined)
+            const next = usePlaylist.getState().next(movieId)
+            if (next !== undefined) {
+              openMovie?.(
+                { libraryId: next, play: true },
+                event.currentTarget.parentElement as HTMLDivElement
+              )
+            }
           }}
           onError={() => {
             if (mode === 'direct') void fallBack()

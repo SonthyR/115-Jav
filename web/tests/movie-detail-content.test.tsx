@@ -7,6 +7,11 @@ import { useDiscoverMagnets, useDiscoverMovie, useResolveDiscoverMovie } from '@
 import { useLibraryMovie, type LibraryMovieDetail } from '@/api/library'
 import { MovieDetailContent } from '@/features/movie-detail/content'
 
+// Library details link names to profile pages; no router runs here.
+vi.mock('@tanstack/react-router', async importOriginal => ({
+  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
+  Link: ({ children }: { children: React.ReactNode }) => children
+}))
 vi.mock('@/api/discover', () => ({
   useDiscoverMovie: vi.fn(),
   useDiscoverMagnets: vi.fn(),
@@ -14,6 +19,12 @@ vi.mock('@/api/discover', () => ({
 }))
 vi.mock('@/api/browse-history', () => ({ useRecordMovieView: vi.fn() }))
 vi.mock('@/api/library', () => ({ useLibraryMovie: vi.fn() }))
+vi.mock('@/api/collections', () => ({
+  useCollections: () => ({ data: [] }),
+  useMovieCollections: () => ({ data: [] }),
+  useToggleCollection: () => ({ isPending: false }),
+  useCreateCollection: () => ({ isPending: false })
+}))
 
 beforeEach(() => {
   vi.clearAllMocks()

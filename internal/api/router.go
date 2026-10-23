@@ -33,6 +33,7 @@ type Dependencies struct {
 	Playback       PlaybackManager
 	Subtitles      SubtitlePlayer
 	Transcoder     TranscodeRelay
+	Collections    CollectionManager
 	Frontend       fs.FS
 	STRMToken      string
 	TrustedProxies []string
@@ -107,6 +108,16 @@ func NewRouter(deps Dependencies) *gin.Engine {
 	protected.GET("/library/movies/:id/subtitles/:subtitleID", noStore(), subtitleTrackHandler(deps.Subtitles))
 	protected.GET("/library/movies/:id/subtitle-search", noStore(), subtitleSearchHandler(deps.Subtitles))
 	protected.GET("/library/movies/:id/subtitle-search/:index", noStore(), subtitleFetchHandler(deps.Subtitles))
+
+	protected.GET("/library/facets", noStore(), libraryFacetsHandler(deps.Collections))
+	protected.GET("/library/movies/:id/collections", noStore(), movieCollectionsHandler(deps.Collections))
+	collectionsAPI := protected.Group("/collections", noStore())
+	collectionsAPI.GET("", collectionListHandler(deps.Collections))
+	collectionsAPI.POST("", collectionCreateHandler(deps.Collections))
+	collectionsAPI.PATCH("/:id", collectionRenameHandler(deps.Collections))
+	collectionsAPI.DELETE("/:id", collectionDeleteHandler(deps.Collections))
+	collectionsAPI.PUT("/:id/movies/:movieID", collectionAddHandler(deps.Collections))
+	collectionsAPI.DELETE("/:id/movies/:movieID", collectionRemoveHandler(deps.Collections))
 
 	hls := newHLSSigner()
 	protected.GET("/play/file/:fileID", noStore(), playStreamHandler(deps.STRM))

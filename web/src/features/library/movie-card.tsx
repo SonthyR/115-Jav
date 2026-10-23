@@ -1,5 +1,6 @@
 import type { LibraryMovie } from '@/api/library'
 import { MovieCard } from '@/components/movie'
+import { Badge } from '@/components/ui/badge'
 import { MovieDetailTrigger } from '@/features/movie-detail/detail-trigger'
 import { LibraryMovieStatus } from './movie-status'
 import { LibraryMovieActions } from './movie-actions'
@@ -12,8 +13,11 @@ export function LibraryMovieCard({ movie, busy = false }: { movie: LibraryMovie;
         className="block h-full min-w-0 rounded-2xl outline-ring"
       >
         <MovieCard movie={movie} titleTooltip={false}>
-          <div className="flex min-h-7 items-center pr-9">
+          <div className="flex min-h-7 items-center gap-1.5 pr-9">
             <LibraryMovieStatus movie={movie} />
+            {movie.file_count > 1 ? (
+              <Badge variant="outline">{movie.file_count} 个文件</Badge>
+            ) : null}
           </div>
         </MovieCard>
       </MovieDetailTrigger>

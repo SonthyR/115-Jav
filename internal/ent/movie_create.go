@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/ppxb/miyabi/internal/domain"
 	"github.com/ppxb/miyabi/internal/ent/actor"
+	"github.com/ppxb/miyabi/internal/ent/collectionitem"
 	"github.com/ppxb/miyabi/internal/ent/file"
 	"github.com/ppxb/miyabi/internal/ent/movie"
 	"github.com/ppxb/miyabi/internal/ent/playbackprogress"
@@ -384,6 +385,21 @@ func (_c *MovieCreate) SetProgress(v *PlaybackProgress) *MovieCreate {
 	return _c.SetProgressID(v.ID)
 }
 
+// AddCollectionItemIDs adds the "collection_items" edge to the CollectionItem entity by IDs.
+func (_c *MovieCreate) AddCollectionItemIDs(ids ...int) *MovieCreate {
+	_c.mutation.AddCollectionItemIDs(ids...)
+	return _c
+}
+
+// AddCollectionItems adds the "collection_items" edges to the CollectionItem entity.
+func (_c *MovieCreate) AddCollectionItems(v ...*CollectionItem) *MovieCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCollectionItemIDs(ids...)
+}
+
 // Mutation returns the MovieMutation object of the builder.
 func (_c *MovieCreate) Mutation() *MovieMutation {
 	return _c.mutation
@@ -685,6 +701,22 @@ func (_c *MovieCreate) createSpec() (*Movie, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(playbackprogress.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CollectionItemsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   movie.CollectionItemsTable,
+			Columns: []string{movie.CollectionItemsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collectionitem.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

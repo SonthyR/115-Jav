@@ -80,7 +80,8 @@ function submission(action: 'rescrape' | 'scan' | 'rebuild') {
               rating: 0,
               actors: [],
               tags: [],
-              scrape_status: 'failed'
+              scrape_status: 'failed',
+              file_count: 1
             }
           })
         : LibraryScanButton({

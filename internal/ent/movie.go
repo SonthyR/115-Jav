@@ -83,9 +83,11 @@ type MovieEdges struct {
 	Subtitles []*Subtitle `json:"subtitles,omitempty"`
 	// Progress holds the value of the progress edge.
 	Progress *PlaybackProgress `json:"progress,omitempty"`
+	// CollectionItems holds the value of the collection_items edge.
+	CollectionItems []*CollectionItem `json:"collection_items,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [6]bool
 }
 
 // ActorsOrErr returns the Actors value or an error if the edge
@@ -133,6 +135,15 @@ func (e MovieEdges) ProgressOrErr() (*PlaybackProgress, error) {
 		return nil, &NotFoundError{label: playbackprogress.Label}
 	}
 	return nil, &NotLoadedError{edge: "progress"}
+}
+
+// CollectionItemsOrErr returns the CollectionItems value or an error if the edge
+// was not loaded in eager-loading.
+func (e MovieEdges) CollectionItemsOrErr() ([]*CollectionItem, error) {
+	if e.loadedTypes[5] {
+		return e.CollectionItems, nil
+	}
+	return nil, &NotLoadedError{edge: "collection_items"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -357,6 +368,11 @@ func (_m *Movie) QuerySubtitles() *SubtitleQuery {
 // QueryProgress queries the "progress" edge of the Movie entity.
 func (_m *Movie) QueryProgress() *PlaybackProgressQuery {
 	return NewMovieClient(_m.config).QueryProgress(_m)
+}
+
+// QueryCollectionItems queries the "collection_items" edge of the Movie entity.
+func (_m *Movie) QueryCollectionItems() *CollectionItemQuery {
+	return NewMovieClient(_m.config).QueryCollectionItems(_m)
 }
 
 // Update returns a builder for updating this Movie.

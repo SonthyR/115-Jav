@@ -33,6 +33,54 @@ var (
 			},
 		},
 	}
+	// CollectionsColumns holds the columns for the "collections" table.
+	CollectionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "name", Type: field.TypeString, Size: 100},
+	}
+	// CollectionsTable holds the schema information for the "collections" table.
+	CollectionsTable = &schema.Table{
+		Name:       "collections",
+		Columns:    CollectionsColumns,
+		PrimaryKey: []*schema.Column{CollectionsColumns[0]},
+	}
+	// CollectionItemsColumns holds the columns for the "collection_items" table.
+	CollectionItemsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "collection_id", Type: field.TypeInt},
+		{Name: "movie_id", Type: field.TypeInt},
+	}
+	// CollectionItemsTable holds the schema information for the "collection_items" table.
+	CollectionItemsTable = &schema.Table{
+		Name:       "collection_items",
+		Columns:    CollectionItemsColumns,
+		PrimaryKey: []*schema.Column{CollectionItemsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "collection_items_collections_items",
+				Columns:    []*schema.Column{CollectionItemsColumns[3]},
+				RefColumns: []*schema.Column{CollectionsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "collection_items_movies_collection_items",
+				Columns:    []*schema.Column{CollectionItemsColumns[4]},
+				RefColumns: []*schema.Column{MoviesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "collectionitem_collection_id_movie_id",
+				Unique:  true,
+				Columns: []*schema.Column{CollectionItemsColumns[3], CollectionItemsColumns[4]},
+			},
+		},
+	}
 	// EmbyNotificationsColumns holds the columns for the "emby_notifications" table.
 	EmbyNotificationsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -466,6 +514,8 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		ActorsTable,
+		CollectionsTable,
+		CollectionItemsTable,
 		EmbyNotificationsTable,
 		FilesTable,
 		MetadataCachesTable,
@@ -484,6 +534,8 @@ var (
 )
 
 func init() {
+	CollectionItemsTable.ForeignKeys[0].RefTable = CollectionsTable
+	CollectionItemsTable.ForeignKeys[1].RefTable = MoviesTable
 	FilesTable.ForeignKeys[0].RefTable = MoviesTable
 	PlaybackProgressesTable.ForeignKeys[0].RefTable = MoviesTable
 	SubtitlesTable.ForeignKeys[0].RefTable = MoviesTable

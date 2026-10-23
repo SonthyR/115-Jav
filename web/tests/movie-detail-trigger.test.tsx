@@ -127,7 +127,8 @@ test('library cards always use an explicit local detail target', () => {
         rating: 0,
         actors: [],
         tags: [],
-        scrape_status: 'done'
+        scrape_status: 'done',
+        file_count: 1
       }
     })
     const trigger = card.props.children[0]

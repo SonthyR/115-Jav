@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/ppxb/miyabi/internal/ent/actor"
+	"github.com/ppxb/miyabi/internal/ent/collection"
+	"github.com/ppxb/miyabi/internal/ent/collectionitem"
 	"github.com/ppxb/miyabi/internal/ent/embynotification"
 	"github.com/ppxb/miyabi/internal/ent/file"
 	"github.com/ppxb/miyabi/internal/ent/metadatacache"
@@ -53,6 +55,62 @@ func init() {
 	actorDescName := actorFields[2].Descriptor()
 	// actor.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	actor.NameValidator = actorDescName.Validators[0].(func(string) error)
+	collectionMixin := schema.Collection{}.Mixin()
+	collectionMixinFields0 := collectionMixin[0].Fields()
+	_ = collectionMixinFields0
+	collectionFields := schema.Collection{}.Fields()
+	_ = collectionFields
+	// collectionDescCreatedAt is the schema descriptor for created_at field.
+	collectionDescCreatedAt := collectionMixinFields0[0].Descriptor()
+	// collection.DefaultCreatedAt holds the default value on creation for the created_at field.
+	collection.DefaultCreatedAt = collectionDescCreatedAt.Default.(func() time.Time)
+	// collectionDescUpdatedAt is the schema descriptor for updated_at field.
+	collectionDescUpdatedAt := collectionMixinFields0[1].Descriptor()
+	// collection.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	collection.DefaultUpdatedAt = collectionDescUpdatedAt.Default.(func() time.Time)
+	// collection.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	collection.UpdateDefaultUpdatedAt = collectionDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// collectionDescName is the schema descriptor for name field.
+	collectionDescName := collectionFields[0].Descriptor()
+	// collection.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	collection.NameValidator = func() func(string) error {
+		validators := collectionDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	collectionitemMixin := schema.CollectionItem{}.Mixin()
+	collectionitemMixinFields0 := collectionitemMixin[0].Fields()
+	_ = collectionitemMixinFields0
+	collectionitemFields := schema.CollectionItem{}.Fields()
+	_ = collectionitemFields
+	// collectionitemDescCreatedAt is the schema descriptor for created_at field.
+	collectionitemDescCreatedAt := collectionitemMixinFields0[0].Descriptor()
+	// collectionitem.DefaultCreatedAt holds the default value on creation for the created_at field.
+	collectionitem.DefaultCreatedAt = collectionitemDescCreatedAt.Default.(func() time.Time)
+	// collectionitemDescUpdatedAt is the schema descriptor for updated_at field.
+	collectionitemDescUpdatedAt := collectionitemMixinFields0[1].Descriptor()
+	// collectionitem.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	collectionitem.DefaultUpdatedAt = collectionitemDescUpdatedAt.Default.(func() time.Time)
+	// collectionitem.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	collectionitem.UpdateDefaultUpdatedAt = collectionitemDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// collectionitemDescCollectionID is the schema descriptor for collection_id field.
+	collectionitemDescCollectionID := collectionitemFields[0].Descriptor()
+	// collectionitem.CollectionIDValidator is a validator for the "collection_id" field. It is called by the builders before save.
+	collectionitem.CollectionIDValidator = collectionitemDescCollectionID.Validators[0].(func(int) error)
+	// collectionitemDescMovieID is the schema descriptor for movie_id field.
+	collectionitemDescMovieID := collectionitemFields[1].Descriptor()
+	// collectionitem.MovieIDValidator is a validator for the "movie_id" field. It is called by the builders before save.
+	collectionitem.MovieIDValidator = collectionitemDescMovieID.Validators[0].(func(int) error)
 	embynotificationMixin := schema.EmbyNotification{}.Mixin()
 	embynotificationMixinFields0 := embynotificationMixin[0].Fields()
 	_ = embynotificationMixinFields0

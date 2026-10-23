@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/ppxb/miyabi/internal/domain"
@@ -11,6 +12,8 @@ import (
 	"github.com/ppxb/miyabi/internal/ent"
 	"github.com/ppxb/miyabi/internal/ent/file"
 	"github.com/ppxb/miyabi/internal/ent/subtitle"
+	"github.com/ppxb/miyabi/internal/export"
+	"github.com/ppxb/miyabi/internal/pan"
 )
 
 // maxSearches bounds the movies whose online search results are kept for the player.
@@ -29,14 +32,15 @@ type SearchResult struct {
 type Player struct {
 	db     *ent.Client
 	finder *Finder
+	export *export.Manager
 
 	mu       sync.Mutex
 	searches map[int][]Candidate
 	order    []int
 }
 
-func NewPlayer(db *ent.Client, finder *Finder) *Player {
-	return &Player{db: db, finder: finder, searches: map[int][]Candidate{}}
+func NewPlayer(db *ent.Client, finder *Finder, exports *export.Manager) *Player {
+	return &Player{db: db, finder: finder, export: exports, searches: map[int][]Candidate{}}
 }
 
 // Track reads a saved subtitle of the movie.
@@ -96,7 +100,8 @@ func (p *Player) Search(ctx context.Context, movieID int) ([]SearchResult, error
 	return results, nil
 }
 
-// Fetch downloads a result of the movie's last search.
+// Fetch downloads a result of the movie's last search and saves it beside
+// the movie's .strm, so Emby and later playback find it too.
 func (p *Player) Fetch(ctx context.Context, movieID, index int) (string, error) {
 	p.mu.Lock()
 	candidates := p.searches[movieID]
@@ -104,13 +109,55 @@ func (p *Player) Fetch(ctx context.Context, movieID, index int) (string, error) 
 	if index < 0 || index >= len(candidates) {
 		return "", domain.E(domain.KindNotFound, "字幕搜索结果已过期，请重新搜索", nil)
 	}
-	body, _, err := p.finder.Download(ctx, candidates[index])
+	candidate := candidates[index]
+	body, language, err := p.finder.Download(ctx, candidate)
 	if err != nil {
 		return "", domain.E(domain.KindUpstream, "下载字幕失败", err)
+	}
+	candidate.Language = language
+	if err := p.save(ctx, movieID, candidate, body); err != nil {
+		return "", err
 	}
 	text, err := DecodeToUTF8(body)
 	if err != nil {
 		return "", fmt.Errorf("decode subtitle: %w", err)
 	}
-	return ToVTT(text, candidates[index].Format), nil
+	return ToVTT(text, candidate.Format), nil
+}
+
+// save keeps one subtitle per kind, as Export does. Multi-part movies export
+// one .strm per part, which a whole-movie subtitle fits none of, so they
+// keep the subtitle only for this playback.
+func (p *Player) save(ctx context.Context, movieID int, candidate Candidate, body []byte) error {
+	embyDir := p.export.Config().EmbyDir
+	record, err := p.db.Movie.Get(ctx, movieID)
+	if err != nil {
+		return fmt.Errorf("read movie: %w", err)
+	}
+	names, err := p.db.File.Query().Where(file.MovieIDEQ(movieID)).Select(file.FieldName).Strings(ctx)
+	if err != nil {
+		return fmt.Errorf("list movie videos: %w", err)
+	}
+	if embyDir == "" || len(names) != 1 {
+		return nil
+	}
+	target := subtitlemeta.Target{
+		Dir:  export.EmbyMovieDir(embyDir, record.Code),
+		Stem: export.MediaStem(record.Code, []pan.File{{Name: names[0]}}),
+	}
+	destination := target.Path(candidate.Kind())
+	if err := writeFile(destination, body); err != nil {
+		return err
+	}
+	exists, err := p.db.Subtitle.Query().Where(subtitle.MovieIDEQ(movieID), subtitle.StoragePathEQ(destination)).Exist(ctx)
+	if err != nil || exists {
+		return err
+	}
+	err = p.db.Subtitle.Create().SetMovieID(movieID).SetName(filepath.Base(destination)).
+		SetLanguage(string(candidate.Language)).SetFormat(candidate.Format).SetVersionTag(string(candidate.Version)).
+		SetSource(candidate.Provider).SetSourceURL(candidate.URL).SetStoragePath(destination).Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("record online subtitle: %w", err)
+	}
+	return nil
 }

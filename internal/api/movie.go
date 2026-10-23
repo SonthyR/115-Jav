@@ -105,11 +105,17 @@ func libraryArtworkHandler(artwork ArtworkReader) gin.HandlerFunc {
 }
 
 type libraryPageQuery struct {
-	Page    int    `form:"page,default=1" binding:"min=1"`
-	Limit   int    `form:"limit,default=20" binding:"min=1,max=100"`
-	Query   string `form:"q" binding:"max=200"`
-	Chinese bool   `form:"chinese"`
-	Sort    string `form:"sort" binding:"omitempty,oneof=added release code rating"`
+	Page       int    `form:"page,default=1" binding:"min=1"`
+	Limit      int    `form:"limit,default=20" binding:"min=1,max=100"`
+	Query      string `form:"q" binding:"max=200"`
+	Chinese    bool   `form:"chinese"`
+	Sort       string `form:"sort" binding:"omitempty,oneof=added release code rating"`
+	Actor      string `form:"actor" binding:"max=200"`
+	Maker      string `form:"maker" binding:"max=200"`
+	Series     string `form:"series" binding:"max=200"`
+	Tag        string `form:"tag" binding:"max=200"`
+	Year       int    `form:"year" binding:"omitempty,min=1900,max=2200"`
+	Collection int    `form:"collection" binding:"omitempty,min=1"`
 }
 
 func libraryMoviesHandler(library LibraryManager) gin.HandlerFunc {
@@ -120,6 +126,8 @@ func libraryMoviesHandler(library LibraryManager) gin.HandlerFunc {
 		}
 		movies, err := library.SearchMovies(c.Request.Context(), lib.MovieFilter{
 			Page: query.Page, Limit: query.Limit, Query: query.Query, Chinese: query.Chinese, Sort: query.Sort,
+			Actor: query.Actor, Maker: query.Maker, Series: query.Series, Tag: query.Tag,
+			Year: query.Year, Collection: query.Collection,
 		})
 		respond(c, movies, err)
 	}

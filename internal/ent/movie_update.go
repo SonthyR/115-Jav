@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/ppxb/miyabi/internal/domain"
 	"github.com/ppxb/miyabi/internal/ent/actor"
+	"github.com/ppxb/miyabi/internal/ent/collectionitem"
 	"github.com/ppxb/miyabi/internal/ent/file"
 	"github.com/ppxb/miyabi/internal/ent/movie"
 	"github.com/ppxb/miyabi/internal/ent/playbackprogress"
@@ -481,6 +482,21 @@ func (_u *MovieUpdate) SetProgress(v *PlaybackProgress) *MovieUpdate {
 	return _u.SetProgressID(v.ID)
 }
 
+// AddCollectionItemIDs adds the "collection_items" edge to the CollectionItem entity by IDs.
+func (_u *MovieUpdate) AddCollectionItemIDs(ids ...int) *MovieUpdate {
+	_u.mutation.AddCollectionItemIDs(ids...)
+	return _u
+}
+
+// AddCollectionItems adds the "collection_items" edges to the CollectionItem entity.
+func (_u *MovieUpdate) AddCollectionItems(v ...*CollectionItem) *MovieUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCollectionItemIDs(ids...)
+}
+
 // Mutation returns the MovieMutation object of the builder.
 func (_u *MovieUpdate) Mutation() *MovieMutation {
 	return _u.mutation
@@ -574,6 +590,27 @@ func (_u *MovieUpdate) RemoveSubtitles(v ...*Subtitle) *MovieUpdate {
 func (_u *MovieUpdate) ClearProgress() *MovieUpdate {
 	_u.mutation.ClearProgress()
 	return _u
+}
+
+// ClearCollectionItems clears all "collection_items" edges to the CollectionItem entity.
+func (_u *MovieUpdate) ClearCollectionItems() *MovieUpdate {
+	_u.mutation.ClearCollectionItems()
+	return _u
+}
+
+// RemoveCollectionItemIDs removes the "collection_items" edge to CollectionItem entities by IDs.
+func (_u *MovieUpdate) RemoveCollectionItemIDs(ids ...int) *MovieUpdate {
+	_u.mutation.RemoveCollectionItemIDs(ids...)
+	return _u
+}
+
+// RemoveCollectionItems removes "collection_items" edges to CollectionItem entities.
+func (_u *MovieUpdate) RemoveCollectionItems(v ...*CollectionItem) *MovieUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCollectionItemIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -963,6 +1000,51 @@ func (_u *MovieUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(playbackprogress.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CollectionItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   movie.CollectionItemsTable,
+			Columns: []string{movie.CollectionItemsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collectionitem.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCollectionItemsIDs(); len(nodes) > 0 && !_u.mutation.CollectionItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   movie.CollectionItemsTable,
+			Columns: []string{movie.CollectionItemsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collectionitem.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CollectionItemsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   movie.CollectionItemsTable,
+			Columns: []string{movie.CollectionItemsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collectionitem.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -1435,6 +1517,21 @@ func (_u *MovieUpdateOne) SetProgress(v *PlaybackProgress) *MovieUpdateOne {
 	return _u.SetProgressID(v.ID)
 }
 
+// AddCollectionItemIDs adds the "collection_items" edge to the CollectionItem entity by IDs.
+func (_u *MovieUpdateOne) AddCollectionItemIDs(ids ...int) *MovieUpdateOne {
+	_u.mutation.AddCollectionItemIDs(ids...)
+	return _u
+}
+
+// AddCollectionItems adds the "collection_items" edges to the CollectionItem entity.
+func (_u *MovieUpdateOne) AddCollectionItems(v ...*CollectionItem) *MovieUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCollectionItemIDs(ids...)
+}
+
 // Mutation returns the MovieMutation object of the builder.
 func (_u *MovieUpdateOne) Mutation() *MovieMutation {
 	return _u.mutation
@@ -1528,6 +1625,27 @@ func (_u *MovieUpdateOne) RemoveSubtitles(v ...*Subtitle) *MovieUpdateOne {
 func (_u *MovieUpdateOne) ClearProgress() *MovieUpdateOne {
 	_u.mutation.ClearProgress()
 	return _u
+}
+
+// ClearCollectionItems clears all "collection_items" edges to the CollectionItem entity.
+func (_u *MovieUpdateOne) ClearCollectionItems() *MovieUpdateOne {
+	_u.mutation.ClearCollectionItems()
+	return _u
+}
+
+// RemoveCollectionItemIDs removes the "collection_items" edge to CollectionItem entities by IDs.
+func (_u *MovieUpdateOne) RemoveCollectionItemIDs(ids ...int) *MovieUpdateOne {
+	_u.mutation.RemoveCollectionItemIDs(ids...)
+	return _u
+}
+
+// RemoveCollectionItems removes "collection_items" edges to CollectionItem entities.
+func (_u *MovieUpdateOne) RemoveCollectionItems(v ...*CollectionItem) *MovieUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCollectionItemIDs(ids...)
 }
 
 // Where appends a list predicates to the MovieUpdate builder.
@@ -1947,6 +2065,51 @@ func (_u *MovieUpdateOne) sqlSave(ctx context.Context) (_node *Movie, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(playbackprogress.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CollectionItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   movie.CollectionItemsTable,
+			Columns: []string{movie.CollectionItemsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collectionitem.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCollectionItemsIDs(); len(nodes) > 0 && !_u.mutation.CollectionItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   movie.CollectionItemsTable,
+			Columns: []string{movie.CollectionItemsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collectionitem.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CollectionItemsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   movie.CollectionItemsTable,
+			Columns: []string{movie.CollectionItemsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collectionitem.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

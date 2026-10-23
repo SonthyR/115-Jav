@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/ppxb/miyabi/internal/ent/actor"
+	"github.com/ppxb/miyabi/internal/ent/collectionitem"
 	"github.com/ppxb/miyabi/internal/ent/file"
 	"github.com/ppxb/miyabi/internal/ent/movie"
 	"github.com/ppxb/miyabi/internal/ent/playbackprogress"
@@ -24,15 +25,16 @@ import (
 // MovieQuery is the builder for querying Movie entities.
 type MovieQuery struct {
 	config
-	ctx           *QueryContext
-	order         []movie.OrderOption
-	inters        []Interceptor
-	predicates    []predicate.Movie
-	withActors    *ActorQuery
-	withTags      *TagQuery
-	withFiles     *FileQuery
-	withSubtitles *SubtitleQuery
-	withProgress  *PlaybackProgressQuery
+	ctx                 *QueryContext
+	order               []movie.OrderOption
+	inters              []Interceptor
+	predicates          []predicate.Movie
+	withActors          *ActorQuery
+	withTags            *TagQuery
+	withFiles           *FileQuery
+	withSubtitles       *SubtitleQuery
+	withProgress        *PlaybackProgressQuery
+	withCollectionItems *CollectionItemQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -172,6 +174,28 @@ func (_q *MovieQuery) QueryProgress() *PlaybackProgressQuery {
 			sqlgraph.From(movie.Table, movie.FieldID, selector),
 			sqlgraph.To(playbackprogress.Table, playbackprogress.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, false, movie.ProgressTable, movie.ProgressColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCollectionItems chains the current query on the "collection_items" edge.
+func (_q *MovieQuery) QueryCollectionItems() *CollectionItemQuery {
+	query := (&CollectionItemClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(movie.Table, movie.FieldID, selector),
+			sqlgraph.To(collectionitem.Table, collectionitem.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, movie.CollectionItemsTable, movie.CollectionItemsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -366,16 +390,17 @@ func (_q *MovieQuery) Clone() *MovieQuery {
 		return nil
 	}
 	return &MovieQuery{
-		config:        _q.config,
-		ctx:           _q.ctx.Clone(),
-		order:         append([]movie.OrderOption{}, _q.order...),
-		inters:        append([]Interceptor{}, _q.inters...),
-		predicates:    append([]predicate.Movie{}, _q.predicates...),
-		withActors:    _q.withActors.Clone(),
-		withTags:      _q.withTags.Clone(),
-		withFiles:     _q.withFiles.Clone(),
-		withSubtitles: _q.withSubtitles.Clone(),
-		withProgress:  _q.withProgress.Clone(),
+		config:              _q.config,
+		ctx:                 _q.ctx.Clone(),
+		order:               append([]movie.OrderOption{}, _q.order...),
+		inters:              append([]Interceptor{}, _q.inters...),
+		predicates:          append([]predicate.Movie{}, _q.predicates...),
+		withActors:          _q.withActors.Clone(),
+		withTags:            _q.withTags.Clone(),
+		withFiles:           _q.withFiles.Clone(),
+		withSubtitles:       _q.withSubtitles.Clone(),
+		withProgress:        _q.withProgress.Clone(),
+		withCollectionItems: _q.withCollectionItems.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -434,6 +459,17 @@ func (_q *MovieQuery) WithProgress(opts ...func(*PlaybackProgressQuery)) *MovieQ
 		opt(query)
 	}
 	_q.withProgress = query
+	return _q
+}
+
+// WithCollectionItems tells the query-builder to eager-load the nodes that are connected to
+// the "collection_items" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *MovieQuery) WithCollectionItems(opts ...func(*CollectionItemQuery)) *MovieQuery {
+	query := (&CollectionItemClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withCollectionItems = query
 	return _q
 }
 
@@ -515,12 +551,13 @@ func (_q *MovieQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Movie,
 	var (
 		nodes       = []*Movie{}
 		_spec       = _q.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [6]bool{
 			_q.withActors != nil,
 			_q.withTags != nil,
 			_q.withFiles != nil,
 			_q.withSubtitles != nil,
 			_q.withProgress != nil,
+			_q.withCollectionItems != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -572,6 +609,13 @@ func (_q *MovieQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Movie,
 	if query := _q.withProgress; query != nil {
 		if err := _q.loadProgress(ctx, query, nodes, nil,
 			func(n *Movie, e *PlaybackProgress) { n.Edges.Progress = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withCollectionItems; query != nil {
+		if err := _q.loadCollectionItems(ctx, query, nodes,
+			func(n *Movie) { n.Edges.CollectionItems = []*CollectionItem{} },
+			func(n *Movie, e *CollectionItem) { n.Edges.CollectionItems = append(n.Edges.CollectionItems, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -775,6 +819,36 @@ func (_q *MovieQuery) loadProgress(ctx context.Context, query *PlaybackProgressQ
 	}
 	query.Where(predicate.PlaybackProgress(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(movie.ProgressColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.MovieID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "movie_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *MovieQuery) loadCollectionItems(ctx context.Context, query *CollectionItemQuery, nodes []*Movie, init func(*Movie), assign func(*Movie, *CollectionItem)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Movie)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(collectionitem.FieldMovieID)
+	}
+	query.Where(predicate.CollectionItem(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(movie.CollectionItemsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

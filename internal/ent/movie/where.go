@@ -1465,6 +1465,29 @@ func HasProgressWith(preds ...predicate.PlaybackProgress) predicate.Movie {
 	})
 }
 
+// HasCollectionItems applies the HasEdge predicate on the "collection_items" edge.
+func HasCollectionItems() predicate.Movie {
+	return predicate.Movie(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CollectionItemsTable, CollectionItemsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCollectionItemsWith applies the HasEdge predicate on the "collection_items" edge with a given conditions (other predicates).
+func HasCollectionItemsWith(preds ...predicate.CollectionItem) predicate.Movie {
+	return predicate.Movie(func(s *sql.Selector) {
+		step := newCollectionItemsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Movie) predicate.Movie {
 	return predicate.Movie(sql.AndPredicates(predicates...))

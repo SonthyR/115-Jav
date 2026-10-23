@@ -11,6 +11,7 @@ import (
 	"github.com/ppxb/miyabi/internal/drive"
 	"github.com/ppxb/miyabi/internal/ent"
 	"github.com/ppxb/miyabi/internal/ent/actor"
+	"github.com/ppxb/miyabi/internal/ent/collectionitem"
 	"github.com/ppxb/miyabi/internal/ent/file"
 	"github.com/ppxb/miyabi/internal/ent/movie"
 	"github.com/ppxb/miyabi/internal/ent/predicate"
@@ -53,6 +54,8 @@ type Movie struct {
 	Actors       []Entity           `json:"actors"`
 	Tags         []Tag              `json:"tags"`
 	ScrapeStatus movie.ScrapeStatus `json:"scrape_status"`
+	// FileCount is how many videos of the movie, versions or parts, the library holds.
+	FileCount int `json:"file_count"`
 }
 
 type Page struct {
@@ -236,6 +239,11 @@ type MovieFilter struct {
 	Chinese bool
 	// Sort is added (default), release, code or rating.
 	Sort string
+	// Actor, Maker, Series and Tag match names exactly, so a person or label
+	// from different sources is one filter.
+	Actor, Maker, Series, Tag string
+	Year                      int
+	Collection                int
 }
 
 // chineseMarks are the name fragments that mark Chinese subtitles, as
@@ -258,6 +266,25 @@ func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, e
 			marks[i] = file.NameContainsFold(mark)
 		}
 		where = append(where, movie.HasFilesWith(scope, file.Or(marks...)))
+	}
+	if filter.Actor != "" {
+		where = append(where, movie.HasActorsWith(actor.Or(actor.NameEQ(filter.Actor), actor.NameZhtEQ(filter.Actor))))
+	}
+	if filter.Maker != "" {
+		where = append(where, movie.MakerNameEQ(filter.Maker))
+	}
+	if filter.Series != "" {
+		where = append(where, movie.SeriesNameEQ(filter.Series))
+	}
+	if filter.Tag != "" {
+		where = append(where, movie.HasTagsWith(tag.Or(tag.NameEQ(filter.Tag), tag.NameZhtEQ(filter.Tag))))
+	}
+	if filter.Year > 0 {
+		start := time.Date(filter.Year, 1, 1, 0, 0, 0, 0, time.UTC)
+		where = append(where, movie.ReleaseDateGTE(start), movie.ReleaseDateLT(start.AddDate(1, 0, 0)))
+	}
+	if filter.Collection > 0 {
+		where = append(where, movie.HasCollectionItemsWith(collectionitem.CollectionIDEQ(filter.Collection)))
 	}
 	order := []movie.OrderOption{ent.Desc(movie.FieldCreatedAt), ent.Desc(movie.FieldID)}
 	switch filter.Sort {
@@ -289,6 +316,9 @@ func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, e
 		}).
 		WithTags(func(query *ent.TagQuery) {
 			query.Select(tag.FieldID, tag.FieldProvider, tag.FieldSourceID, tag.FieldName).Order(ent.Asc(tag.FieldName), ent.Asc(tag.FieldID))
+		}).
+		WithFiles(func(query *ent.FileQuery) {
+			query.Where(scope).Select(file.FieldID, file.FieldMovieID)
 		}).All(ctx)
 	if err != nil {
 		return result, fmt.Errorf("list library movies: %w", err)
@@ -302,6 +332,7 @@ func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, e
 			Maker:    libraryEntity(record.MakerID, record.MakerName), Series: libraryEntity(record.SeriesID, record.SeriesName),
 			Actors: make([]Entity, 0, len(record.Edges.Actors)),
 			Tags:   make([]Tag, 0, len(record.Edges.Tags)), ScrapeStatus: record.ScrapeStatus,
+			FileCount: len(record.Edges.Files),
 		}
 		if record.ReleaseDate != nil {
 			item.ReleaseDate = record.ReleaseDate.Format(time.DateOnly)

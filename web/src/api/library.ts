@@ -34,6 +34,8 @@ export type LibraryMovie = {
   actors: LibraryEntity[]
   tags: Array<{ id: number; provider: string; source_id: string; name: string }>
   scrape_status: 'pending' | 'done' | 'failed'
+  // Versions or parts of the movie in the library.
+  file_count: number
 }
 
 type LibraryPage = {
@@ -69,6 +71,29 @@ export type LibraryFilter = {
   q?: string
   chinese?: boolean
   sort?: LibrarySort
+  actor?: string
+  maker?: string
+  series?: string
+  tag?: string
+  year?: number
+  collection?: number
+}
+
+export type LibraryFacetKind = 'actor' | 'maker' | 'series' | 'tag' | 'year'
+
+export type LibraryFacet = { name: string; count: number; avatar?: string }
+
+export type LibraryFacets = Record<
+  'actors' | 'makers' | 'series' | 'tags' | 'years',
+  LibraryFacet[]
+>
+
+export function useLibraryFacets() {
+  return useQuery({
+    queryKey: [...libraryKeys.all, 'facets'],
+    queryFn: ({ signal }) => apiGet<LibraryFacets>('/api/library/facets', undefined, signal),
+    staleTime: 60_000
+  })
 }
 
 export function useLibraryMovies(page: number, filter: LibraryFilter = {}) {
@@ -82,7 +107,13 @@ export function useLibraryMovies(page: number, filter: LibraryFilter = {}) {
           limit: LIBRARY_PAGE_SIZE,
           q: filter.q,
           chinese: filter.chinese ? 'true' : undefined,
-          sort: filter.sort
+          sort: filter.sort,
+          actor: filter.actor,
+          maker: filter.maker,
+          series: filter.series,
+          tag: filter.tag,
+          year: filter.year,
+          collection: filter.collection
         },
         signal
       ),

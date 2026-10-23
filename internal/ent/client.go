@@ -16,6 +16,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/ppxb/miyabi/internal/ent/actor"
+	"github.com/ppxb/miyabi/internal/ent/collection"
+	"github.com/ppxb/miyabi/internal/ent/collectionitem"
 	"github.com/ppxb/miyabi/internal/ent/embynotification"
 	"github.com/ppxb/miyabi/internal/ent/file"
 	"github.com/ppxb/miyabi/internal/ent/metadatacache"
@@ -37,6 +39,10 @@ type Client struct {
 	Schema *migrate.Schema
 	// Actor is the client for interacting with the Actor builders.
 	Actor *ActorClient
+	// Collection is the client for interacting with the Collection builders.
+	Collection *CollectionClient
+	// CollectionItem is the client for interacting with the CollectionItem builders.
+	CollectionItem *CollectionItemClient
 	// EmbyNotification is the client for interacting with the EmbyNotification builders.
 	EmbyNotification *EmbyNotificationClient
 	// File is the client for interacting with the File builders.
@@ -73,6 +79,8 @@ func NewClient(opts ...Option) *Client {
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.Actor = NewActorClient(c.config)
+	c.Collection = NewCollectionClient(c.config)
+	c.CollectionItem = NewCollectionItemClient(c.config)
 	c.EmbyNotification = NewEmbyNotificationClient(c.config)
 	c.File = NewFileClient(c.config)
 	c.MetadataCache = NewMetadataCacheClient(c.config)
@@ -178,6 +186,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ctx:              ctx,
 		config:           cfg,
 		Actor:            NewActorClient(cfg),
+		Collection:       NewCollectionClient(cfg),
+		CollectionItem:   NewCollectionItemClient(cfg),
 		EmbyNotification: NewEmbyNotificationClient(cfg),
 		File:             NewFileClient(cfg),
 		MetadataCache:    NewMetadataCacheClient(cfg),
@@ -210,6 +220,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ctx:              ctx,
 		config:           cfg,
 		Actor:            NewActorClient(cfg),
+		Collection:       NewCollectionClient(cfg),
+		CollectionItem:   NewCollectionItemClient(cfg),
 		EmbyNotification: NewEmbyNotificationClient(cfg),
 		File:             NewFileClient(cfg),
 		MetadataCache:    NewMetadataCacheClient(cfg),
@@ -251,9 +263,9 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.Actor, c.EmbyNotification, c.File, c.MetadataCache, c.Movie,
-		c.OfflineDownload, c.PlaybackProgress, c.Setting, c.Subscription, c.Subtitle,
-		c.Tag, c.Task, c.ViewedMovie,
+		c.Actor, c.Collection, c.CollectionItem, c.EmbyNotification, c.File,
+		c.MetadataCache, c.Movie, c.OfflineDownload, c.PlaybackProgress, c.Setting,
+		c.Subscription, c.Subtitle, c.Tag, c.Task, c.ViewedMovie,
 	} {
 		n.Use(hooks...)
 	}
@@ -263,9 +275,9 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.Actor, c.EmbyNotification, c.File, c.MetadataCache, c.Movie,
-		c.OfflineDownload, c.PlaybackProgress, c.Setting, c.Subscription, c.Subtitle,
-		c.Tag, c.Task, c.ViewedMovie,
+		c.Actor, c.Collection, c.CollectionItem, c.EmbyNotification, c.File,
+		c.MetadataCache, c.Movie, c.OfflineDownload, c.PlaybackProgress, c.Setting,
+		c.Subscription, c.Subtitle, c.Tag, c.Task, c.ViewedMovie,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -276,6 +288,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
 	case *ActorMutation:
 		return c.Actor.mutate(ctx, m)
+	case *CollectionMutation:
+		return c.Collection.mutate(ctx, m)
+	case *CollectionItemMutation:
+		return c.CollectionItem.mutate(ctx, m)
 	case *EmbyNotificationMutation:
 		return c.EmbyNotification.mutate(ctx, m)
 	case *FileMutation:
@@ -451,6 +467,320 @@ func (c *ActorClient) mutate(ctx context.Context, m *ActorMutation) (Value, erro
 		return (&ActorDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Actor mutation op: %q", m.Op())
+	}
+}
+
+// CollectionClient is a client for the Collection schema.
+type CollectionClient struct {
+	config
+}
+
+// NewCollectionClient returns a client for the Collection from the given config.
+func NewCollectionClient(c config) *CollectionClient {
+	return &CollectionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `collection.Hooks(f(g(h())))`.
+func (c *CollectionClient) Use(hooks ...Hook) {
+	c.hooks.Collection = append(c.hooks.Collection, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `collection.Intercept(f(g(h())))`.
+func (c *CollectionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Collection = append(c.inters.Collection, interceptors...)
+}
+
+// Create returns a builder for creating a Collection entity.
+func (c *CollectionClient) Create() *CollectionCreate {
+	mutation := newCollectionMutation(c.config, OpCreate)
+	return &CollectionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Collection entities.
+func (c *CollectionClient) CreateBulk(builders ...*CollectionCreate) *CollectionCreateBulk {
+	return &CollectionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CollectionClient) MapCreateBulk(slice any, setFunc func(*CollectionCreate, int)) *CollectionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CollectionCreateBulk{err: fmt.Errorf("calling to CollectionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CollectionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CollectionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Collection.
+func (c *CollectionClient) Update() *CollectionUpdate {
+	mutation := newCollectionMutation(c.config, OpUpdate)
+	return &CollectionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CollectionClient) UpdateOne(_m *Collection) *CollectionUpdateOne {
+	mutation := newCollectionMutation(c.config, OpUpdateOne, withCollection(_m))
+	return &CollectionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CollectionClient) UpdateOneID(id int) *CollectionUpdateOne {
+	mutation := newCollectionMutation(c.config, OpUpdateOne, withCollectionID(id))
+	return &CollectionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Collection.
+func (c *CollectionClient) Delete() *CollectionDelete {
+	mutation := newCollectionMutation(c.config, OpDelete)
+	return &CollectionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CollectionClient) DeleteOne(_m *Collection) *CollectionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CollectionClient) DeleteOneID(id int) *CollectionDeleteOne {
+	builder := c.Delete().Where(collection.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CollectionDeleteOne{builder}
+}
+
+// Query returns a query builder for Collection.
+func (c *CollectionClient) Query() *CollectionQuery {
+	return &CollectionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCollection},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Collection entity by its id.
+func (c *CollectionClient) Get(ctx context.Context, id int) (*Collection, error) {
+	return c.Query().Where(collection.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CollectionClient) GetX(ctx context.Context, id int) *Collection {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryItems queries the items edge of a Collection.
+func (c *CollectionClient) QueryItems(_m *Collection) *CollectionItemQuery {
+	query := (&CollectionItemClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collection.Table, collection.FieldID, id),
+			sqlgraph.To(collectionitem.Table, collectionitem.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, collection.ItemsTable, collection.ItemsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CollectionClient) Hooks() []Hook {
+	return c.hooks.Collection
+}
+
+// Interceptors returns the client interceptors.
+func (c *CollectionClient) Interceptors() []Interceptor {
+	return c.inters.Collection
+}
+
+func (c *CollectionClient) mutate(ctx context.Context, m *CollectionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CollectionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CollectionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CollectionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CollectionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Collection mutation op: %q", m.Op())
+	}
+}
+
+// CollectionItemClient is a client for the CollectionItem schema.
+type CollectionItemClient struct {
+	config
+}
+
+// NewCollectionItemClient returns a client for the CollectionItem from the given config.
+func NewCollectionItemClient(c config) *CollectionItemClient {
+	return &CollectionItemClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `collectionitem.Hooks(f(g(h())))`.
+func (c *CollectionItemClient) Use(hooks ...Hook) {
+	c.hooks.CollectionItem = append(c.hooks.CollectionItem, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `collectionitem.Intercept(f(g(h())))`.
+func (c *CollectionItemClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CollectionItem = append(c.inters.CollectionItem, interceptors...)
+}
+
+// Create returns a builder for creating a CollectionItem entity.
+func (c *CollectionItemClient) Create() *CollectionItemCreate {
+	mutation := newCollectionItemMutation(c.config, OpCreate)
+	return &CollectionItemCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CollectionItem entities.
+func (c *CollectionItemClient) CreateBulk(builders ...*CollectionItemCreate) *CollectionItemCreateBulk {
+	return &CollectionItemCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CollectionItemClient) MapCreateBulk(slice any, setFunc func(*CollectionItemCreate, int)) *CollectionItemCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CollectionItemCreateBulk{err: fmt.Errorf("calling to CollectionItemClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CollectionItemCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CollectionItemCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CollectionItem.
+func (c *CollectionItemClient) Update() *CollectionItemUpdate {
+	mutation := newCollectionItemMutation(c.config, OpUpdate)
+	return &CollectionItemUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CollectionItemClient) UpdateOne(_m *CollectionItem) *CollectionItemUpdateOne {
+	mutation := newCollectionItemMutation(c.config, OpUpdateOne, withCollectionItem(_m))
+	return &CollectionItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CollectionItemClient) UpdateOneID(id int) *CollectionItemUpdateOne {
+	mutation := newCollectionItemMutation(c.config, OpUpdateOne, withCollectionItemID(id))
+	return &CollectionItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CollectionItem.
+func (c *CollectionItemClient) Delete() *CollectionItemDelete {
+	mutation := newCollectionItemMutation(c.config, OpDelete)
+	return &CollectionItemDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CollectionItemClient) DeleteOne(_m *CollectionItem) *CollectionItemDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CollectionItemClient) DeleteOneID(id int) *CollectionItemDeleteOne {
+	builder := c.Delete().Where(collectionitem.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CollectionItemDeleteOne{builder}
+}
+
+// Query returns a query builder for CollectionItem.
+func (c *CollectionItemClient) Query() *CollectionItemQuery {
+	return &CollectionItemQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCollectionItem},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CollectionItem entity by its id.
+func (c *CollectionItemClient) Get(ctx context.Context, id int) (*CollectionItem, error) {
+	return c.Query().Where(collectionitem.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CollectionItemClient) GetX(ctx context.Context, id int) *CollectionItem {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryCollection queries the collection edge of a CollectionItem.
+func (c *CollectionItemClient) QueryCollection(_m *CollectionItem) *CollectionQuery {
+	query := (&CollectionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collectionitem.Table, collectionitem.FieldID, id),
+			sqlgraph.To(collection.Table, collection.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, collectionitem.CollectionTable, collectionitem.CollectionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMovie queries the movie edge of a CollectionItem.
+func (c *CollectionItemClient) QueryMovie(_m *CollectionItem) *MovieQuery {
+	query := (&MovieClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collectionitem.Table, collectionitem.FieldID, id),
+			sqlgraph.To(movie.Table, movie.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, collectionitem.MovieTable, collectionitem.MovieColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CollectionItemClient) Hooks() []Hook {
+	return c.hooks.CollectionItem
+}
+
+// Interceptors returns the client interceptors.
+func (c *CollectionItemClient) Interceptors() []Interceptor {
+	return c.inters.CollectionItem
+}
+
+func (c *CollectionItemClient) mutate(ctx context.Context, m *CollectionItemMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CollectionItemCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CollectionItemUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CollectionItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CollectionItemDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CollectionItem mutation op: %q", m.Op())
 	}
 }
 
@@ -1050,6 +1380,22 @@ func (c *MovieClient) QueryProgress(_m *Movie) *PlaybackProgressQuery {
 			sqlgraph.From(movie.Table, movie.FieldID, id),
 			sqlgraph.To(playbackprogress.Table, playbackprogress.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, false, movie.ProgressTable, movie.ProgressColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCollectionItems queries the collection_items edge of a Movie.
+func (c *MovieClient) QueryCollectionItems(_m *Movie) *CollectionItemQuery {
+	query := (&CollectionItemClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(movie.Table, movie.FieldID, id),
+			sqlgraph.To(collectionitem.Table, collectionitem.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, movie.CollectionItemsTable, movie.CollectionItemsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -2198,13 +2544,13 @@ func (c *ViewedMovieClient) mutate(ctx context.Context, m *ViewedMovieMutation) 
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Actor, EmbyNotification, File, MetadataCache, Movie, OfflineDownload,
-		PlaybackProgress, Setting, Subscription, Subtitle, Tag, Task,
+		Actor, Collection, CollectionItem, EmbyNotification, File, MetadataCache, Movie,
+		OfflineDownload, PlaybackProgress, Setting, Subscription, Subtitle, Tag, Task,
 		ViewedMovie []ent.Hook
 	}
 	inters struct {
-		Actor, EmbyNotification, File, MetadataCache, Movie, OfflineDownload,
-		PlaybackProgress, Setting, Subscription, Subtitle, Tag, Task,
+		Actor, Collection, CollectionItem, EmbyNotification, File, MetadataCache, Movie,
+		OfflineDownload, PlaybackProgress, Setting, Subscription, Subtitle, Tag, Task,
 		ViewedMovie []ent.Interceptor
 	}
 )

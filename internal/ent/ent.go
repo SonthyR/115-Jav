@@ -13,6 +13,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/ppxb/miyabi/internal/ent/actor"
+	"github.com/ppxb/miyabi/internal/ent/collection"
+	"github.com/ppxb/miyabi/internal/ent/collectionitem"
 	"github.com/ppxb/miyabi/internal/ent/embynotification"
 	"github.com/ppxb/miyabi/internal/ent/file"
 	"github.com/ppxb/miyabi/internal/ent/metadatacache"
@@ -86,6 +88,8 @@ func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			actor.Table:            actor.ValidColumn,
+			collection.Table:       collection.ValidColumn,
+			collectionitem.Table:   collectionitem.ValidColumn,
 			embynotification.Table: embynotification.ValidColumn,
 			file.Table:             file.ValidColumn,
 			metadatacache.Table:    metadatacache.ValidColumn,

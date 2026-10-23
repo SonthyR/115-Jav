@@ -9,6 +9,12 @@ import (
 // Actor is the predicate function for actor builders.
 type Actor func(*sql.Selector)
 
+// Collection is the predicate function for collection builders.
+type Collection func(*sql.Selector)
+
+// CollectionItem is the predicate function for collectionitem builders.
+type CollectionItem func(*sql.Selector)
+
 // EmbyNotification is the predicate function for embynotification builders.
 type EmbyNotification func(*sql.Selector)
 

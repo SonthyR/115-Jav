@@ -6,6 +6,7 @@ import type { LibraryMovieDetail } from '@/api/library'
 import { MovieResourceBadges, MovieStateBadge } from '@/components/movie/movie-badges'
 import { MovieCover } from '@/components/movie/movie-cover'
 import { Badge } from '@/components/ui/badge'
+import { CollectionButton } from '@/features/collections/collection-button'
 import { MovieMetadata } from './metadata'
 
 export function MovieHero({
@@ -72,7 +73,9 @@ export function MovieHero({
           </div>
         ) : null}
 
-        <MovieMetadata movie={movie} />
+        {'library_id' in movie ? <CollectionButton movieId={movie.library_id} /> : null}
+
+        <MovieMetadata movie={movie} library={'library_id' in movie} />
       </div>
     </section>
   )
