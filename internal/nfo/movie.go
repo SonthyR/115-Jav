@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ppxb/miyabi/internal/domain"
 	"net/url"
+	"strings"
 )
 
 // Kodi reads the standard fields. Source IDs and category/gender attributes
@@ -135,7 +136,21 @@ func Decode(body []byte) (Movie, error) {
 			}
 		}
 	}
+	movie.Title = trimCodePrefix(movie.Title, movie.Code)
 	return movie, nil
+}
+
+// trimCodePrefix undoes the code that exported titles start with, so the
+// library keeps the bare title and shows the code on its own.
+func trimCodePrefix(title, code string) string {
+	if code == "" || len(title) <= len(code) || !strings.EqualFold(title[:len(code)], code) {
+		return title
+	}
+	rest := title[len(code):]
+	if trimmed := strings.TrimLeft(rest, " 　-_"); trimmed != rest && trimmed != "" {
+		return trimmed
+	}
+	return title
 }
 
 func Encode(movie Movie) ([]byte, error) {

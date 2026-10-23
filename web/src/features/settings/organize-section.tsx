@@ -172,6 +172,18 @@ export function OrganizeSection() {
         />
       </SettingRow>
 
+      <SettingRow
+        title="NFO 标题带番号"
+        description="NFO 标题写成「番号 标题」，Emby 里搜番号就能找到。改了以后在媒体库点「重建」才会重写已有的 NFO"
+        inline
+      >
+        <Switch
+          checked={config?.title_code ?? true}
+          disabled={disabled}
+          onCheckedChange={title_code => save({ title_code })}
+        />
+      </SettingRow>
+
       <SettingRow title="整理日志" description="立即整理会检查两次，确认文件已经传完再动手">
         <div className="flex items-center gap-2">
           <Button

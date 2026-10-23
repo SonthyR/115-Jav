@@ -18,6 +18,7 @@ import (
 	"github.com/ppxb/miyabi/internal/domain"
 	"github.com/ppxb/miyabi/internal/drive"
 	"github.com/ppxb/miyabi/internal/ent"
+	"github.com/ppxb/miyabi/internal/nfo"
 	"github.com/ppxb/miyabi/internal/pan"
 )
 
@@ -49,10 +50,14 @@ type Config struct {
 	MaxActors  int    `json:"max_actors"`
 	MinVideoMB int    `json:"min_video_mb"`
 	CleanJunk  bool   `json:"clean_junk"`
+	// TitleCode writes the code in front of NFO titles, so Emby finds a movie
+	// by its code. Nil, as in configurations saved before it, means on.
+	TitleCode *bool `json:"title_code,omitempty"`
 }
 
 func DefaultConfig() Config {
-	return Config{MaxActors: DefaultMaxActors, MinVideoMB: 200, CleanJunk: true}
+	on := true
+	return Config{MaxActors: DefaultMaxActors, MinVideoMB: 200, CleanJunk: true, TitleCode: &on}
 }
 
 func (cfg Config) normalized() Config {
@@ -61,6 +66,9 @@ func (cfg Config) normalized() Config {
 	}
 	if cfg.MinVideoMB <= 0 {
 		cfg.MinVideoMB = DefaultConfig().MinVideoMB
+	}
+	if cfg.TitleCode == nil {
+		cfg.TitleCode = DefaultConfig().TitleCode
 	}
 	return cfg
 }
@@ -146,7 +154,18 @@ func (s *Service) UpdateConfig(ctx context.Context, cfg Config) (Config, error) 
 	if err := database.SaveSetting(ctx, s.db, configSetting, cfg); err != nil {
 		return Config{}, err
 	}
+	nfo.SetTitleCode(*cfg.TitleCode)
 	return cfg, nil
+}
+
+// ApplyNFOStyle applies the saved NFO options to exports; call it once at startup.
+func (s *Service) ApplyNFOStyle(ctx context.Context) error {
+	cfg, err := s.Config(ctx)
+	if err != nil {
+		return err
+	}
+	nfo.SetTitleCode(*cfg.TitleCode)
+	return nil
 }
 
 // Log returns the newest entries first.

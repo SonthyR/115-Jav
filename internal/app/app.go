@@ -193,6 +193,9 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 	if err := organizer.LoadAliases(ctx); err != nil {
 		logger.ErrorContext(ctx, "failed to load merged actor names", "error", err)
 	}
+	if err := organizer.ApplyNFOStyle(ctx); err != nil {
+		logger.ErrorContext(ctx, "failed to load NFO options", "error", err)
+	}
 
 	router := api.NewRouter(api.Dependencies{
 		Logger:         logger,

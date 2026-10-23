@@ -32,11 +32,13 @@ type fileOpener interface {
 // sidecarFiles is the subset of drive.Files that sidecar publishing uses.
 type sidecarFiles interface {
 	Upload(ctx context.Context, parentID, name string, body []byte) (pan.UploadedFile, error)
+	Delete(ctx context.Context, fileIDs []string, parentID string) error
 }
 
 // Sidecars writes the library's NFO and artwork to 115 after miyabi publishes
 // a movie, so the cloud copy matches {code}-C.nfo, poster.jpg, fanart.jpg and
-// thumb.jpg. A directory that already has an NFO is left untouched.
+// thumb.jpg. A directory that already has an NFO keeps it, unless a rebuild
+// asks for every NFO to be rewritten.
 type Sidecars struct {
 	open func(ctx context.Context) (sidecarFiles, error)
 }
@@ -45,10 +47,10 @@ func NewSidecars(opener fileOpener) *Sidecars {
 	return &Sidecars{open: func(ctx context.Context) (sidecarFiles, error) { return opener.OpenFiles(ctx) }}
 }
 
-func (sidecars *Sidecars) PublishSidecars(ctx context.Context, directories []scrape.MovieDirectory, doc nfo.Movie, videos []pan.File, poster, fanart []byte) {
+func (sidecars *Sidecars) PublishSidecars(ctx context.Context, directories []scrape.MovieDirectory, doc nfo.Movie, videos []pan.File, poster, fanart []byte, replace bool) {
 	var files sidecarFiles
 	for _, directory := range directories {
-		uploads := plannedSidecars(directory, doc, videos, poster, fanart)
+		uploads, stale := plannedSidecars(directory, doc, videos, poster, fanart, replace)
 		if len(uploads) == 0 {
 			continue
 		}
@@ -57,6 +59,13 @@ func (sidecars *Sidecars) PublishSidecars(ctx context.Context, directories []scr
 			if files, err = sidecars.open(ctx); err != nil {
 				slog.WarnContext(ctx, "cannot write sidecars to 115", "code", doc.Code, "error", err)
 				return
+			}
+		}
+		// The old NFO goes to the recycle bin first so the new one keeps its name.
+		if len(stale) > 0 {
+			if err := files.Delete(ctx, stale, directory.ID); err != nil {
+				slog.WarnContext(ctx, "failed to replace NFO on 115", "code", doc.Code, "error", err)
+				continue
 			}
 		}
 		for _, upload := range uploads {
@@ -75,18 +84,26 @@ type sidecarUpload struct {
 	body []byte
 }
 
-// plannedSidecars lists the missing sidecars for one 115 directory. The NFO
-// takes the name of the directory's first video without its part suffix.
-func plannedSidecars(directory scrape.MovieDirectory, doc nfo.Movie, videos []pan.File, poster, fanart []byte) []sidecarUpload {
+// plannedSidecars lists the missing sidecars for one 115 directory, and with
+// replace the NFOs to remove before the new one is written. The NFO takes the
+// name of the directory's first video without its part suffix, or the name of
+// the NFO it replaces.
+func plannedSidecars(directory scrape.MovieDirectory, doc nfo.Movie, videos []pan.File, poster, fanart []byte, replace bool) ([]sidecarUpload, []string) {
 	present := make(map[string]bool)
+	var stale []string
+	nfoName := ""
 	for _, entry := range directory.Files {
 		name := strings.ToLower(entry.Name)
 		if !entry.IsDirectory && path.Ext(name) == ".nfo" {
-			return nil
+			if !replace {
+				return nil, nil
+			}
+			stale = append(stale, entry.ID)
+			nfoName = entry.Name
 		}
 		// poster.jpg in a folder shared by several movies would belong to none.
 		if !entry.IsDirectory && domain.IsVideo(entry.Name) && entry.Size >= domain.MinVideoSize && !directory.VideoIDs[entry.ID] {
-			return nil
+			return nil, nil
 		}
 		present[name] = true
 	}
@@ -97,27 +114,29 @@ func plannedSidecars(directory scrape.MovieDirectory, doc nfo.Movie, videos []pa
 		}
 	}
 	if len(names) == 0 {
-		return nil
+		return nil, nil
 	}
 	slices.Sort(names)
-	stem := partStem.ReplaceAllString(strings.TrimSuffix(names[0], path.Ext(names[0])), "")
-	body, err := sidecarNFO(doc)
-	if err != nil {
-		return nil
+	if nfoName == "" {
+		nfoName = partStem.ReplaceAllString(strings.TrimSuffix(names[0], path.Ext(names[0])), "") + ".nfo"
 	}
-	uploads := []sidecarUpload{{name: stem + ".nfo", body: body}}
+	body, err := sidecarNFO(doc, names)
+	if err != nil {
+		return nil, nil
+	}
+	uploads := []sidecarUpload{{name: nfoName, body: body}}
 	for _, image := range []sidecarUpload{{posterName, poster}, {fanartName, fanart}, {thumbName, fanart}} {
 		if len(image.body) > 0 && !present[image.name] {
 			uploads = append(uploads, image)
 		}
 	}
-	return uploads
+	return uploads, stale
 }
 
 // sidecarNFO encodes the NFO kept next to a movie's videos on 115.
-func sidecarNFO(doc nfo.Movie) ([]byte, error) {
+func sidecarNFO(doc nfo.Movie, videoNames []string) ([]byte, error) {
 	doc.Thumbs = []nfo.Thumb{{Aspect: "poster", Path: posterName}}
 	doc.Fanart = fanartName
 	doc.Actors = actorname.Current().Rename(doc.Actors)
-	return nfo.Encode(doc)
+	return nfo.Encode(nfo.ForMediaServer(doc, videoNames))
 }
