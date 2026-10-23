@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ppxb/miyabi/internal/actoralias"
 	"github.com/ppxb/miyabi/internal/actorname"
 	"github.com/ppxb/miyabi/internal/codeid"
 	"github.com/ppxb/miyabi/internal/database"
@@ -112,6 +113,9 @@ type Service struct {
 	scanner  Scanner
 	wake     func()
 	sync     func(context.Context) error
+	// aliases pairs translated actor names with the catalogue's, so a
+	// folder named either way is found.
+	aliases *actoralias.Index
 	// placeDelay separates Place's attempts to find a download.
 	placeDelay time.Duration
 
@@ -126,7 +130,7 @@ type Service struct {
 
 func New(db *ent.Client, d *drive.Drive, metadata Resolver, scanner Scanner, wake func()) *Service {
 	return &Service{
-		db: db, metadata: metadata, scanner: scanner, wake: wake,
+		db: db, metadata: metadata, scanner: scanner, wake: wake, aliases: actoralias.New(db),
 		open:  func(ctx context.Context) (Files, error) { return d.OpenFiles(ctx) },
 		sizes: make(map[string]string), failed: make(map[string]string),
 		placeDelay: 5 * time.Second,
@@ -486,6 +490,8 @@ func (r *run) plan(ctx context.Context, item release) (plan, string) {
 		if actor.NameZHT != "" && actor.NameZHT != actor.Name {
 			known.Aliases = []string{actor.NameZHT}
 		}
+		// Older folders may use a translated name for the same actress.
+		known.Aliases = append(known.Aliases, r.service.aliases.Translations(ctx, actor.Name)...)
 		// A merged actor keeps the folder chosen for the merge.
 		if kept := aliases.Canonical(actor.Name); kept != actor.Name {
 			known = Actor{Name: kept, Aliases: append([]string{actor.Name}, known.Aliases...)}

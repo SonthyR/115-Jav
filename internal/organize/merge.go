@@ -192,6 +192,12 @@ func (s *Service) linkActors(ctx context.Context, files Files) (*actorLinks, []*
 			links.union(key, credited[0])
 		}
 	}
+	// Translated names in imported NFOs pair with the catalogue's spelling.
+	for name, alias := range s.aliases.Aliases(ctx) {
+		if _, seen := links.names[actorname.Key(SafeName(name))]; seen {
+			links.union(note(name), note(alias.Name))
+		}
+	}
 	aliases, _, err := database.LoadSetting[actorname.Aliases](ctx, s.db, aliasSetting)
 	if err != nil {
 		return nil, nil, err
