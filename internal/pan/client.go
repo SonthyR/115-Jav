@@ -3,6 +3,7 @@ package pan
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,8 +25,13 @@ const (
 )
 
 type Client struct {
-	http  *resty.Client
-	media *http.Client
+	http      *resty.Client
+	media     *http.Client
+	transport *panTransport
+	// limitPause grows while 115 keeps reporting its access limit.
+	limitMu    sync.Mutex
+	limitPause time.Duration
+	limitUntil time.Time
 }
 
 const (
@@ -36,6 +42,10 @@ const (
 	requestGap = 250 * time.Millisecond
 	// maxInFlight bounds concurrent in-flight requests to avoid tripping 115 risk control.
 	maxInFlight = 2
+	// After 115 reports its access limit, every request waits this long, doubling
+	// while the limit persists, instead of failing each queued movie in turn.
+	minLimitPause = 5 * time.Minute
+	maxLimitPause = time.Hour
 )
 
 type panTransport struct {
@@ -114,6 +124,14 @@ func (t *panTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
+func (t *panTransport) holdUntil(until time.Time) {
+	t.mu.Lock()
+	if until.After(t.retryAfter) {
+		t.retryAfter = until
+	}
+	t.mu.Unlock()
+}
+
 type timedResponseBody struct {
 	io.ReadCloser
 	cancel context.CancelFunc
@@ -157,7 +175,8 @@ func New() *Client {
 	httpClient := netx.NewDirectRestyClient(netx.RestyOptions{}).SetTimeout(0).SetPreRequestHook(preserveEmptyUserAgent)
 	limiter := rate.NewLimiter(rate.Every(requestGap), 1)
 
-	httpClient.SetTransport(newPanTransport(httpClient.GetClient().Transport, limiter, maxInFlight))
+	transport := newPanTransport(httpClient.GetClient().Transport, limiter, maxInFlight)
+	httpClient.SetTransport(transport)
 
 	httpClient.SetRetryCount(3)
 	httpClient.SetRetryWaitTime(1 * time.Second)
@@ -190,8 +209,9 @@ func New() *Client {
 	mediaTransport := netx.NewTransport(nil)
 	mediaTransport.ResponseHeaderTimeout = requestTimeout
 	return &Client{
-		http:  httpClient,
-		media: &http.Client{Transport: mediaTransport},
+		http:      httpClient,
+		media:     &http.Client{Transport: mediaTransport},
+		transport: transport,
 	}
 }
 
@@ -270,13 +290,37 @@ func apiRequest[T apiPayload](client *Client, request *resty.Request, method, en
 	var envelope apiResponse
 	if err := json.Unmarshal(response.Body(), &envelope); err == nil {
 		if err := envelope.err(); err != nil {
+			client.noteLimit(err)
 			return result, err
 		}
 	}
 	if err := json.Unmarshal(response.Body(), &result); err != nil {
 		return result, fmt.Errorf("decode 115 %s: %w", action, err)
 	}
-	return result, result.err()
+	err = result.err()
+	client.noteLimit(err)
+	return result, err
+}
+
+// noteLimit holds back all 115 requests while the access limit lasts.
+func (client *Client) noteLimit(err error) {
+	client.limitMu.Lock()
+	defer client.limitMu.Unlock()
+	if !errors.Is(err, ErrRateLimited) {
+		if err == nil && time.Now().After(client.limitUntil) {
+			client.limitPause = 0
+		}
+		return
+	}
+	if time.Now().Before(client.limitUntil) {
+		// Requests already in flight report the same limit.
+		return
+	}
+	client.limitPause = min(max(client.limitPause*2, minLimitPause), maxLimitPause)
+	client.limitUntil = time.Now().Add(client.limitPause)
+	if client.transport != nil {
+		client.transport.holdUntil(client.limitUntil)
+	}
 }
 
 // Resty fills empty UA headers; this private marker preserves an explicit empty UA.

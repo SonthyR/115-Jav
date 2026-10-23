@@ -3,6 +3,7 @@ package pan
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/ppxb/miyabi/internal/domain"
 )
@@ -13,6 +14,7 @@ var (
 	ErrOfflineExists        = domain.E(domain.KindConflict, "115 offline task already exists", nil)
 	ErrTranscodeUnavailable = errors.New("transcoded playback sources unavailable")
 	ErrDownloadUnavailable  = errors.New("direct download URL unavailable")
+	ErrRateLimited          = domain.E(domain.KindRateLimited, "115 rate limit reached", nil)
 )
 
 type apiError struct {
@@ -36,6 +38,8 @@ func (err *apiError) DomainKind() domain.Kind {
 		return domain.KindNotFound
 	case err.Is(ErrOfflineExists):
 		return domain.KindConflict
+	case err.Is(ErrRateLimited):
+		return domain.KindRateLimited
 	default:
 		return domain.KindUpstream
 	}
@@ -47,6 +51,10 @@ func (err *apiError) Is(target error) bool {
 	}
 	if target == ErrOfflineExists {
 		return err.Code == 10008
+	}
+	if target == ErrRateLimited {
+		// e.g. 已达到当前访问上限，请稍后再试
+		return strings.Contains(err.Message, "访问上限") || strings.Contains(err.Message, "频繁")
 	}
 	if target != ErrUnauthorized {
 		return false
