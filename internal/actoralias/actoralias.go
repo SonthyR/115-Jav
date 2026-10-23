@@ -1,49 +1,97 @@
-package library
+// Package actoralias pairs the actor names a library uses, often translated
+// by imported NFO files, with the Japanese names JavDB gives the same films.
+package actoralias
 
 import (
 	"cmp"
 	"context"
 	"log/slog"
+	"maps"
 	"slices"
 	"sync"
 	"time"
 
 	"github.com/ppxb/miyabi/internal/codeid"
+	"github.com/ppxb/miyabi/internal/ent"
+	"github.com/ppxb/miyabi/internal/ent/actor"
 	"github.com/ppxb/miyabi/internal/ent/metadatacache"
 )
 
 // Aliases are rebuilt at most this often; cached catalogue results change slowly.
-const aliasTTL = 10 * time.Minute
+const ttl = 10 * time.Minute
 
-// actorAlias is the catalogue's name and portrait for a library actor.
-type actorAlias struct {
+// Alias is the catalogue's name and portrait for a library actor.
+type Alias struct {
 	Name   string
 	Avatar string
 }
 
-type actorAliasCache struct {
+// Index builds the pairs from the metadata cache and keeps them for a while.
+type Index struct {
+	db      *ent.Client
 	mu      sync.Mutex
 	builtAt time.Time
-	aliases map[string]actorAlias
+	aliases map[string]Alias
 }
 
-// actorAliases pairs library actor names, often translated by imported NFO
-// files, with the Japanese names JavDB gives the same films. A pair counts
+func New(db *ent.Client) *Index { return &Index{db: db} }
+
+// Translations lists the library names paired with a catalogue name.
+func (i *Index) Translations(ctx context.Context, name string) []string {
+	var names []string
+	for library, alias := range i.Aliases(ctx) {
+		if alias.Name == name && library != name {
+			names = append(names, library)
+		}
+	}
+	slices.Sort(names)
+	return names
+}
+
+// Aliases maps library actor names to their catalogue names. A pair counts
 // when a film has one unpaired actress on each side; names paired by other
 // films are set aside first, so casts resolve over a few passes. The most
 // frequent pairing wins, which outvotes the odd mislabelled film.
-func (s *Service) actorAliases(ctx context.Context, cast map[string][]string) map[string]actorAlias {
-	s.aliases.mu.Lock()
-	defer s.aliases.mu.Unlock()
-	if s.aliases.aliases != nil && time.Since(s.aliases.builtAt) < aliasTTL {
-		return s.aliases.aliases
+func (i *Index) Aliases(ctx context.Context) map[string]Alias {
+	if i == nil {
+		return nil
 	}
-	entries, err := s.database.MetadataCache.Query().
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if i.aliases != nil && time.Since(i.builtAt) < ttl {
+		return i.aliases
+	}
+	aliases, err := i.build(ctx)
+	if err != nil {
+		slog.WarnContext(ctx, "pair actor names with the catalogue", "error", err)
+		return i.aliases
+	}
+	i.aliases, i.builtAt = aliases, time.Now()
+	return aliases
+}
+
+func (i *Index) build(ctx context.Context) (map[string]Alias, error) {
+	movies, err := i.db.Movie.Query().
+		WithActors(func(query *ent.ActorQuery) {
+			query.Where(actor.GenderNEQ(actor.GenderMale)).Select(actor.FieldID, actor.FieldName)
+		}).All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	cast := make(map[string][]string, len(movies))
+	for _, record := range movies {
+		code := codeid.Normalize(record.Code)
+		for _, person := range record.Edges.Actors {
+			if !slices.Contains(cast[code], person.Name) {
+				cast[code] = append(cast[code], person.Name)
+			}
+		}
+	}
+	entries, err := i.db.MetadataCache.Query().
 		Where(metadatacache.ProviderEQ("javdb"), metadatacache.ResultNotNil()).
 		All(ctx)
 	if err != nil {
-		slog.WarnContext(ctx, "read cached catalogue actors", "error", err)
-		return s.aliases.aliases
+		return nil, err
 	}
 	catalogue := map[string][]string{}
 	avatars := map[string]string{}
@@ -71,7 +119,8 @@ func (s *Service) actorAliases(ctx context.Context, cast map[string][]string) ma
 	resolved := map[string]string{}
 	for range 3 {
 		votes := map[string]map[string]int{}
-		for code, known := range catalogue {
+		for _, code := range slices.Sorted(maps.Keys(catalogue)) {
+			known := catalogue[code]
 			// Set aside the names this film shares or that other films paired.
 			var left []string
 			paired := map[string]bool{}
@@ -112,10 +161,9 @@ func (s *Service) actorAliases(ctx context.Context, cast map[string][]string) ma
 		}
 	}
 
-	aliases := make(map[string]actorAlias, len(resolved))
+	aliases := make(map[string]Alias, len(resolved))
 	for name, alias := range resolved {
-		aliases[name] = actorAlias{Name: alias, Avatar: avatars[alias]}
+		aliases[name] = Alias{Name: alias, Avatar: avatars[alias]}
 	}
-	s.aliases.aliases, s.aliases.builtAt = aliases, time.Now()
-	return aliases
+	return aliases, nil
 }

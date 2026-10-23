@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ppxb/miyabi/internal/actoralias"
 	"github.com/ppxb/miyabi/internal/database"
 	"github.com/ppxb/miyabi/internal/domain"
 	"github.com/ppxb/miyabi/internal/drive"
@@ -74,7 +75,7 @@ type Service struct {
 	localScanner *scan.LocalScanner
 	exportMgr    *export.Manager
 	scanLock     syncx.ContextLock
-	aliases      actorAliasCache
+	aliases      *actoralias.Index
 }
 
 type Options struct {
@@ -91,6 +92,7 @@ func New(database *ent.Client, d *drive.Drive, tasks *tasks.Service, images *med
 		scanner:      scan.New(d, database, images, tasks, options.ExportManager, options.Pacing),
 		localScanner: scan.NewLocalScanner(database, images),
 		exportMgr:    options.ExportManager,
+		aliases:      actoralias.New(database),
 	}
 	if d != nil && tasks != nil {
 		d.SetMountListener(func(ctx context.Context, event drive.MountEvent) error {

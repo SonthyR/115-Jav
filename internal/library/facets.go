@@ -7,7 +7,6 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/ppxb/miyabi/internal/codeid"
 	"github.com/ppxb/miyabi/internal/ent"
 	"github.com/ppxb/miyabi/internal/ent/actor"
 	"github.com/ppxb/miyabi/internal/ent/movie"
@@ -36,7 +35,7 @@ type Facets struct {
 // current library, most common first; years are newest first.
 func (s *Service) Facets(ctx context.Context) (Facets, error) {
 	records, err := s.database.Movie.Query().Where(movie.HasFilesWith(libraryScope(s.Source()))).
-		Select(movie.FieldID, movie.FieldCode, movie.FieldMakerName, movie.FieldSeriesName, movie.FieldReleaseDate).
+		Select(movie.FieldID, movie.FieldMakerName, movie.FieldSeriesName, movie.FieldReleaseDate).
 		WithActors(func(query *ent.ActorQuery) {
 			query.Where(actor.GenderNEQ(actor.GenderMale)).Select(actor.FieldID, actor.FieldName, actor.FieldAvatar)
 		}).
@@ -46,7 +45,6 @@ func (s *Service) Facets(ctx context.Context) (Facets, error) {
 		return Facets{}, fmt.Errorf("list library facets: %w", err)
 	}
 	actors, makers, series, tags, years := newCounter(), newCounter(), newCounter(), newCounter(), newCounter()
-	cast := make(map[string][]string, len(records))
 	for _, record := range records {
 		// A movie counts once per name, even when sources repeat a person.
 		seen := map[string]bool{}
@@ -54,7 +52,6 @@ func (s *Service) Facets(ctx context.Context) (Facets, error) {
 			if !seen[person.Name] {
 				seen[person.Name] = true
 				actors.add(person.Name, person.Avatar)
-				cast[codeid.Normalize(record.Code)] = append(cast[codeid.Normalize(record.Code)], person.Name)
 			}
 		}
 		for _, label := range record.Edges.Tags {
@@ -74,7 +71,7 @@ func (s *Service) Facets(ctx context.Context) (Facets, error) {
 		}
 	}
 	actorFacets := actors.facets()
-	aliases := s.actorAliases(ctx, cast)
+	aliases := s.aliases.Aliases(ctx)
 	for i, facet := range actorFacets {
 		if alias, ok := aliases[facet.Name]; ok {
 			if alias.Name != facet.Name {
