@@ -1,22 +1,35 @@
 import { Link } from '@tanstack/react-router'
-import { FolderHeartIcon, InfoIcon, PlayIcon } from 'lucide-react'
+import { FolderHeartIcon, InfoIcon, PlayIcon, ShuffleIcon } from 'lucide-react'
 import { useState } from 'react'
 
 import { imageURL } from '@/api/client'
 import { useCollections } from '@/api/collections'
-import { type LibraryMovie, useLibraryMovies } from '@/api/library'
+import {
+  LIBRARY_PAGE_SIZE,
+  type LibraryFacet,
+  type LibraryFilter,
+  type LibraryMovie,
+  useLibraryFacets,
+  useLibraryMovies
+} from '@/api/library'
 import { EmptyState } from '@/components/empty-state'
 import { MovieCover } from '@/components/movie/movie-cover'
 import { Button } from '@/components/ui/button'
+import { ActorTile } from './actor-tile'
 import { ContinueWatching } from './continue-watching'
 import { PosterCard } from './poster-card'
 import { Row } from './row'
 
+const posterClass = 'w-32 shrink-0 snap-start sm:w-40'
+
 export function WatchHome() {
   const recent = useLibraryMovies(1, {})
-  const rated = useLibraryMovies(1, { sort: 'rating' })
   const collections = useCollections()
+  const facets = useLibraryFacets()
   const movies = recent.data?.movies ?? []
+  // Two of the most common tags each get a row, a different pair per visit.
+  const [seed] = useState(() => Math.random())
+  const tags = pickTags(facets.data?.tags ?? [], seed)
 
   return (
     <main className="pb-24">
@@ -25,33 +38,37 @@ export function WatchHome() {
         <ContinueWatching />
 
         {movies.length > 0 ? (
-          <Row title="最近入库" to="/browse">
+          <Row title="最近入库" link={{ to: '/browse' }}>
             {movies.map(movie => (
-              <PosterCard
-                key={movie.id}
-                movie={movie}
-                className="w-32 shrink-0 snap-start sm:w-40"
-              />
+              <PosterCard key={movie.id} movie={movie} className={posterClass} />
             ))}
           </Row>
         ) : recent.data ? (
           <EmptyState className="py-12" title="媒体库里还没有影片" />
         ) : null}
 
-        {rated.data?.movies.length ? (
-          <Row title="高分影片" to="/browse">
-            {rated.data.movies.map(movie => (
-              <PosterCard
-                key={movie.id}
-                movie={movie}
-                className="w-32 shrink-0 snap-start sm:w-40"
+        {facets.data?.actors.length ? (
+          <Row title="演员" link={{ to: '/actors' }}>
+            {facets.data.actors.slice(0, 20).map(actor => (
+              <ActorTile
+                key={actor.name}
+                actor={actor}
+                className="w-24 shrink-0 snap-start sm:w-28"
               />
             ))}
           </Row>
         ) : null}
 
+        <MovieRow title="中文字幕" filter={{ chinese: true }} />
+        <RandomRow total={recent.data?.total ?? 0} />
+        <MovieRow title="最新发行" filter={{ sort: 'release' }} />
+        <MovieRow title="高分影片" filter={{ sort: 'rating' }} />
+        {tags.map(tag => (
+          <MovieRow key={tag} title={tag} filter={{ tag }} />
+        ))}
+
         {collections.data?.length ? (
-          <Row title="收藏夹" to="/collections">
+          <Row title="收藏夹" link={{ to: '/collections' }}>
             {collections.data.map(item => (
               <Link
                 key={item.id}
@@ -78,6 +95,67 @@ export function WatchHome() {
       </div>
     </main>
   )
+}
+
+// A row of library movies matching a filter; empty rows are left out.
+function MovieRow({ title, filter }: { title: string; filter: LibraryFilter }) {
+  const result = useLibraryMovies(1, filter)
+  if (!result.data?.movies.length) return null
+  return (
+    <Row title={title} link={{ to: '/browse', search: filter }}>
+      {result.data.movies.map(movie => (
+        <PosterCard key={movie.id} movie={movie} className={posterClass} />
+      ))}
+    </Row>
+  )
+}
+
+// A random page of the library, so older films come back into view.
+function RandomRow({ total }: { total: number }) {
+  const pages = Math.ceil(total / LIBRARY_PAGE_SIZE)
+  const [roll, setRoll] = useState(() => Math.random())
+  // Page 1 is already the 最近入库 row.
+  const page = pages < 2 ? 1 : 2 + Math.floor(roll * (pages - 1))
+  const result = useLibraryMovies(page, {})
+  if (pages < 2 || !result.data?.movies.length) return null
+  const movies = shuffle(result.data.movies, roll)
+  return (
+    <Row
+      title="随便看看"
+      action={
+        <Button variant="ghost" size="sm" onClick={() => setRoll(Math.random())}>
+          <ShuffleIcon data-icon="inline-start" />
+          换一批
+        </Button>
+      }
+    >
+      {movies.map(movie => (
+        <PosterCard key={movie.id} movie={movie} className={posterClass} />
+      ))}
+    </Row>
+  )
+}
+
+function pickTags(tags: LibraryFacet[], seed: number) {
+  const common = tags.filter(tag => tag.count >= 5).slice(0, 12)
+  if (common.length <= 2) return common.map(tag => tag.name)
+  const first = Math.floor(seed * common.length)
+  const second = (first + 1 + (Math.floor(seed * 7919) % (common.length - 1))) % common.length
+  return [common[first]!.name, common[second]!.name]
+}
+
+function shuffle<T>(items: T[], seed: number) {
+  let state = Math.floor(seed * 4294967296)
+  const random = () => {
+    state = (state * 1664525 + 1013904223) % 4294967296
+    return state / 4294967296
+  }
+  const result = [...items]
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1))
+    ;[result[i], result[j]] = [result[j]!, result[i]!]
+  }
+  return result
 }
 
 // One recent movie fills the top of the page, picked anew on each visit.

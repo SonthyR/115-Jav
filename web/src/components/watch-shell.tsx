@@ -2,7 +2,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import {
   FolderHeartIcon,
   HomeIcon,
-  LayoutGridIcon,
+  UsersIcon,
   LibraryIcon,
   SearchIcon,
   WrenchIcon
@@ -16,10 +16,10 @@ import { cn } from 'cn'
 const NAV_ITEMS: Array<{
   label: string
   icon: LucideIcon
-  to: '/' | '/wall' | '/browse' | '/collections'
+  to: '/' | '/actors' | '/browse' | '/collections'
 }> = [
   { label: '首页', icon: HomeIcon, to: '/' },
-  { label: '海报墙', icon: LayoutGridIcon, to: '/wall' },
+  { label: '演员', icon: UsersIcon, to: '/actors' },
   { label: '片库', icon: LibraryIcon, to: '/browse' },
   { label: '收藏夹', icon: FolderHeartIcon, to: '/collections' }
 ]

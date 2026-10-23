@@ -74,7 +74,7 @@ function SettingsPage() {
               <TabsTrigger
                 key={item.id}
                 value={item.id}
-                className="h-9 w-auto! flex-none rounded-lg px-3 data-active:bg-muted data-active:shadow-none md:w-full! dark:data-active:border-transparent"
+                className="h-9 w-auto! flex-none rounded-lg px-3 md:w-full! data-active:bg-muted data-active:shadow-none dark:data-active:border-transparent"
               >
                 {item.label}
               </TabsTrigger>
