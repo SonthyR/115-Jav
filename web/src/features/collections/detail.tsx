@@ -7,7 +7,7 @@ import { apiGet, describeApiError } from '@/api/client'
 import { useCollections, useDeleteCollection, useRenameCollection } from '@/api/collections'
 import type { LibraryFilter, LibraryMovie } from '@/api/library'
 import { Button } from '@/components/ui/button'
-import { LibraryPage } from '@/features/library/page'
+import { WatchBrowse } from '@/features/watch/browse'
 import type { LibrarySearch } from '@/features/library/search'
 import { MovieDetailDialogContext } from '@/features/movie-detail/dialog-context'
 import { usePlaylist } from '@/features/player/playlist'
@@ -42,7 +42,7 @@ export function CollectionDetail({ id, search }: { id: number; search: LibrarySe
   }
 
   return (
-    <LibraryPage
+    <WatchBrowse
       page={page ?? 1}
       filter={{ ...filter, collection: id }}
       title={collection?.name ?? '收藏夹'}

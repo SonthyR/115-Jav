@@ -1,13 +1,6 @@
 import { Link } from '@tanstack/react-router'
-import { FolderHeartIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
 
-import {
-  LIBRARY_PAGE_SIZE,
-  type LibraryFacetKind,
-  type LibraryFilter,
-  useLibraryMovies
-} from '@/api/library'
+import { LIBRARY_PAGE_SIZE, type LibraryFilter, useLibraryMovies } from '@/api/library'
 import { isScanTask, isTaskActive, useTasks } from '@/api/tasks'
 import { AppPage } from '@/components/app-page'
 import { EmptyState } from '@/components/empty-state'
@@ -17,7 +10,6 @@ import { MovieGridLayout } from '@/components/movie/movie-grid-layout'
 import { MovieGridSkeleton } from '@/components/movie/movie-grid-skeleton'
 import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
-import { ContinueWatching } from '@/features/library/continue-watching'
 import { LibraryFilters } from '@/features/library/filters'
 import { LibraryMovieCard } from '@/features/library/movie-card'
 import { LibraryScanButton } from '@/features/library/scan-button'
@@ -28,26 +20,16 @@ export function LibraryPage({
   page,
   filter = {},
   onPageChange,
-  onFilterChange,
-  title = '媒体库',
-  description = '来自 115 网盘的影片',
-  header,
-  locked
+  onFilterChange
 }: {
   page: number
   filter?: LibraryFilter
   onPageChange: (page: number) => void
   onFilterChange?: (filter: LibraryFilter) => void
-  title?: string
-  description?: string
-  // Profile pages show their own header and keep their filter.
-  header?: ReactNode
-  locked?: LibraryFacetKind
 }) {
   const library = useLibraryMovies(page, filter)
   const { sort: _, ...narrowing } = filter
   const filtered = Object.values(narrowing).some(value => value !== undefined)
-  const main = !header && filter.collection === undefined
   const tasks = useTasks()
   const connection = useTaskConnection()
   const source = library.data?.source
@@ -58,7 +40,7 @@ export function LibraryPage({
 
   return (
     <AppPage>
-      <PageHeader title={title} description={description} inlineActions>
+      <PageHeader title="媒体库" description="来自 115 网盘的影片" inlineActions>
         <LibraryScanButton
           loading={library.isPending}
           available={!!source}
@@ -67,14 +49,6 @@ export function LibraryPage({
           connected={connection.status === 'connected'}
           onStarted={() => onPageChange(1)}
         />
-        {main ? (
-          <Button asChild variant="outline">
-            <Link to="/collections">
-              <FolderHeartIcon data-icon="inline-start" />
-              收藏夹
-            </Link>
-          </Button>
-        ) : null}
         {library.isSuccess && !source ? (
           <Button asChild>
             <Link to="/settings">挂载媒体目录</Link>
@@ -82,12 +56,8 @@ export function LibraryPage({
         ) : null}
       </PageHeader>
 
-      {header}
-
-      {main && source && page === 1 && !filtered ? <ContinueWatching /> : null}
-
       {onFilterChange && source ? (
-        <LibraryFilters filter={filter} locked={locked} onChange={onFilterChange} />
+        <LibraryFilters filter={filter} onChange={onFilterChange} />
       ) : null}
 
       {tasks.isError ? (

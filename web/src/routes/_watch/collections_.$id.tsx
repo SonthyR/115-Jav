@@ -5,7 +5,7 @@ import { ErrorState } from '@/components/error-state'
 import { CollectionDetail } from '@/features/collections/detail'
 import { parseLibrarySearch } from '@/features/library/search'
 
-export const Route = createFileRoute('/collections_/$id')({
+export const Route = createFileRoute('/_watch/collections_/$id')({
   validateSearch: parseLibrarySearch,
   beforeLoad: ({ params }) => {
     if (!/^[1-9]\d*$/.test(params.id)) throw notFound()

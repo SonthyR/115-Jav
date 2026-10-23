@@ -5,7 +5,7 @@ import { validateDiscoverSearch } from '@/features/discover/search'
 import { AppPage } from '@/components/app-page'
 import { ErrorState } from '@/components/error-state'
 
-export const Route = createFileRoute('/discover')({
+export const Route = createFileRoute('/_manage/discover')({
   validateSearch: validateDiscoverSearch,
   component: DiscoverPage,
   errorComponent: () => (

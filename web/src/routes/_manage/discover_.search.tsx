@@ -6,7 +6,7 @@ import { PageBackButton } from '@/components/page-back-button'
 import { validateMetadataSearch } from '@/features/discover/metadata-search'
 import { MetadataSearchPage } from '@/features/discover/metadata-search-page'
 
-export const Route = createFileRoute('/discover_/search')({
+export const Route = createFileRoute('/_manage/discover_/search')({
   validateSearch: validateMetadataSearch,
   beforeLoad: ({ search, location }) => {
     if (search.kind !== 'tag' && Object.hasOwn(location.search, 'zone')) {

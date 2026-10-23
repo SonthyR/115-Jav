@@ -5,7 +5,7 @@ import { validateSubscriptionsSearch } from '@/features/subscriptions/search'
 import { AppPage } from '@/components/app-page'
 import { ErrorState } from '@/components/error-state'
 
-export const Route = createFileRoute('/subscriptions')({
+export const Route = createFileRoute('/_manage/subscriptions')({
   validateSearch: validateSubscriptionsSearch,
   component: SubscriptionsRoute,
   errorComponent: () => (

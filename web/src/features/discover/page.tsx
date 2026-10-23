@@ -12,7 +12,7 @@ import { BrowseResults } from './browse-results'
 import { CategoryContent } from './category-content'
 import { DISCOVER_PAGE_SIZE as PAGE_SIZE } from './constants'
 
-const route = getRouteApi('/discover')
+const route = getRouteApi('/_manage/discover')
 
 export function DiscoverPage() {
   const search = route.useSearch()

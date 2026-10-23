@@ -67,7 +67,7 @@ export function MovieMetadata({
                   className="h-auto max-w-full break-words whitespace-normal"
                   asChild
                 >
-                  <Link to="/library/$kind/$name" params={{ kind: 'tag', name: tag.name }}>
+                  <Link to="/browse/$kind/$name" params={{ kind: 'tag', name: tag.name }}>
                     {tag.name}
                   </Link>
                 </Badge>
@@ -101,7 +101,7 @@ function LibraryEntityLink({ kind, entity }: { kind: JavDBEntityType; entity: Me
   if (kind === 'director') return <span className="max-w-full break-words">{entity.name}</span>
   return (
     <Link
-      to="/library/$kind/$name"
+      to="/browse/$kind/$name"
       params={{ kind, name: entity.name }}
       className="max-w-full break-words outline-ring transition-colors hover:text-muted-foreground"
     >

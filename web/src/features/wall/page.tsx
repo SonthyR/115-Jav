@@ -59,7 +59,7 @@ export function WallPage() {
           variant="secondary"
           size="icon"
           className="pointer-events-auto rounded-full"
-          aria-label="返回媒体库"
+          aria-label="返回首页"
         >
           <Link to="/">
             <ArrowLeftIcon />

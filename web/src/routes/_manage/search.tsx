@@ -7,7 +7,7 @@ import { parseSearchPage } from '@/lib/search-schema'
 
 type SearchParams = { q?: string; page?: number }
 
-export const Route = createFileRoute('/search')({
+export const Route = createFileRoute('/_manage/search')({
   validateSearch: (search: Record<string, unknown>): SearchParams => {
     const q = search.q ?? ''
     if (typeof q !== 'string') {

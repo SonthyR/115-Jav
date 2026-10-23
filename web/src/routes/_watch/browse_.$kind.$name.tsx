@@ -4,13 +4,13 @@ import type { LibraryFacetKind, LibraryFilter } from '@/api/library'
 import { AppPage } from '@/components/app-page'
 import { ErrorState } from '@/components/error-state'
 import { facetLabels } from '@/features/library/facet-filters'
-import { LibraryPage } from '@/features/library/page'
 import { ProfileHeader } from '@/features/library/profile-header'
 import { parseLibrarySearch } from '@/features/library/search'
+import { WatchBrowse } from '@/features/watch/browse'
 
 const kinds: LibraryFacetKind[] = ['actor', 'maker', 'series', 'tag']
 
-export const Route = createFileRoute('/library/$kind/$name')({
+export const Route = createFileRoute('/_watch/browse_/$kind/$name')({
   validateSearch: parseLibrarySearch,
   beforeLoad: ({ params }) => {
     if (!kinds.includes(params.kind as LibraryFacetKind)) throw notFound()
@@ -29,7 +29,7 @@ function ProfileRoute() {
   const { page, ...filter } = Route.useSearch()
   const navigate = Route.useNavigate()
   return (
-    <LibraryPage
+    <WatchBrowse
       key={`${kind}:${name}`}
       page={page ?? 1}
       filter={{ ...filter, [kind]: name }}
