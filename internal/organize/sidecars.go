@@ -1,6 +1,7 @@
 package organize
 
 import (
+	"bytes"
 	"context"
 	"log/slog"
 	"path"
@@ -31,6 +32,7 @@ type fileOpener interface {
 
 // sidecarFiles is the subset of drive.Files that sidecar publishing uses.
 type sidecarFiles interface {
+	Read(ctx context.Context, pickCode string, limit int64) ([]byte, error)
 	Upload(ctx context.Context, parentID, name string, body []byte) (pan.UploadedFile, error)
 	Delete(ctx context.Context, fileIDs []string, parentID string) error
 }
@@ -61,9 +63,20 @@ func (sidecars *Sidecars) PublishSidecars(ctx context.Context, directories []scr
 				return
 			}
 		}
+		if unchangedNFO(ctx, files, stale, uploads[0].body) {
+			// Rewriting an identical NFO would cost a delete and an upload per movie.
+			stale, uploads = nil, uploads[1:]
+			if len(uploads) == 0 {
+				continue
+			}
+		}
 		// The old NFO goes to the recycle bin first so the new one keeps its name.
 		if len(stale) > 0 {
-			if err := files.Delete(ctx, stale, directory.ID); err != nil {
+			ids := make([]string, len(stale))
+			for i, entry := range stale {
+				ids[i] = entry.ID
+			}
+			if err := files.Delete(ctx, ids, directory.ID); err != nil {
 				slog.WarnContext(ctx, "failed to replace NFO on 115", "code", doc.Code, "error", err)
 				continue
 			}
@@ -79,6 +92,16 @@ func (sidecars *Sidecars) PublishSidecars(ctx context.Context, directories []scr
 	}
 }
 
+// unchangedNFO reports whether the single NFO to be replaced already holds
+// body. A size mismatch settles it without reading the file from 115.
+func unchangedNFO(ctx context.Context, files sidecarFiles, stale []pan.File, body []byte) bool {
+	if len(stale) != 1 || stale[0].Size != int64(len(body)) || stale[0].PickCode == "" {
+		return false
+	}
+	current, err := files.Read(ctx, stale[0].PickCode, int64(len(body))+1)
+	return err == nil && bytes.Equal(current, body)
+}
+
 type sidecarUpload struct {
 	name string
 	body []byte
@@ -88,9 +111,9 @@ type sidecarUpload struct {
 // replace the NFOs to remove before the new one is written. The NFO takes the
 // name of the directory's first video without its part suffix, or the name of
 // the NFO it replaces.
-func plannedSidecars(directory scrape.MovieDirectory, doc nfo.Movie, videos []pan.File, poster, fanart []byte, replace bool) ([]sidecarUpload, []string) {
+func plannedSidecars(directory scrape.MovieDirectory, doc nfo.Movie, videos []pan.File, poster, fanart []byte, replace bool) ([]sidecarUpload, []pan.File) {
 	present := make(map[string]bool)
-	var stale []string
+	var stale []pan.File
 	nfoName := ""
 	for _, entry := range directory.Files {
 		name := strings.ToLower(entry.Name)
@@ -98,7 +121,7 @@ func plannedSidecars(directory scrape.MovieDirectory, doc nfo.Movie, videos []pa
 			if !replace {
 				return nil, nil
 			}
-			stale = append(stale, entry.ID)
+			stale = append(stale, entry)
 			nfoName = entry.Name
 		}
 		// poster.jpg in a folder shared by several movies would belong to none.
