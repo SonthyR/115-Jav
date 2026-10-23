@@ -11,7 +11,14 @@ import (
 	"github.com/ppxb/miyabi/internal/pan"
 )
 
-type recordedUploads struct{ names, deleted []string }
+type recordedUploads struct {
+	names, deleted []string
+	bodies         map[string][]byte
+}
+
+func (files *recordedUploads) Read(_ context.Context, pickCode string, _ int64) ([]byte, error) {
+	return files.bodies[pickCode], nil
+}
 
 func (files *recordedUploads) Delete(_ context.Context, ids []string, _ string) error {
 	files.deleted = append(files.deleted, ids...)
@@ -70,5 +77,37 @@ func TestPublishSidecarsReplacesTheNFOOnRebuild(t *testing.T) {
 		[]pan.File{video}, []byte("poster"), nil, true)
 	if got := strings.Join(recorded.names, " "); got != "11/SSIS-037-破解-C.nfo" || strings.Join(recorded.deleted, " ") != "n1" {
 		t.Fatalf("uploads = %s, deleted = %v", got, recorded.deleted)
+	}
+}
+
+func TestPublishSidecarsKeepsAnUnchangedNFOOnRebuild(t *testing.T) {
+	video := pan.File{ID: "v1", Name: "SSIS-037-C.mp4", Size: domain.MinVideoSize}
+	doc := nfo.Movie{Title: "t", Code: "SSIS-037"}
+	body, err := sidecarNFO(doc, []string{video.Name})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name    string
+		current []byte
+		size    int64
+		want    string
+	}{
+		{name: "same content", current: body, size: int64(len(body)), want: "11/poster.jpg"},
+		{name: "same size", current: append([]byte{'x'}, body[1:]...), size: int64(len(body)), want: "11/SSIS-037-C.nfo 11/poster.jpg"},
+		{name: "other size", size: 1, want: "11/SSIS-037-C.nfo 11/poster.jpg"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			recorded := &recordedUploads{bodies: map[string][]byte{"pc": tc.current}}
+			sidecars := &Sidecars{open: func(context.Context) (sidecarFiles, error) { return recorded, nil }}
+			directory := movieDirectory(video, pan.File{ID: "n1", Name: "SSIS-037-C.nfo", Size: tc.size, PickCode: "pc"})
+			sidecars.PublishSidecars(t.Context(), []scrape.MovieDirectory{directory}, doc, []pan.File{video}, []byte("poster"), nil, true)
+			if got := strings.Join(recorded.names, " "); got != tc.want {
+				t.Fatalf("uploads = %s, deleted = %v", got, recorded.deleted)
+			}
+			if kept := tc.want == "11/poster.jpg"; kept != (len(recorded.deleted) == 0) {
+				t.Fatalf("deleted = %v", recorded.deleted)
+			}
+		})
 	}
 }
