@@ -20,13 +20,12 @@ export function ActorsPage() {
   const facets = useLibraryFacets()
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<Sort>('count')
-  const [withAvatar, setWithAvatar] = useState(false)
   const [shown, setShown] = useState(batch)
   const deferred = useDeferredValue(query.trim().toLowerCase())
 
-  const actors = (facets.data?.actors ?? [])
-    .filter(actor => !deferred || actor.name.toLowerCase().includes(deferred))
-    .filter(actor => !withAvatar || actor.avatar)
+  const actors = (facets.data?.actors ?? []).filter(
+    actor => !deferred || actor.name.toLowerCase().includes(deferred)
+  )
   const sorted =
     sort === 'name' ? actors.toSorted((a, b) => a.name.localeCompare(b.name, 'ja')) : actors
 
@@ -56,9 +55,6 @@ export function ActorsPage() {
         </Toggle>
         <Toggle active={sort === 'name'} onClick={() => setSort('name')}>
           按名字
-        </Toggle>
-        <Toggle active={withAvatar} onClick={() => setWithAvatar(value => !value)}>
-          只看有头像
         </Toggle>
       </div>
 

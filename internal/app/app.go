@@ -216,6 +216,7 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 		Collections:    libSvc,
 		Subtitles:      subtitle.NewPlayer(store.Client, subtitleFinder, exportMgr),
 		Transcoder:     relay,
+		Avatars:        gfriendsClient,
 		Frontend:       miyabi.Frontend(),
 		STRMToken:      cfg.STRMToken,
 		TrustedProxies: cfg.TrustedProxies,

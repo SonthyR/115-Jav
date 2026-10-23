@@ -44,6 +44,7 @@ type Client struct {
 	refresh    syncx.ContextLock
 	retryAt    time.Time
 	refreshErr error
+	cache      avatarCache
 }
 
 // New uses the caller's HTTP client, including its timeout and proxy policy.

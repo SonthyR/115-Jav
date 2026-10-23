@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/ppxb/miyabi/internal/codeid"
 	"github.com/ppxb/miyabi/internal/ent"
 	"github.com/ppxb/miyabi/internal/ent/actor"
 	"github.com/ppxb/miyabi/internal/ent/movie"
@@ -18,6 +19,9 @@ type Facet struct {
 	Name   string `json:"name"`
 	Count  int    `json:"count"`
 	Avatar string `json:"avatar,omitempty"`
+	// Alias is the catalogue's Japanese name for an actor whose files use a
+	// translated one; portrait collections are keyed by it.
+	Alias string `json:"alias,omitempty"`
 }
 
 type Facets struct {
@@ -32,7 +36,7 @@ type Facets struct {
 // current library, most common first; years are newest first.
 func (s *Service) Facets(ctx context.Context) (Facets, error) {
 	records, err := s.database.Movie.Query().Where(movie.HasFilesWith(libraryScope(s.Source()))).
-		Select(movie.FieldID, movie.FieldMakerName, movie.FieldSeriesName, movie.FieldReleaseDate).
+		Select(movie.FieldID, movie.FieldCode, movie.FieldMakerName, movie.FieldSeriesName, movie.FieldReleaseDate).
 		WithActors(func(query *ent.ActorQuery) {
 			query.Where(actor.GenderNEQ(actor.GenderMale)).Select(actor.FieldID, actor.FieldName, actor.FieldAvatar)
 		}).
@@ -42,6 +46,7 @@ func (s *Service) Facets(ctx context.Context) (Facets, error) {
 		return Facets{}, fmt.Errorf("list library facets: %w", err)
 	}
 	actors, makers, series, tags, years := newCounter(), newCounter(), newCounter(), newCounter(), newCounter()
+	cast := make(map[string][]string, len(records))
 	for _, record := range records {
 		// A movie counts once per name, even when sources repeat a person.
 		seen := map[string]bool{}
@@ -49,6 +54,7 @@ func (s *Service) Facets(ctx context.Context) (Facets, error) {
 			if !seen[person.Name] {
 				seen[person.Name] = true
 				actors.add(person.Name, person.Avatar)
+				cast[codeid.Normalize(record.Code)] = append(cast[codeid.Normalize(record.Code)], person.Name)
 			}
 		}
 		for _, label := range record.Edges.Tags {
@@ -67,9 +73,21 @@ func (s *Service) Facets(ctx context.Context) (Facets, error) {
 			years.add(strconv.Itoa(record.ReleaseDate.Year()), nil)
 		}
 	}
+	actorFacets := actors.facets()
+	aliases := s.actorAliases(ctx, cast)
+	for i, facet := range actorFacets {
+		if alias, ok := aliases[facet.Name]; ok {
+			if alias.Name != facet.Name {
+				actorFacets[i].Alias = alias.Name
+			}
+			if facet.Avatar == "" {
+				actorFacets[i].Avatar = alias.Avatar
+			}
+		}
+	}
 	yearFacets := years.facets()
 	slices.SortFunc(yearFacets, func(a, b Facet) int { return cmp.Compare(b.Name, a.Name) })
-	return Facets{Actors: actors.facets(), Makers: makers.facets(), Series: series.facets(), Tags: tags.facets(), Years: yearFacets}, nil
+	return Facets{Actors: actorFacets, Makers: makers.facets(), Series: series.facets(), Tags: tags.facets(), Years: yearFacets}, nil
 }
 
 type counter map[string]*Facet

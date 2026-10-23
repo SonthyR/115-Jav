@@ -74,6 +74,7 @@ type Service struct {
 	localScanner *scan.LocalScanner
 	exportMgr    *export.Manager
 	scanLock     syncx.ContextLock
+	aliases      actorAliasCache
 }
 
 type Options struct {

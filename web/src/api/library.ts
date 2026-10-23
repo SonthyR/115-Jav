@@ -81,7 +81,8 @@ export type LibraryFilter = {
 
 export type LibraryFacetKind = 'actor' | 'maker' | 'series' | 'tag' | 'year'
 
-export type LibraryFacet = { name: string; count: number; avatar?: string }
+// alias is the catalogue's Japanese name when the library uses a translated one.
+export type LibraryFacet = { name: string; count: number; avatar?: string; alias?: string }
 
 export type LibraryFacets = Record<
   'actors' | 'makers' | 'series' | 'tags' | 'years',
@@ -161,4 +162,9 @@ function cacheScanTask(queryClient: QueryClient, task: ScanTask, previous: Task[
     task,
     ...(tasks ?? []).filter(item => item.id !== task.id)
   ])
+}
+
+// The GFriends portrait, cached by the backend; it answers 404 when there is none.
+export function actorAvatarURL(name: string) {
+  return `/api/actors/avatar?name=${encodeURIComponent(name)}`
 }

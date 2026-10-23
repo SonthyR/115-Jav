@@ -34,6 +34,7 @@ type Dependencies struct {
 	Subtitles      SubtitlePlayer
 	Transcoder     TranscodeRelay
 	Collections    CollectionManager
+	Avatars        AvatarSource
 	Frontend       fs.FS
 	STRMToken      string
 	TrustedProxies []string
@@ -110,6 +111,7 @@ func NewRouter(deps Dependencies) *gin.Engine {
 	protected.GET("/library/movies/:id/subtitle-search/:index", noStore(), subtitleFetchHandler(deps.Subtitles))
 
 	protected.GET("/library/facets", noStore(), libraryFacetsHandler(deps.Collections))
+	protected.GET("/actors/avatar", actorAvatarHandler(deps.Avatars))
 	protected.GET("/library/movies/:id/collections", noStore(), movieCollectionsHandler(deps.Collections))
 	collectionsAPI := protected.Group("/collections", noStore())
 	collectionsAPI.GET("", collectionListHandler(deps.Collections))
