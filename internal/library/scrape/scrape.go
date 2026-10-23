@@ -105,9 +105,10 @@ type Dependencies struct {
 }
 
 // SidecarPublisher stores a published movie's NFO and artwork beside its
-// videos on 115. It must not fail publication; errors are its own to report.
+// videos on 115; replace rewrites an NFO already there. It must not fail
+// publication; errors are its own to report.
 type SidecarPublisher interface {
-	PublishSidecars(ctx context.Context, directories []MovieDirectory, doc nfo.Movie, videos []pan.File, poster, fanart []byte)
+	PublishSidecars(ctx context.Context, directories []MovieDirectory, doc nfo.Movie, videos []pan.File, poster, fanart []byte, replace bool)
 }
 
 // New installs dependencies before starting subtitle workers.

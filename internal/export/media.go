@@ -78,6 +78,7 @@ func WriteMovie(cfg Config, folder, code string, doc nfo.Movie, videos []pan.Fil
 	doc.Fanart = fanartName
 	// Emby lists actors by name, so merged spellings must share one.
 	doc.Actors = actorname.Current().Rename(doc.Actors)
+	doc = nfo.ForMediaServer(doc, videoNames(videos))
 	nfoBody, err := nfo.Encode(doc)
 	if err != nil {
 		return changed, fmt.Errorf("encode nfo: %w", err)
@@ -172,4 +173,12 @@ func sortFiles(videos []pan.File) {
 		}
 		return cmp.Compare(a.ID, b.ID)
 	})
+}
+
+func videoNames(videos []pan.File) []string {
+	names := make([]string, len(videos))
+	for i, video := range videos {
+		names[i] = video.Name
+	}
+	return names
 }

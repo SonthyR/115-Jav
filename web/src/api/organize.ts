@@ -19,6 +19,8 @@ export type OrganizeConfig = {
   max_actors: number
   min_video_mb: number
   clean_junk: boolean
+  // Absent in configurations saved before it; the backend treats that as on.
+  title_code?: boolean
 }
 
 export type OrganizeEntry = {

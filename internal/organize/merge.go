@@ -472,16 +472,16 @@ func (s *Service) rewriteNFOs(ctx context.Context, files Files, root string, tar
 		if slices.Equal(renamed, record.Metadata.Actors) {
 			continue
 		}
-		body, err := sidecarNFO(*record.Metadata)
-		if err != nil {
-			return rewritten, err
-		}
 		for _, place := range places[id] {
 			entries, err := files.Entries(ctx, place.dirID)
 			if err != nil {
 				return rewritten, err
 			}
 			slices.Sort(place.names)
+			body, err := sidecarNFO(*record.Metadata, place.names)
+			if err != nil {
+				return rewritten, err
+			}
 			name := partStem.ReplaceAllString(strings.TrimSuffix(place.names[0], path.Ext(place.names[0])), "") + ".nfo"
 			var old []string
 			shared := false
