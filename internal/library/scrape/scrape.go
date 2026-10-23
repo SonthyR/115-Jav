@@ -20,6 +20,7 @@ import (
 	"github.com/ppxb/miyabi/internal/nfo"
 	"github.com/ppxb/miyabi/internal/pan"
 	"github.com/ppxb/miyabi/internal/tasks"
+	"golang.org/x/time/rate"
 )
 
 // MetadataPayload describes the input for a movie scrape job.
@@ -88,6 +89,7 @@ type Service struct {
 	exportMgr     *export.Manager
 	mediaNotifier export.MediaNotifier
 	sidecars      SidecarPublisher
+	rebuildPace   *rate.Limiter
 }
 
 func (service *Service) exportConfig() export.Config {
@@ -102,6 +104,9 @@ type Dependencies struct {
 	MediaNotifier export.MediaNotifier
 	Subtitles     SubtitleExporter
 	Sidecars      SidecarPublisher
+	// RebuildInterval spaces out rebuilt movies so a full rebuild stays under
+	// 115's access limit; zero leaves them unpaced.
+	RebuildInterval time.Duration
 }
 
 // SidecarPublisher stores a published movie's NFO and artwork beside its
@@ -124,6 +129,9 @@ func New(db *ent.Client, d *drive.Drive, metadata MetadataSource, images *mediai
 		mediaNotifier: deps.MediaNotifier,
 		subtitles:     deps.Subtitles,
 		sidecars:      deps.Sidecars,
+	}
+	if deps.RebuildInterval > 0 {
+		service.rebuildPace = rate.NewLimiter(rate.Every(deps.RebuildInterval), 1)
 	}
 	service.subtitleQueue = newSubtitleQueue(service)
 	return service
@@ -178,6 +186,11 @@ func (service *Service) Scrape(ctx context.Context, job tasks.Job) error {
 		return domain.E(domain.KindConflict, "影片番号已纠正，请使用新的刮削任务", nil)
 	}
 	if !input.MetadataReady {
+		if input.Rebuild && service.rebuildPace != nil {
+			if err := service.rebuildPace.Wait(ctx); err != nil {
+				return err
+			}
+		}
 		if err := service.prepareMetadata(ctx, sess, job.ID, &input); err != nil {
 			return err
 		}

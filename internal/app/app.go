@@ -159,7 +159,7 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 	libSvc.SetMediaNotifier(embySvc)
 	scrapeSvc := scrape.New(store.Client, driveSvc, metadataSvc, images, taskSvc, scrape.Dependencies{
 		ExportManager: exportMgr, MediaNotifier: embySvc, Subtitles: subtitleSvc,
-		Sidecars: organize.NewSidecars(driveSvc),
+		Sidecars: organize.NewSidecars(driveSvc), RebuildInterval: 5 * time.Second,
 	})
 	maintenanceSvc, err := maintenance.New(cfg.DataDir, store.Client, images, scrapeSvc)
 	if err != nil {
