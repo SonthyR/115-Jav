@@ -83,6 +83,23 @@ func TestResolveNFOCodesMatchesEachMovieInSharedDirectory(t *testing.T) {
 	}
 }
 
+func TestResolveNFOCodesAcceptsASubtitleMarkerGluedToTheSerial(t *testing.T) {
+	body, err := nfo.Encode(nfo.Movie{Code: "PRED-768"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess := &nfoStubSession{bodies: map[string][]byte{"nfo": body}}
+	name := "4k2.com@pred-768ch.mp4"
+	video := IdentifyVideo(pan.File{ID: "v1", Name: name, Size: 1 << 30})
+	videos := []Video{video}
+	if err := ResolveNFOCodes(t.Context(), sess, []pan.File{{ID: "n1", Name: "4k2.com@pred-768ch.nfo", PickCode: "nfo"}}, videos); err != nil {
+		t.Fatalf("identified %q, err = %v", video.Code, err)
+	}
+	if videos[0].Code != "PRED-768" {
+		t.Fatalf("code = %q", videos[0].Code)
+	}
+}
+
 func TestCanIdentifyVideo(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

@@ -141,6 +141,12 @@ func ResolveNFOCodes(ctx context.Context, sess drive.Session, sidecars []pan.Fil
 			}
 		}
 		if expected != "" && !codeid.IsEquivalent(expected, canonical) {
+			// A marker glued to the serial, e.g. PRED-768CH, still names the NFO's movie.
+			if base, ok := codeid.GluedSubtitleBase(expected); ok && codeid.IsEquivalent(base, canonical) {
+				expected = base
+			}
+		}
+		if expected != "" && !codeid.IsEquivalent(expected, canonical) {
 			return domain.E(domain.KindConflict, fmt.Sprintf("NFO %s 的番号 %s 与视频 %s 的番号 %s 不一致", entry.Name, canonical, video.Name, expected), nil)
 		}
 		video.Code = canonical
