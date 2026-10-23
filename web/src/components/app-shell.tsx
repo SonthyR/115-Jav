@@ -4,6 +4,7 @@ import {
   CompassIcon,
   FilmIcon,
   FolderInputIcon,
+  LayoutGridIcon,
   SearchIcon,
   SettingsIcon
 } from 'lucide-react'
@@ -15,6 +16,7 @@ import { TaskNotifications } from '@/features/tasks/task-notifications'
 
 const NAV_ITEMS: FloatingNavItem[] = [
   { id: 'library', label: '媒体库', icon: FilmIcon, to: '/' },
+  { id: 'wall', label: '海报墙', icon: LayoutGridIcon, to: '/wall' },
   { id: 'organize', label: '整理', icon: FolderInputIcon, to: '/organize' },
   { id: 'subscriptions', label: '订阅', icon: BellIcon, to: '/subscriptions' },
   { id: 'discover', label: '发现', icon: CompassIcon, to: '/discover' },
