@@ -15,6 +15,7 @@ import (
 	"github.com/ppxb/miyabi/internal/ent/actor"
 	"github.com/ppxb/miyabi/internal/ent/file"
 	"github.com/ppxb/miyabi/internal/ent/movie"
+	"github.com/ppxb/miyabi/internal/ent/playbackprogress"
 	"github.com/ppxb/miyabi/internal/ent/predicate"
 	"github.com/ppxb/miyabi/internal/ent/subtitle"
 	"github.com/ppxb/miyabi/internal/ent/tag"
@@ -31,6 +32,7 @@ type MovieQuery struct {
 	withTags      *TagQuery
 	withFiles     *FileQuery
 	withSubtitles *SubtitleQuery
+	withProgress  *PlaybackProgressQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -148,6 +150,28 @@ func (_q *MovieQuery) QuerySubtitles() *SubtitleQuery {
 			sqlgraph.From(movie.Table, movie.FieldID, selector),
 			sqlgraph.To(subtitle.Table, subtitle.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, movie.SubtitlesTable, movie.SubtitlesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryProgress chains the current query on the "progress" edge.
+func (_q *MovieQuery) QueryProgress() *PlaybackProgressQuery {
+	query := (&PlaybackProgressClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(movie.Table, movie.FieldID, selector),
+			sqlgraph.To(playbackprogress.Table, playbackprogress.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, movie.ProgressTable, movie.ProgressColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -351,6 +375,7 @@ func (_q *MovieQuery) Clone() *MovieQuery {
 		withTags:      _q.withTags.Clone(),
 		withFiles:     _q.withFiles.Clone(),
 		withSubtitles: _q.withSubtitles.Clone(),
+		withProgress:  _q.withProgress.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -398,6 +423,17 @@ func (_q *MovieQuery) WithSubtitles(opts ...func(*SubtitleQuery)) *MovieQuery {
 		opt(query)
 	}
 	_q.withSubtitles = query
+	return _q
+}
+
+// WithProgress tells the query-builder to eager-load the nodes that are connected to
+// the "progress" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *MovieQuery) WithProgress(opts ...func(*PlaybackProgressQuery)) *MovieQuery {
+	query := (&PlaybackProgressClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withProgress = query
 	return _q
 }
 
@@ -479,11 +515,12 @@ func (_q *MovieQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Movie,
 	var (
 		nodes       = []*Movie{}
 		_spec       = _q.querySpec()
-		loadedTypes = [4]bool{
+		loadedTypes = [5]bool{
 			_q.withActors != nil,
 			_q.withTags != nil,
 			_q.withFiles != nil,
 			_q.withSubtitles != nil,
+			_q.withProgress != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -529,6 +566,12 @@ func (_q *MovieQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Movie,
 		if err := _q.loadSubtitles(ctx, query, nodes,
 			func(n *Movie) { n.Edges.Subtitles = []*Subtitle{} },
 			func(n *Movie, e *Subtitle) { n.Edges.Subtitles = append(n.Edges.Subtitles, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withProgress; query != nil {
+		if err := _q.loadProgress(ctx, query, nodes, nil,
+			func(n *Movie, e *PlaybackProgress) { n.Edges.Progress = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -705,6 +748,33 @@ func (_q *MovieQuery) loadSubtitles(ctx context.Context, query *SubtitleQuery, n
 	}
 	query.Where(predicate.Subtitle(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(movie.SubtitlesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.MovieID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "movie_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *MovieQuery) loadProgress(ctx context.Context, query *PlaybackProgressQuery, nodes []*Movie, init func(*Movie), assign func(*Movie, *PlaybackProgress)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Movie)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(playbackprogress.FieldMovieID)
+	}
+	query.Where(predicate.PlaybackProgress(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(movie.ProgressColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

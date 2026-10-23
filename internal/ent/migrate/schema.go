@@ -208,6 +208,37 @@ var (
 			},
 		},
 	}
+	// PlaybackProgressesColumns holds the columns for the "playback_progresses" table.
+	PlaybackProgressesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "file_id", Type: field.TypeString},
+		{Name: "position", Type: field.TypeFloat64},
+		{Name: "duration", Type: field.TypeFloat64},
+		{Name: "movie_id", Type: field.TypeInt, Unique: true},
+	}
+	// PlaybackProgressesTable holds the schema information for the "playback_progresses" table.
+	PlaybackProgressesTable = &schema.Table{
+		Name:       "playback_progresses",
+		Columns:    PlaybackProgressesColumns,
+		PrimaryKey: []*schema.Column{PlaybackProgressesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "playback_progresses_movies_progress",
+				Columns:    []*schema.Column{PlaybackProgressesColumns[6]},
+				RefColumns: []*schema.Column{MoviesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "playbackprogress_updated_at",
+				Unique:  false,
+				Columns: []*schema.Column{PlaybackProgressesColumns[2]},
+			},
+		},
+	}
 	// SettingsColumns holds the columns for the "settings" table.
 	SettingsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -440,6 +471,7 @@ var (
 		MetadataCachesTable,
 		MoviesTable,
 		OfflineDownloadsTable,
+		PlaybackProgressesTable,
 		SettingsTable,
 		SubscriptionsTable,
 		SubtitlesTable,
@@ -453,6 +485,7 @@ var (
 
 func init() {
 	FilesTable.ForeignKeys[0].RefTable = MoviesTable
+	PlaybackProgressesTable.ForeignKeys[0].RefTable = MoviesTable
 	SubtitlesTable.ForeignKeys[0].RefTable = MoviesTable
 	MovieActorsTable.ForeignKeys[0].RefTable = MoviesTable
 	MovieActorsTable.ForeignKeys[1].RefTable = ActorsTable

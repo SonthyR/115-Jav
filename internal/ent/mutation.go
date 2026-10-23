@@ -20,6 +20,7 @@ import (
 	"github.com/ppxb/miyabi/internal/ent/metadatacache"
 	"github.com/ppxb/miyabi/internal/ent/movie"
 	"github.com/ppxb/miyabi/internal/ent/offlinedownload"
+	"github.com/ppxb/miyabi/internal/ent/playbackprogress"
 	"github.com/ppxb/miyabi/internal/ent/predicate"
 	"github.com/ppxb/miyabi/internal/ent/setting"
 	"github.com/ppxb/miyabi/internal/ent/subscription"
@@ -45,6 +46,7 @@ const (
 	TypeMetadataCache    = "MetadataCache"
 	TypeMovie            = "Movie"
 	TypeOfflineDownload  = "OfflineDownload"
+	TypePlaybackProgress = "PlaybackProgress"
 	TypeSetting          = "Setting"
 	TypeSubscription     = "Subscription"
 	TypeSubtitle         = "Subtitle"
@@ -3250,6 +3252,8 @@ type MovieMutation struct {
 	subtitles         map[int]struct{}
 	removedsubtitles  map[int]struct{}
 	clearedsubtitles  bool
+	progress          *int
+	clearedprogress   bool
 	done              bool
 	oldValue          func(context.Context) (*Movie, error)
 	predicates        []predicate.Movie
@@ -4600,6 +4604,45 @@ func (m *MovieMutation) ResetSubtitles() {
 	m.removedsubtitles = nil
 }
 
+// SetProgressID sets the "progress" edge to the PlaybackProgress entity by id.
+func (m *MovieMutation) SetProgressID(id int) {
+	m.progress = &id
+}
+
+// ClearProgress clears the "progress" edge to the PlaybackProgress entity.
+func (m *MovieMutation) ClearProgress() {
+	m.clearedprogress = true
+}
+
+// ProgressCleared reports if the "progress" edge to the PlaybackProgress entity was cleared.
+func (m *MovieMutation) ProgressCleared() bool {
+	return m.clearedprogress
+}
+
+// ProgressID returns the "progress" edge ID in the mutation.
+func (m *MovieMutation) ProgressID() (id int, exists bool) {
+	if m.progress != nil {
+		return *m.progress, true
+	}
+	return
+}
+
+// ProgressIDs returns the "progress" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProgressID instead. It exists only for internal usage by the builders.
+func (m *MovieMutation) ProgressIDs() (ids []int) {
+	if id := m.progress; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProgress resets all changes to the "progress" edge.
+func (m *MovieMutation) ResetProgress() {
+	m.progress = nil
+	m.clearedprogress = false
+}
+
 // Where appends a list predicates to the MovieMutation builder.
 func (m *MovieMutation) Where(ps ...predicate.Movie) {
 	m.predicates = append(m.predicates, ps...)
@@ -5204,7 +5247,7 @@ func (m *MovieMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *MovieMutation) AddedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.actors != nil {
 		edges = append(edges, movie.EdgeActors)
 	}
@@ -5216,6 +5259,9 @@ func (m *MovieMutation) AddedEdges() []string {
 	}
 	if m.subtitles != nil {
 		edges = append(edges, movie.EdgeSubtitles)
+	}
+	if m.progress != nil {
+		edges = append(edges, movie.EdgeProgress)
 	}
 	return edges
 }
@@ -5248,13 +5294,17 @@ func (m *MovieMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case movie.EdgeProgress:
+		if id := m.progress; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *MovieMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.removedactors != nil {
 		edges = append(edges, movie.EdgeActors)
 	}
@@ -5304,7 +5354,7 @@ func (m *MovieMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *MovieMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.clearedactors {
 		edges = append(edges, movie.EdgeActors)
 	}
@@ -5316,6 +5366,9 @@ func (m *MovieMutation) ClearedEdges() []string {
 	}
 	if m.clearedsubtitles {
 		edges = append(edges, movie.EdgeSubtitles)
+	}
+	if m.clearedprogress {
+		edges = append(edges, movie.EdgeProgress)
 	}
 	return edges
 }
@@ -5332,6 +5385,8 @@ func (m *MovieMutation) EdgeCleared(name string) bool {
 		return m.clearedfiles
 	case movie.EdgeSubtitles:
 		return m.clearedsubtitles
+	case movie.EdgeProgress:
+		return m.clearedprogress
 	}
 	return false
 }
@@ -5340,6 +5395,9 @@ func (m *MovieMutation) EdgeCleared(name string) bool {
 // if that edge is not defined in the schema.
 func (m *MovieMutation) ClearEdge(name string) error {
 	switch name {
+	case movie.EdgeProgress:
+		m.ClearProgress()
+		return nil
 	}
 	return fmt.Errorf("unknown Movie unique edge %s", name)
 }
@@ -5359,6 +5417,9 @@ func (m *MovieMutation) ResetEdge(name string) error {
 		return nil
 	case movie.EdgeSubtitles:
 		m.ResetSubtitles()
+		return nil
+	case movie.EdgeProgress:
+		m.ResetProgress()
 		return nil
 	}
 	return fmt.Errorf("unknown Movie edge %s", name)
@@ -6624,6 +6685,725 @@ func (m *OfflineDownloadMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *OfflineDownloadMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown OfflineDownload edge %s", name)
+}
+
+// PlaybackProgressMutation represents an operation that mutates the PlaybackProgress nodes in the graph.
+type PlaybackProgressMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int
+	created_at    *time.Time
+	updated_at    *time.Time
+	file_id       *string
+	position      *float64
+	addposition   *float64
+	duration      *float64
+	addduration   *float64
+	clearedFields map[string]struct{}
+	movie         *int
+	clearedmovie  bool
+	done          bool
+	oldValue      func(context.Context) (*PlaybackProgress, error)
+	predicates    []predicate.PlaybackProgress
+}
+
+var _ ent.Mutation = (*PlaybackProgressMutation)(nil)
+
+// playbackprogressOption allows management of the mutation configuration using functional options.
+type playbackprogressOption func(*PlaybackProgressMutation)
+
+// newPlaybackProgressMutation creates new mutation for the PlaybackProgress entity.
+func newPlaybackProgressMutation(c config, op Op, opts ...playbackprogressOption) *PlaybackProgressMutation {
+	m := &PlaybackProgressMutation{
+		config:        c,
+		op:            op,
+		typ:           TypePlaybackProgress,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withPlaybackProgressID sets the ID field of the mutation.
+func withPlaybackProgressID(id int) playbackprogressOption {
+	return func(m *PlaybackProgressMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *PlaybackProgress
+		)
+		m.oldValue = func(ctx context.Context) (*PlaybackProgress, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().PlaybackProgress.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withPlaybackProgress sets the old PlaybackProgress of the mutation.
+func withPlaybackProgress(node *PlaybackProgress) playbackprogressOption {
+	return func(m *PlaybackProgressMutation) {
+		m.oldValue = func(context.Context) (*PlaybackProgress, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m PlaybackProgressMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m PlaybackProgressMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *PlaybackProgressMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *PlaybackProgressMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().PlaybackProgress.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *PlaybackProgressMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *PlaybackProgressMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the PlaybackProgress entity.
+// If the PlaybackProgress object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PlaybackProgressMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *PlaybackProgressMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *PlaybackProgressMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *PlaybackProgressMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the PlaybackProgress entity.
+// If the PlaybackProgress object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PlaybackProgressMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *PlaybackProgressMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetMovieID sets the "movie_id" field.
+func (m *PlaybackProgressMutation) SetMovieID(i int) {
+	m.movie = &i
+}
+
+// MovieID returns the value of the "movie_id" field in the mutation.
+func (m *PlaybackProgressMutation) MovieID() (r int, exists bool) {
+	v := m.movie
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMovieID returns the old "movie_id" field's value of the PlaybackProgress entity.
+// If the PlaybackProgress object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PlaybackProgressMutation) OldMovieID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMovieID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMovieID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMovieID: %w", err)
+	}
+	return oldValue.MovieID, nil
+}
+
+// ResetMovieID resets all changes to the "movie_id" field.
+func (m *PlaybackProgressMutation) ResetMovieID() {
+	m.movie = nil
+}
+
+// SetFileID sets the "file_id" field.
+func (m *PlaybackProgressMutation) SetFileID(s string) {
+	m.file_id = &s
+}
+
+// FileID returns the value of the "file_id" field in the mutation.
+func (m *PlaybackProgressMutation) FileID() (r string, exists bool) {
+	v := m.file_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFileID returns the old "file_id" field's value of the PlaybackProgress entity.
+// If the PlaybackProgress object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PlaybackProgressMutation) OldFileID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFileID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFileID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFileID: %w", err)
+	}
+	return oldValue.FileID, nil
+}
+
+// ResetFileID resets all changes to the "file_id" field.
+func (m *PlaybackProgressMutation) ResetFileID() {
+	m.file_id = nil
+}
+
+// SetPosition sets the "position" field.
+func (m *PlaybackProgressMutation) SetPosition(f float64) {
+	m.position = &f
+	m.addposition = nil
+}
+
+// Position returns the value of the "position" field in the mutation.
+func (m *PlaybackProgressMutation) Position() (r float64, exists bool) {
+	v := m.position
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPosition returns the old "position" field's value of the PlaybackProgress entity.
+// If the PlaybackProgress object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PlaybackProgressMutation) OldPosition(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPosition is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPosition requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPosition: %w", err)
+	}
+	return oldValue.Position, nil
+}
+
+// AddPosition adds f to the "position" field.
+func (m *PlaybackProgressMutation) AddPosition(f float64) {
+	if m.addposition != nil {
+		*m.addposition += f
+	} else {
+		m.addposition = &f
+	}
+}
+
+// AddedPosition returns the value that was added to the "position" field in this mutation.
+func (m *PlaybackProgressMutation) AddedPosition() (r float64, exists bool) {
+	v := m.addposition
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPosition resets all changes to the "position" field.
+func (m *PlaybackProgressMutation) ResetPosition() {
+	m.position = nil
+	m.addposition = nil
+}
+
+// SetDuration sets the "duration" field.
+func (m *PlaybackProgressMutation) SetDuration(f float64) {
+	m.duration = &f
+	m.addduration = nil
+}
+
+// Duration returns the value of the "duration" field in the mutation.
+func (m *PlaybackProgressMutation) Duration() (r float64, exists bool) {
+	v := m.duration
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDuration returns the old "duration" field's value of the PlaybackProgress entity.
+// If the PlaybackProgress object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PlaybackProgressMutation) OldDuration(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDuration is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDuration requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDuration: %w", err)
+	}
+	return oldValue.Duration, nil
+}
+
+// AddDuration adds f to the "duration" field.
+func (m *PlaybackProgressMutation) AddDuration(f float64) {
+	if m.addduration != nil {
+		*m.addduration += f
+	} else {
+		m.addduration = &f
+	}
+}
+
+// AddedDuration returns the value that was added to the "duration" field in this mutation.
+func (m *PlaybackProgressMutation) AddedDuration() (r float64, exists bool) {
+	v := m.addduration
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetDuration resets all changes to the "duration" field.
+func (m *PlaybackProgressMutation) ResetDuration() {
+	m.duration = nil
+	m.addduration = nil
+}
+
+// ClearMovie clears the "movie" edge to the Movie entity.
+func (m *PlaybackProgressMutation) ClearMovie() {
+	m.clearedmovie = true
+	m.clearedFields[playbackprogress.FieldMovieID] = struct{}{}
+}
+
+// MovieCleared reports if the "movie" edge to the Movie entity was cleared.
+func (m *PlaybackProgressMutation) MovieCleared() bool {
+	return m.clearedmovie
+}
+
+// MovieIDs returns the "movie" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// MovieID instead. It exists only for internal usage by the builders.
+func (m *PlaybackProgressMutation) MovieIDs() (ids []int) {
+	if id := m.movie; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetMovie resets all changes to the "movie" edge.
+func (m *PlaybackProgressMutation) ResetMovie() {
+	m.movie = nil
+	m.clearedmovie = false
+}
+
+// Where appends a list predicates to the PlaybackProgressMutation builder.
+func (m *PlaybackProgressMutation) Where(ps ...predicate.PlaybackProgress) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the PlaybackProgressMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *PlaybackProgressMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.PlaybackProgress, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *PlaybackProgressMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *PlaybackProgressMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (PlaybackProgress).
+func (m *PlaybackProgressMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *PlaybackProgressMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.created_at != nil {
+		fields = append(fields, playbackprogress.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, playbackprogress.FieldUpdatedAt)
+	}
+	if m.movie != nil {
+		fields = append(fields, playbackprogress.FieldMovieID)
+	}
+	if m.file_id != nil {
+		fields = append(fields, playbackprogress.FieldFileID)
+	}
+	if m.position != nil {
+		fields = append(fields, playbackprogress.FieldPosition)
+	}
+	if m.duration != nil {
+		fields = append(fields, playbackprogress.FieldDuration)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *PlaybackProgressMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case playbackprogress.FieldCreatedAt:
+		return m.CreatedAt()
+	case playbackprogress.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case playbackprogress.FieldMovieID:
+		return m.MovieID()
+	case playbackprogress.FieldFileID:
+		return m.FileID()
+	case playbackprogress.FieldPosition:
+		return m.Position()
+	case playbackprogress.FieldDuration:
+		return m.Duration()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *PlaybackProgressMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case playbackprogress.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case playbackprogress.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case playbackprogress.FieldMovieID:
+		return m.OldMovieID(ctx)
+	case playbackprogress.FieldFileID:
+		return m.OldFileID(ctx)
+	case playbackprogress.FieldPosition:
+		return m.OldPosition(ctx)
+	case playbackprogress.FieldDuration:
+		return m.OldDuration(ctx)
+	}
+	return nil, fmt.Errorf("unknown PlaybackProgress field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PlaybackProgressMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case playbackprogress.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case playbackprogress.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case playbackprogress.FieldMovieID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMovieID(v)
+		return nil
+	case playbackprogress.FieldFileID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFileID(v)
+		return nil
+	case playbackprogress.FieldPosition:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPosition(v)
+		return nil
+	case playbackprogress.FieldDuration:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDuration(v)
+		return nil
+	}
+	return fmt.Errorf("unknown PlaybackProgress field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *PlaybackProgressMutation) AddedFields() []string {
+	var fields []string
+	if m.addposition != nil {
+		fields = append(fields, playbackprogress.FieldPosition)
+	}
+	if m.addduration != nil {
+		fields = append(fields, playbackprogress.FieldDuration)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *PlaybackProgressMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case playbackprogress.FieldPosition:
+		return m.AddedPosition()
+	case playbackprogress.FieldDuration:
+		return m.AddedDuration()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PlaybackProgressMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case playbackprogress.FieldPosition:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPosition(v)
+		return nil
+	case playbackprogress.FieldDuration:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDuration(v)
+		return nil
+	}
+	return fmt.Errorf("unknown PlaybackProgress numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *PlaybackProgressMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *PlaybackProgressMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *PlaybackProgressMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown PlaybackProgress nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *PlaybackProgressMutation) ResetField(name string) error {
+	switch name {
+	case playbackprogress.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case playbackprogress.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case playbackprogress.FieldMovieID:
+		m.ResetMovieID()
+		return nil
+	case playbackprogress.FieldFileID:
+		m.ResetFileID()
+		return nil
+	case playbackprogress.FieldPosition:
+		m.ResetPosition()
+		return nil
+	case playbackprogress.FieldDuration:
+		m.ResetDuration()
+		return nil
+	}
+	return fmt.Errorf("unknown PlaybackProgress field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *PlaybackProgressMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.movie != nil {
+		edges = append(edges, playbackprogress.EdgeMovie)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *PlaybackProgressMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case playbackprogress.EdgeMovie:
+		if id := m.movie; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *PlaybackProgressMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *PlaybackProgressMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *PlaybackProgressMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedmovie {
+		edges = append(edges, playbackprogress.EdgeMovie)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *PlaybackProgressMutation) EdgeCleared(name string) bool {
+	switch name {
+	case playbackprogress.EdgeMovie:
+		return m.clearedmovie
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *PlaybackProgressMutation) ClearEdge(name string) error {
+	switch name {
+	case playbackprogress.EdgeMovie:
+		m.ClearMovie()
+		return nil
+	}
+	return fmt.Errorf("unknown PlaybackProgress unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *PlaybackProgressMutation) ResetEdge(name string) error {
+	switch name {
+	case playbackprogress.EdgeMovie:
+		m.ResetMovie()
+		return nil
+	}
+	return fmt.Errorf("unknown PlaybackProgress edge %s", name)
 }
 
 // SettingMutation represents an operation that mutates the Setting nodes in the graph.

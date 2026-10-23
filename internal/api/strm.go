@@ -30,27 +30,46 @@ func strmStreamHandler(relay STRMRelay, token string, gate AccessGate) gin.Handl
 			c.Error(domain.E(domain.KindUnauthorized, "无效的播放令牌", nil))
 			return
 		}
-		streamURL, err := relay.StreamURL(c.Request.Context(), uri.FileID, c.Request.UserAgent())
-		if err != nil {
-			c.Error(err)
+		redirectStream(c, relay, uri.FileID)
+	}
+}
+
+// redirectStream answers both media servers and the web player, which signs
+// in instead of carrying the STRM token.
+func redirectStream(c *gin.Context, relay STRMRelay, fileID string) {
+	streamURL, err := relay.StreamURL(c.Request.Context(), fileID, c.Request.UserAgent())
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	if c.Request.Method == http.MethodHead {
+		if response, err := relay.Probe(c.Request.Context(), streamURL, c.Request.Header); err == nil {
+			defer response.Body.Close()
+			for _, name := range []string{"Content-Type", "Content-Length", "Content-Range", "Accept-Ranges", "ETag", "Last-Modified"} {
+				if value := response.Header.Get(name); value != "" {
+					c.Header(name, value)
+				}
+			}
+			if c.Writer.Header().Get("Content-Type") == "" || c.Writer.Header().Get("Content-Type") == "application/octet-stream" {
+				c.Header("Content-Type", "video/mp4")
+			}
+			c.Status(response.StatusCode)
 			return
 		}
-		if c.Request.Method == http.MethodHead {
-			if response, err := relay.Probe(c.Request.Context(), streamURL, c.Request.Header); err == nil {
-				defer response.Body.Close()
-				for _, name := range []string{"Content-Type", "Content-Length", "Content-Range", "Accept-Ranges", "ETag", "Last-Modified"} {
-					if value := response.Header.Get(name); value != "" {
-						c.Header(name, value)
-					}
-				}
-				if c.Writer.Header().Get("Content-Type") == "" || c.Writer.Header().Get("Content-Type") == "application/octet-stream" {
-					c.Header("Content-Type", "video/mp4")
-				}
-				c.Status(response.StatusCode)
-				return
-			}
+	}
+	// The 115 CDN must not see this site as the referrer.
+	c.Header("Referrer-Policy", "no-referrer")
+	c.Redirect(http.StatusFound, streamURL)
+}
+
+func playStreamHandler(relay STRMRelay) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		uri, ok := bindURI[struct {
+			FileID string `uri:"fileID" binding:"required,max=128"`
+		}](c)
+		if ok {
+			redirectStream(c, relay, uri.FileID)
 		}
-		c.Redirect(http.StatusFound, streamURL)
 	}
 }
 

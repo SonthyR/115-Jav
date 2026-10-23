@@ -107,5 +107,6 @@ func (Movie) Edges() []ent.Edge {
 		edge.To("tags", Tag.Type),
 		edge.To("files", File.Type),
 		edge.To("subtitles", Subtitle.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("progress", PlaybackProgress.Type).Unique().Annotations(entsql.OnDelete(entsql.Cascade)),
 	}
 }

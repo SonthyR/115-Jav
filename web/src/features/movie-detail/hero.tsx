@@ -1,4 +1,5 @@
-import { CalendarIcon, ClockIcon, StarIcon, type LucideIcon } from 'lucide-react'
+import { CalendarIcon, ClockIcon, PlayIcon, StarIcon, type LucideIcon } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 import type { DiscoverMovie, DiscoverMovieDetail } from '@/api/discover'
 import type { LibraryMovieDetail } from '@/api/library'
@@ -9,16 +10,37 @@ import { MovieMetadata } from './metadata'
 
 export function MovieHero({
   movie,
-  libraryStatus
+  libraryStatus,
+  player,
+  onPlay
 }: {
   movie: DiscoverMovieDetail | LibraryMovieDetail
   libraryStatus?: LibraryMovieDetail['scrape_status']
+  // The player replaces the cover in place once playback starts.
+  player?: ReactNode
+  onPlay?: () => void
 }) {
   return (
-    <section className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-8">
-      <div className="aspect-3/2 overflow-hidden rounded-2xl bg-muted ring-1 ring-foreground/10">
-        <MovieCover source={movie.cover} loading="eager" />
-      </div>
+    <section
+      className={`grid items-start gap-6 lg:gap-8 ${player ? '' : 'lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]'}`}
+    >
+      {player ?? (
+        <div className="relative aspect-3/2 overflow-hidden rounded-2xl bg-muted ring-1 ring-foreground/10">
+          <MovieCover source={movie.cover} loading="eager" />
+          {onPlay ? (
+            <button
+              type="button"
+              aria-label="播放"
+              className="group absolute inset-0 flex items-center justify-center bg-black/0 transition-colors hover:bg-black/25"
+              onClick={onPlay}
+            >
+              <span className="flex size-16 items-center justify-center rounded-full bg-black/55 text-white shadow-lg backdrop-blur transition-transform group-hover:scale-110">
+                <PlayIcon className="size-8 translate-x-0.5 fill-current" />
+              </span>
+            </button>
+          ) : null}
+        </div>
+      )}
 
       <div className="min-w-0 space-y-5 py-1">
         <div className="space-y-3">

@@ -16,6 +16,7 @@ import (
 	"github.com/ppxb/miyabi/internal/ent/actor"
 	"github.com/ppxb/miyabi/internal/ent/file"
 	"github.com/ppxb/miyabi/internal/ent/movie"
+	"github.com/ppxb/miyabi/internal/ent/playbackprogress"
 	"github.com/ppxb/miyabi/internal/ent/predicate"
 	"github.com/ppxb/miyabi/internal/ent/subtitle"
 	"github.com/ppxb/miyabi/internal/ent/tag"
@@ -461,6 +462,25 @@ func (_u *MovieUpdate) AddSubtitles(v ...*Subtitle) *MovieUpdate {
 	return _u.AddSubtitleIDs(ids...)
 }
 
+// SetProgressID sets the "progress" edge to the PlaybackProgress entity by ID.
+func (_u *MovieUpdate) SetProgressID(id int) *MovieUpdate {
+	_u.mutation.SetProgressID(id)
+	return _u
+}
+
+// SetNillableProgressID sets the "progress" edge to the PlaybackProgress entity by ID if the given value is not nil.
+func (_u *MovieUpdate) SetNillableProgressID(id *int) *MovieUpdate {
+	if id != nil {
+		_u = _u.SetProgressID(*id)
+	}
+	return _u
+}
+
+// SetProgress sets the "progress" edge to the PlaybackProgress entity.
+func (_u *MovieUpdate) SetProgress(v *PlaybackProgress) *MovieUpdate {
+	return _u.SetProgressID(v.ID)
+}
+
 // Mutation returns the MovieMutation object of the builder.
 func (_u *MovieUpdate) Mutation() *MovieMutation {
 	return _u.mutation
@@ -548,6 +568,12 @@ func (_u *MovieUpdate) RemoveSubtitles(v ...*Subtitle) *MovieUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSubtitleIDs(ids...)
+}
+
+// ClearProgress clears the "progress" edge to the PlaybackProgress entity.
+func (_u *MovieUpdate) ClearProgress() *MovieUpdate {
+	_u.mutation.ClearProgress()
+	return _u
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -908,6 +934,35 @@ func (_u *MovieUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(subtitle.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ProgressCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   movie.ProgressTable,
+			Columns: []string{movie.ProgressColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(playbackprogress.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ProgressIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   movie.ProgressTable,
+			Columns: []string{movie.ProgressColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(playbackprogress.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -1361,6 +1416,25 @@ func (_u *MovieUpdateOne) AddSubtitles(v ...*Subtitle) *MovieUpdateOne {
 	return _u.AddSubtitleIDs(ids...)
 }
 
+// SetProgressID sets the "progress" edge to the PlaybackProgress entity by ID.
+func (_u *MovieUpdateOne) SetProgressID(id int) *MovieUpdateOne {
+	_u.mutation.SetProgressID(id)
+	return _u
+}
+
+// SetNillableProgressID sets the "progress" edge to the PlaybackProgress entity by ID if the given value is not nil.
+func (_u *MovieUpdateOne) SetNillableProgressID(id *int) *MovieUpdateOne {
+	if id != nil {
+		_u = _u.SetProgressID(*id)
+	}
+	return _u
+}
+
+// SetProgress sets the "progress" edge to the PlaybackProgress entity.
+func (_u *MovieUpdateOne) SetProgress(v *PlaybackProgress) *MovieUpdateOne {
+	return _u.SetProgressID(v.ID)
+}
+
 // Mutation returns the MovieMutation object of the builder.
 func (_u *MovieUpdateOne) Mutation() *MovieMutation {
 	return _u.mutation
@@ -1448,6 +1522,12 @@ func (_u *MovieUpdateOne) RemoveSubtitles(v ...*Subtitle) *MovieUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSubtitleIDs(ids...)
+}
+
+// ClearProgress clears the "progress" edge to the PlaybackProgress entity.
+func (_u *MovieUpdateOne) ClearProgress() *MovieUpdateOne {
+	_u.mutation.ClearProgress()
+	return _u
 }
 
 // Where appends a list predicates to the MovieUpdate builder.
@@ -1838,6 +1918,35 @@ func (_u *MovieUpdateOne) sqlSave(ctx context.Context) (_node *Movie, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(subtitle.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ProgressCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   movie.ProgressTable,
+			Columns: []string{movie.ProgressColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(playbackprogress.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ProgressIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   movie.ProgressTable,
+			Columns: []string{movie.ProgressColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(playbackprogress.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

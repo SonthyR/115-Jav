@@ -1,6 +1,9 @@
 import { createContext } from 'react'
 
-export type MovieDetailTarget = { id: string } | { code: string } | { libraryId: number }
+export type MovieDetailTarget =
+  | { id: string }
+  | { code: string }
+  | { libraryId: number; play?: boolean }
 
 export function movieDetailKey(movie: MovieDetailTarget) {
   if ('libraryId' in movie) return `library:${movie.libraryId}`

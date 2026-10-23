@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/ppxb/miyabi/internal/domain"
 	"github.com/ppxb/miyabi/internal/ent/movie"
+	"github.com/ppxb/miyabi/internal/ent/playbackprogress"
 	"github.com/ppxb/miyabi/internal/nfo"
 )
 
@@ -80,9 +81,11 @@ type MovieEdges struct {
 	Files []*File `json:"files,omitempty"`
 	// Subtitles holds the value of the subtitles edge.
 	Subtitles []*Subtitle `json:"subtitles,omitempty"`
+	// Progress holds the value of the progress edge.
+	Progress *PlaybackProgress `json:"progress,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [5]bool
 }
 
 // ActorsOrErr returns the Actors value or an error if the edge
@@ -119,6 +122,17 @@ func (e MovieEdges) SubtitlesOrErr() ([]*Subtitle, error) {
 		return e.Subtitles, nil
 	}
 	return nil, &NotLoadedError{edge: "subtitles"}
+}
+
+// ProgressOrErr returns the Progress value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e MovieEdges) ProgressOrErr() (*PlaybackProgress, error) {
+	if e.Progress != nil {
+		return e.Progress, nil
+	} else if e.loadedTypes[4] {
+		return nil, &NotFoundError{label: playbackprogress.Label}
+	}
+	return nil, &NotLoadedError{edge: "progress"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -338,6 +352,11 @@ func (_m *Movie) QueryFiles() *FileQuery {
 // QuerySubtitles queries the "subtitles" edge of the Movie entity.
 func (_m *Movie) QuerySubtitles() *SubtitleQuery {
 	return NewMovieClient(_m.config).QuerySubtitles(_m)
+}
+
+// QueryProgress queries the "progress" edge of the Movie entity.
+func (_m *Movie) QueryProgress() *PlaybackProgressQuery {
+	return NewMovieClient(_m.config).QueryProgress(_m)
 }
 
 // Update returns a builder for updating this Movie.

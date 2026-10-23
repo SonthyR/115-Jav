@@ -1442,6 +1442,29 @@ func HasSubtitlesWith(preds ...predicate.Subtitle) predicate.Movie {
 	})
 }
 
+// HasProgress applies the HasEdge predicate on the "progress" edge.
+func HasProgress() predicate.Movie {
+	return predicate.Movie(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, ProgressTable, ProgressColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasProgressWith applies the HasEdge predicate on the "progress" edge with a given conditions (other predicates).
+func HasProgressWith(preds ...predicate.PlaybackProgress) predicate.Movie {
+	return predicate.Movie(func(s *sql.Selector) {
+		step := newProgressStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Movie) predicate.Movie {
 	return predicate.Movie(sql.AndPredicates(predicates...))

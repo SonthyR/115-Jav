@@ -68,6 +68,8 @@ const (
 	EdgeFiles = "files"
 	// EdgeSubtitles holds the string denoting the subtitles edge name in mutations.
 	EdgeSubtitles = "subtitles"
+	// EdgeProgress holds the string denoting the progress edge name in mutations.
+	EdgeProgress = "progress"
 	// Table holds the table name of the movie in the database.
 	Table = "movies"
 	// ActorsTable is the table that holds the actors relation/edge. The primary key declared below.
@@ -94,6 +96,13 @@ const (
 	SubtitlesInverseTable = "subtitles"
 	// SubtitlesColumn is the table column denoting the subtitles relation/edge.
 	SubtitlesColumn = "movie_id"
+	// ProgressTable is the table that holds the progress relation/edge.
+	ProgressTable = "playback_progresses"
+	// ProgressInverseTable is the table name for the PlaybackProgress entity.
+	// It exists in this package in order to avoid circular dependency with the "playbackprogress" package.
+	ProgressInverseTable = "playback_progresses"
+	// ProgressColumn is the table column denoting the progress relation/edge.
+	ProgressColumn = "movie_id"
 )
 
 // Columns holds all SQL columns for movie fields.
@@ -352,6 +361,13 @@ func BySubtitles(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newSubtitlesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByProgressField orders the results by progress field.
+func ByProgressField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newProgressStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newActorsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -378,5 +394,12 @@ func newSubtitlesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SubtitlesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, SubtitlesTable, SubtitlesColumn),
+	)
+}
+func newProgressStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ProgressInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, ProgressTable, ProgressColumn),
 	)
 }

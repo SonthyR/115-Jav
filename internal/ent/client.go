@@ -21,6 +21,7 @@ import (
 	"github.com/ppxb/miyabi/internal/ent/metadatacache"
 	"github.com/ppxb/miyabi/internal/ent/movie"
 	"github.com/ppxb/miyabi/internal/ent/offlinedownload"
+	"github.com/ppxb/miyabi/internal/ent/playbackprogress"
 	"github.com/ppxb/miyabi/internal/ent/setting"
 	"github.com/ppxb/miyabi/internal/ent/subscription"
 	"github.com/ppxb/miyabi/internal/ent/subtitle"
@@ -46,6 +47,8 @@ type Client struct {
 	Movie *MovieClient
 	// OfflineDownload is the client for interacting with the OfflineDownload builders.
 	OfflineDownload *OfflineDownloadClient
+	// PlaybackProgress is the client for interacting with the PlaybackProgress builders.
+	PlaybackProgress *PlaybackProgressClient
 	// Setting is the client for interacting with the Setting builders.
 	Setting *SettingClient
 	// Subscription is the client for interacting with the Subscription builders.
@@ -75,6 +78,7 @@ func (c *Client) init() {
 	c.MetadataCache = NewMetadataCacheClient(c.config)
 	c.Movie = NewMovieClient(c.config)
 	c.OfflineDownload = NewOfflineDownloadClient(c.config)
+	c.PlaybackProgress = NewPlaybackProgressClient(c.config)
 	c.Setting = NewSettingClient(c.config)
 	c.Subscription = NewSubscriptionClient(c.config)
 	c.Subtitle = NewSubtitleClient(c.config)
@@ -179,6 +183,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		MetadataCache:    NewMetadataCacheClient(cfg),
 		Movie:            NewMovieClient(cfg),
 		OfflineDownload:  NewOfflineDownloadClient(cfg),
+		PlaybackProgress: NewPlaybackProgressClient(cfg),
 		Setting:          NewSettingClient(cfg),
 		Subscription:     NewSubscriptionClient(cfg),
 		Subtitle:         NewSubtitleClient(cfg),
@@ -210,6 +215,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		MetadataCache:    NewMetadataCacheClient(cfg),
 		Movie:            NewMovieClient(cfg),
 		OfflineDownload:  NewOfflineDownloadClient(cfg),
+		PlaybackProgress: NewPlaybackProgressClient(cfg),
 		Setting:          NewSettingClient(cfg),
 		Subscription:     NewSubscriptionClient(cfg),
 		Subtitle:         NewSubtitleClient(cfg),
@@ -246,8 +252,8 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.Actor, c.EmbyNotification, c.File, c.MetadataCache, c.Movie,
-		c.OfflineDownload, c.Setting, c.Subscription, c.Subtitle, c.Tag, c.Task,
-		c.ViewedMovie,
+		c.OfflineDownload, c.PlaybackProgress, c.Setting, c.Subscription, c.Subtitle,
+		c.Tag, c.Task, c.ViewedMovie,
 	} {
 		n.Use(hooks...)
 	}
@@ -258,8 +264,8 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.Actor, c.EmbyNotification, c.File, c.MetadataCache, c.Movie,
-		c.OfflineDownload, c.Setting, c.Subscription, c.Subtitle, c.Tag, c.Task,
-		c.ViewedMovie,
+		c.OfflineDownload, c.PlaybackProgress, c.Setting, c.Subscription, c.Subtitle,
+		c.Tag, c.Task, c.ViewedMovie,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -280,6 +286,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Movie.mutate(ctx, m)
 	case *OfflineDownloadMutation:
 		return c.OfflineDownload.mutate(ctx, m)
+	case *PlaybackProgressMutation:
+		return c.PlaybackProgress.mutate(ctx, m)
 	case *SettingMutation:
 		return c.Setting.mutate(ctx, m)
 	case *SubscriptionMutation:
@@ -1033,6 +1041,22 @@ func (c *MovieClient) QuerySubtitles(_m *Movie) *SubtitleQuery {
 	return query
 }
 
+// QueryProgress queries the progress edge of a Movie.
+func (c *MovieClient) QueryProgress(_m *Movie) *PlaybackProgressQuery {
+	query := (&PlaybackProgressClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(movie.Table, movie.FieldID, id),
+			sqlgraph.To(playbackprogress.Table, playbackprogress.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, movie.ProgressTable, movie.ProgressColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *MovieClient) Hooks() []Hook {
 	hooks := c.hooks.Movie
@@ -1189,6 +1213,155 @@ func (c *OfflineDownloadClient) mutate(ctx context.Context, m *OfflineDownloadMu
 		return (&OfflineDownloadDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown OfflineDownload mutation op: %q", m.Op())
+	}
+}
+
+// PlaybackProgressClient is a client for the PlaybackProgress schema.
+type PlaybackProgressClient struct {
+	config
+}
+
+// NewPlaybackProgressClient returns a client for the PlaybackProgress from the given config.
+func NewPlaybackProgressClient(c config) *PlaybackProgressClient {
+	return &PlaybackProgressClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `playbackprogress.Hooks(f(g(h())))`.
+func (c *PlaybackProgressClient) Use(hooks ...Hook) {
+	c.hooks.PlaybackProgress = append(c.hooks.PlaybackProgress, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `playbackprogress.Intercept(f(g(h())))`.
+func (c *PlaybackProgressClient) Intercept(interceptors ...Interceptor) {
+	c.inters.PlaybackProgress = append(c.inters.PlaybackProgress, interceptors...)
+}
+
+// Create returns a builder for creating a PlaybackProgress entity.
+func (c *PlaybackProgressClient) Create() *PlaybackProgressCreate {
+	mutation := newPlaybackProgressMutation(c.config, OpCreate)
+	return &PlaybackProgressCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of PlaybackProgress entities.
+func (c *PlaybackProgressClient) CreateBulk(builders ...*PlaybackProgressCreate) *PlaybackProgressCreateBulk {
+	return &PlaybackProgressCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PlaybackProgressClient) MapCreateBulk(slice any, setFunc func(*PlaybackProgressCreate, int)) *PlaybackProgressCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PlaybackProgressCreateBulk{err: fmt.Errorf("calling to PlaybackProgressClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PlaybackProgressCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PlaybackProgressCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for PlaybackProgress.
+func (c *PlaybackProgressClient) Update() *PlaybackProgressUpdate {
+	mutation := newPlaybackProgressMutation(c.config, OpUpdate)
+	return &PlaybackProgressUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PlaybackProgressClient) UpdateOne(_m *PlaybackProgress) *PlaybackProgressUpdateOne {
+	mutation := newPlaybackProgressMutation(c.config, OpUpdateOne, withPlaybackProgress(_m))
+	return &PlaybackProgressUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PlaybackProgressClient) UpdateOneID(id int) *PlaybackProgressUpdateOne {
+	mutation := newPlaybackProgressMutation(c.config, OpUpdateOne, withPlaybackProgressID(id))
+	return &PlaybackProgressUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for PlaybackProgress.
+func (c *PlaybackProgressClient) Delete() *PlaybackProgressDelete {
+	mutation := newPlaybackProgressMutation(c.config, OpDelete)
+	return &PlaybackProgressDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PlaybackProgressClient) DeleteOne(_m *PlaybackProgress) *PlaybackProgressDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PlaybackProgressClient) DeleteOneID(id int) *PlaybackProgressDeleteOne {
+	builder := c.Delete().Where(playbackprogress.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PlaybackProgressDeleteOne{builder}
+}
+
+// Query returns a query builder for PlaybackProgress.
+func (c *PlaybackProgressClient) Query() *PlaybackProgressQuery {
+	return &PlaybackProgressQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePlaybackProgress},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a PlaybackProgress entity by its id.
+func (c *PlaybackProgressClient) Get(ctx context.Context, id int) (*PlaybackProgress, error) {
+	return c.Query().Where(playbackprogress.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PlaybackProgressClient) GetX(ctx context.Context, id int) *PlaybackProgress {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryMovie queries the movie edge of a PlaybackProgress.
+func (c *PlaybackProgressClient) QueryMovie(_m *PlaybackProgress) *MovieQuery {
+	query := (&MovieClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(playbackprogress.Table, playbackprogress.FieldID, id),
+			sqlgraph.To(movie.Table, movie.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, playbackprogress.MovieTable, playbackprogress.MovieColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *PlaybackProgressClient) Hooks() []Hook {
+	return c.hooks.PlaybackProgress
+}
+
+// Interceptors returns the client interceptors.
+func (c *PlaybackProgressClient) Interceptors() []Interceptor {
+	return c.inters.PlaybackProgress
+}
+
+func (c *PlaybackProgressClient) mutate(ctx context.Context, m *PlaybackProgressMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PlaybackProgressCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PlaybackProgressUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PlaybackProgressUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PlaybackProgressDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown PlaybackProgress mutation op: %q", m.Op())
 	}
 }
 
@@ -2025,11 +2198,13 @@ func (c *ViewedMovieClient) mutate(ctx context.Context, m *ViewedMovieMutation) 
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Actor, EmbyNotification, File, MetadataCache, Movie, OfflineDownload, Setting,
-		Subscription, Subtitle, Tag, Task, ViewedMovie []ent.Hook
+		Actor, EmbyNotification, File, MetadataCache, Movie, OfflineDownload,
+		PlaybackProgress, Setting, Subscription, Subtitle, Tag, Task,
+		ViewedMovie []ent.Hook
 	}
 	inters struct {
-		Actor, EmbyNotification, File, MetadataCache, Movie, OfflineDownload, Setting,
-		Subscription, Subtitle, Tag, Task, ViewedMovie []ent.Interceptor
+		Actor, EmbyNotification, File, MetadataCache, Movie, OfflineDownload,
+		PlaybackProgress, Setting, Subscription, Subtitle, Tag, Task,
+		ViewedMovie []ent.Interceptor
 	}
 )

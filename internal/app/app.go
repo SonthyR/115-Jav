@@ -127,7 +127,8 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 
 	offlineSvc := offline.New(store.Client, catalogueSvc, driveSvc, taskSvc, libSvc, offlineSubmitTimeout)
 	monitorSvc := monitor.New(store.Client, catalogueSvc, offlineSvc, taskSvc)
-	subtitleSvc := subtitle.NewService(store.Client, subtitle.NewFinder(networkSvc.ProxyManager()))
+	subtitleFinder := subtitle.NewFinder(networkSvc.ProxyManager())
+	subtitleSvc := subtitle.NewService(store.Client, subtitleFinder)
 	gfriendsClient := gfriends.New(cfg.DataDir, &http.Client{
 		Timeout:   30 * time.Second,
 		Transport: netx.NewTransport(networkSvc.ProxyManager()),
@@ -194,6 +195,7 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 		logger.ErrorContext(ctx, "failed to load merged actor names", "error", err)
 	}
 
+	relay := strm.New(store.Client, driveSvc)
 	router := api.NewRouter(api.Dependencies{
 		Logger:         logger,
 		Access:         api.NewAccessGateService(cfg.AccessPassword, cfg.JWTSecret),
@@ -203,13 +205,16 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 		Offline:        offlineSvc,
 		Monitor:        monitorSvc,
 		Library:        libSvc,
-		STRM:           strm.New(store.Client, driveSvc),
+		STRM:           relay,
 		Tasks:          &taskViews{Service: taskSvc, database: store.Client, library: libSvc, monitor: monitorSvc},
 		Artwork:        scrapeSvc,
 		Maintenance:    maintenanceSvc,
 		Network:        networkSvc,
 		Emby:           embySvc,
 		Organize:       organizer,
+		Playback:       libSvc,
+		Subtitles:      subtitle.NewPlayer(store.Client, subtitleFinder),
+		Transcoder:     relay,
 		Frontend:       miyabi.Frontend(),
 		STRMToken:      cfg.STRMToken,
 		TrustedProxies: cfg.TrustedProxies,

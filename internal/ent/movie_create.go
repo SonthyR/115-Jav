@@ -15,6 +15,7 @@ import (
 	"github.com/ppxb/miyabi/internal/ent/actor"
 	"github.com/ppxb/miyabi/internal/ent/file"
 	"github.com/ppxb/miyabi/internal/ent/movie"
+	"github.com/ppxb/miyabi/internal/ent/playbackprogress"
 	"github.com/ppxb/miyabi/internal/ent/subtitle"
 	"github.com/ppxb/miyabi/internal/ent/tag"
 	"github.com/ppxb/miyabi/internal/nfo"
@@ -364,6 +365,25 @@ func (_c *MovieCreate) AddSubtitles(v ...*Subtitle) *MovieCreate {
 	return _c.AddSubtitleIDs(ids...)
 }
 
+// SetProgressID sets the "progress" edge to the PlaybackProgress entity by ID.
+func (_c *MovieCreate) SetProgressID(id int) *MovieCreate {
+	_c.mutation.SetProgressID(id)
+	return _c
+}
+
+// SetNillableProgressID sets the "progress" edge to the PlaybackProgress entity by ID if the given value is not nil.
+func (_c *MovieCreate) SetNillableProgressID(id *int) *MovieCreate {
+	if id != nil {
+		_c = _c.SetProgressID(*id)
+	}
+	return _c
+}
+
+// SetProgress sets the "progress" edge to the PlaybackProgress entity.
+func (_c *MovieCreate) SetProgress(v *PlaybackProgress) *MovieCreate {
+	return _c.SetProgressID(v.ID)
+}
+
 // Mutation returns the MovieMutation object of the builder.
 func (_c *MovieCreate) Mutation() *MovieMutation {
 	return _c.mutation
@@ -649,6 +669,22 @@ func (_c *MovieCreate) createSpec() (*Movie, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(subtitle.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ProgressIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   movie.ProgressTable,
+			Columns: []string{movie.ProgressColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(playbackprogress.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

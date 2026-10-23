@@ -30,6 +30,9 @@ type Dependencies struct {
 	Network        NetworkManager
 	Emby           EmbyManager
 	Organize       OrganizeManager
+	Playback       PlaybackManager
+	Subtitles      SubtitlePlayer
+	Transcoder     TranscodeRelay
 	Frontend       fs.FS
 	STRMToken      string
 	TrustedProxies []string
@@ -97,6 +100,18 @@ func NewRouter(deps Dependencies) *gin.Engine {
 	protected.POST("/library/scan", libraryScanHandler(deps.Library, deps.Emby))
 	protected.POST("/library/rebuild", libraryRebuildHandler(deps.Library))
 	protected.GET("/library/artwork/:key", libraryArtworkHandler(deps.Artwork))
+	protected.GET("/library/movies/:id/play", noStore(), playInfoHandler(deps.Playback))
+	protected.PUT("/library/movies/:id/progress", saveProgressHandler(deps.Playback))
+	protected.DELETE("/library/movies/:id/progress", clearProgressHandler(deps.Playback))
+	protected.GET("/library/continue", noStore(), continueWatchingHandler(deps.Playback))
+	protected.GET("/library/movies/:id/subtitles/:subtitleID", noStore(), subtitleTrackHandler(deps.Subtitles))
+	protected.GET("/library/movies/:id/subtitle-search", noStore(), subtitleSearchHandler(deps.Subtitles))
+	protected.GET("/library/movies/:id/subtitle-search/:index", noStore(), subtitleFetchHandler(deps.Subtitles))
+
+	hls := newHLSSigner()
+	protected.GET("/play/file/:fileID", noStore(), playStreamHandler(deps.STRM))
+	protected.GET("/play/file/:fileID/transcodes", noStore(), transcodesHandler(deps.Transcoder, hls))
+	protected.GET("/play/hls", hlsProxyHandler(deps.Transcoder, hls))
 
 	protected.GET("/organize/log", noStore(), organizeLogHandler(deps.Organize))
 	protected.POST("/organize/run", organizeRunHandler(deps.Organize))

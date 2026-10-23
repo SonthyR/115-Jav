@@ -1,3 +1,5 @@
+import { lazy, Suspense, useState } from 'react'
+
 import { useRecordMovieView } from '@/api/browse-history'
 import { useDiscoverMagnets, useDiscoverMovie, useResolveDiscoverMovie } from '@/api/discover'
 import { useLibraryMovie } from '@/api/library'
@@ -9,8 +11,13 @@ import { MoviePreviews } from './previews'
 import { MovieRecommendations } from './recommendations'
 import { MovieDetailSkeleton } from './skeleton'
 
+const MoviePlayer = lazy(() =>
+  import('@/features/player/player').then(module => ({ default: module.MoviePlayer }))
+)
+
 export function MovieDetailContent({ movie }: { movie: MovieDetailTarget }) {
-  if ('libraryId' in movie) return <LibraryMovieDetail movieId={movie.libraryId} />
+  if ('libraryId' in movie)
+    return <LibraryMovieDetail movieId={movie.libraryId} play={movie.play} />
   return 'id' in movie ? (
     <IdentifiedMovieDetail movieId={movie.id} />
   ) : (
@@ -18,8 +25,9 @@ export function MovieDetailContent({ movie }: { movie: MovieDetailTarget }) {
   )
 }
 
-function LibraryMovieDetail({ movieId }: { movieId: number }) {
+function LibraryMovieDetail({ movieId, play = false }: { movieId: number; play?: boolean }) {
   const detail = useLibraryMovie(movieId)
+  const [playing, setPlaying] = useState(play)
   if (detail.isPending) return <MovieDetailSkeleton />
   if (!detail.data) {
     return (
@@ -37,7 +45,18 @@ function LibraryMovieDetail({ movieId }: { movieId: number }) {
           刷新失败，请重试。
         </InlineError>
       ) : null}
-      <MovieHero movie={detail.data} libraryStatus={detail.data.scrape_status} />
+      <MovieHero
+        movie={detail.data}
+        libraryStatus={detail.data.scrape_status}
+        onPlay={() => setPlaying(true)}
+        player={
+          playing ? (
+            <Suspense fallback={<div className="aspect-video rounded-2xl bg-black" />}>
+              <MoviePlayer movieId={movieId} />
+            </Suspense>
+          ) : undefined
+        }
+      />
       <MoviePreviews images={detail.data.preview_images} />
       {detail.data.id ? <LibraryCatalogueExtras movieId={detail.data.id} /> : null}
     </div>

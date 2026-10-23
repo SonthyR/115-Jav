@@ -143,3 +143,29 @@ func (relay *Relay) pickCode(ctx context.Context, sess drive.Session, fileID str
 	}
 	return info.PickCode, nil
 }
+
+// Transcodes lists the 115 transcoded HLS streams of a video for browsers
+// that cannot decode the original file.
+func (relay *Relay) Transcodes(ctx context.Context, fileID, userAgent string) ([]pan.PlaySource, error) {
+	sess, err := relay.drive.Open(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pickCode, err := relay.pickCode(ctx, sess, fileID)
+	if err != nil {
+		return nil, err
+	}
+	sources, err := sess.PlayURL(ctx, pickCode, strings.TrimSpace(userAgent))
+	if errors.Is(err, pan.ErrTranscodeUnavailable) {
+		return nil, drive.ErrTranscodeUnavailable
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get 115 playback URL: %w", err)
+	}
+	return sources, nil
+}
+
+// Open fetches a 115 media URL for the web player's HLS proxy.
+func (relay *Relay) Open(ctx context.Context, address string, headers http.Header) (*http.Response, error) {
+	return relay.drive.OpenMedia(ctx, http.MethodGet, address, headers)
+}

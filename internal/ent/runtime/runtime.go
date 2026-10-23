@@ -12,6 +12,7 @@ import (
 	"github.com/ppxb/miyabi/internal/ent/metadatacache"
 	"github.com/ppxb/miyabi/internal/ent/movie"
 	"github.com/ppxb/miyabi/internal/ent/offlinedownload"
+	"github.com/ppxb/miyabi/internal/ent/playbackprogress"
 	"github.com/ppxb/miyabi/internal/ent/schema"
 	"github.com/ppxb/miyabi/internal/ent/setting"
 	"github.com/ppxb/miyabi/internal/ent/subscription"
@@ -250,6 +251,37 @@ func init() {
 	offlinedownloadDescAwaitingLocation := offlinedownloadFields[13].Descriptor()
 	// offlinedownload.DefaultAwaitingLocation holds the default value on creation for the awaiting_location field.
 	offlinedownload.DefaultAwaitingLocation = offlinedownloadDescAwaitingLocation.Default.(bool)
+	playbackprogressMixin := schema.PlaybackProgress{}.Mixin()
+	playbackprogressMixinFields0 := playbackprogressMixin[0].Fields()
+	_ = playbackprogressMixinFields0
+	playbackprogressFields := schema.PlaybackProgress{}.Fields()
+	_ = playbackprogressFields
+	// playbackprogressDescCreatedAt is the schema descriptor for created_at field.
+	playbackprogressDescCreatedAt := playbackprogressMixinFields0[0].Descriptor()
+	// playbackprogress.DefaultCreatedAt holds the default value on creation for the created_at field.
+	playbackprogress.DefaultCreatedAt = playbackprogressDescCreatedAt.Default.(func() time.Time)
+	// playbackprogressDescUpdatedAt is the schema descriptor for updated_at field.
+	playbackprogressDescUpdatedAt := playbackprogressMixinFields0[1].Descriptor()
+	// playbackprogress.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	playbackprogress.DefaultUpdatedAt = playbackprogressDescUpdatedAt.Default.(func() time.Time)
+	// playbackprogress.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	playbackprogress.UpdateDefaultUpdatedAt = playbackprogressDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// playbackprogressDescMovieID is the schema descriptor for movie_id field.
+	playbackprogressDescMovieID := playbackprogressFields[0].Descriptor()
+	// playbackprogress.MovieIDValidator is a validator for the "movie_id" field. It is called by the builders before save.
+	playbackprogress.MovieIDValidator = playbackprogressDescMovieID.Validators[0].(func(int) error)
+	// playbackprogressDescFileID is the schema descriptor for file_id field.
+	playbackprogressDescFileID := playbackprogressFields[1].Descriptor()
+	// playbackprogress.FileIDValidator is a validator for the "file_id" field. It is called by the builders before save.
+	playbackprogress.FileIDValidator = playbackprogressDescFileID.Validators[0].(func(string) error)
+	// playbackprogressDescPosition is the schema descriptor for position field.
+	playbackprogressDescPosition := playbackprogressFields[2].Descriptor()
+	// playbackprogress.PositionValidator is a validator for the "position" field. It is called by the builders before save.
+	playbackprogress.PositionValidator = playbackprogressDescPosition.Validators[0].(func(float64) error)
+	// playbackprogressDescDuration is the schema descriptor for duration field.
+	playbackprogressDescDuration := playbackprogressFields[3].Descriptor()
+	// playbackprogress.DurationValidator is a validator for the "duration" field. It is called by the builders before save.
+	playbackprogress.DurationValidator = playbackprogressDescDuration.Validators[0].(func(float64) error)
 	settingMixin := schema.Setting{}.Mixin()
 	settingMixinFields0 := settingMixin[0].Fields()
 	_ = settingMixinFields0

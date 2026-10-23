@@ -10,6 +10,7 @@ import { MovieGridLayout } from '@/components/movie/movie-grid-layout'
 import { MovieGridSkeleton } from '@/components/movie/movie-grid-skeleton'
 import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
+import { ContinueWatching } from '@/features/library/continue-watching'
 import { LibraryFilters } from '@/features/library/filters'
 import { LibraryMovieCard } from '@/features/library/movie-card'
 import { LibraryScanButton } from '@/features/library/scan-button'
@@ -54,6 +55,8 @@ export function LibraryPage({
           </Button>
         ) : null}
       </PageHeader>
+
+      {source && page === 1 && !filtered ? <ContinueWatching /> : null}
 
       {onFilterChange && source ? (
         <LibraryFilters filter={filter} onChange={onFilterChange} />
