@@ -302,6 +302,11 @@ func (s *Service) fetch(ctx context.Context, source Source, ref domain.MovieRef)
 		if err != nil && !ent.IsNotFound(err) {
 			return nil, err
 		}
+		if source.ID() == "javdb" && !knownJavDB && entry != nil && entry.Result != nil && entry.Result.Detail.ID != "" {
+			// Keep the entry this code was confirmed as before: a search may since
+			// have gained another entry with the same code.
+			ref.JavDBID, knownJavDB = entry.Result.Detail.ID, true
+		}
 		cacheMatches := !ref.Refresh && entry != nil && time.Now().Before(entry.ExpiresAt)
 		// A known ID can retrieve a film absent from search. A cached miss or a
 		// different catalogue ID must not suppress that more precise lookup.

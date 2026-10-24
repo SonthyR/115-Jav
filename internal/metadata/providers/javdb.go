@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strings"
+	"time"
 
 	"github.com/ppxb/miyabi/internal/catalogue"
 	"github.com/ppxb/miyabi/internal/codeid"
@@ -60,9 +60,7 @@ func (s *JavDB) Fetch(ctx context.Context, ref domain.MovieRef) (domain.MovieMet
 				}
 			}
 			if len(matched) > 1 && ref.ReleaseDate != "" {
-				matched = slices.DeleteFunc(matched, func(m domain.Movie) bool {
-					return !strings.HasPrefix(m.ReleaseDate, ref.ReleaseDate)
-				})
+				matched = byReleaseDate(matched, ref.ReleaseDate)
 				if len(matched) == 0 {
 					return domain.MovieMetadata{}, domain.E(domain.KindConflict, "JavDB 同番号对应多个影片，发行日期都对不上", nil)
 				}
@@ -133,4 +131,34 @@ func (s *JavDB) Fetch(ctx context.Context, ref domain.MovieRef) (domain.MovieMet
 		}
 	}
 	return result, nil
+}
+
+// releaseDateSlack covers sources that record the sale date and the
+// streaming date of one release differently.
+const releaseDateSlack = 90 * 24 * time.Hour
+
+// byReleaseDate keeps the entries released on date, or failing that the
+// entries released within releaseDateSlack of it.
+func byReleaseDate(movies []domain.Movie, date string) []domain.Movie {
+	want, err := time.Parse(time.DateOnly, date)
+	if err != nil {
+		return nil
+	}
+	var exact, near []domain.Movie
+	for _, movie := range movies {
+		released, err := time.Parse(time.DateOnly, movie.ReleaseDate[:min(len(movie.ReleaseDate), len(time.DateOnly))])
+		if err != nil {
+			continue
+		}
+		switch gap := released.Sub(want).Abs(); {
+		case gap == 0:
+			exact = append(exact, movie)
+		case gap <= releaseDateSlack:
+			near = append(near, movie)
+		}
+	}
+	if len(exact) > 0 {
+		return exact
+	}
+	return near
 }

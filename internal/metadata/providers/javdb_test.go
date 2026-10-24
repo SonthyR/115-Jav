@@ -153,6 +153,9 @@ func TestJavDBPicksTheEntryWhoseReleaseDateMatchesTheLibrary(t *testing.T) {
 	if _, err := NewJavDB(s).Fetch(t.Context(), domain.MovieRef{Code: "FNS-004", ReleaseDate: "2025-04-23"}); err != nil || s.requestedID != "new" {
 		t.Fatalf("requested %q, err = %v", s.requestedID, err)
 	}
+	if _, err := NewJavDB(s).Fetch(t.Context(), domain.MovieRef{Code: "FNS-004", ReleaseDate: "2025-03-28"}); err != nil || s.requestedID != "new" {
+		t.Fatalf("nearby date: requested %q, err = %v", s.requestedID, err)
+	}
 	for _, date := range []string{"", "2020-01-01"} {
 		if _, err := NewJavDB(s).Fetch(t.Context(), domain.MovieRef{Code: "FNS-004", ReleaseDate: date}); domain.KindOf(err) != domain.KindConflict {
 			t.Fatalf("date %q: err = %v", date, err)
