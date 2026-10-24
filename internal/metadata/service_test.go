@@ -502,3 +502,28 @@ func TestAmbiguousJavDBLeavesTheMovieToOtherSources(t *testing.T) {
 		t.Fatalf("err = %v, want the ambiguity", err)
 	}
 }
+
+type refStub struct{ refs []domain.MovieRef }
+
+func (*refStub) ID() string           { return "javdb" }
+func (*refStub) Supports(string) bool { return true }
+func (s *refStub) Fetch(_ context.Context, ref domain.MovieRef) (domain.MovieMetadata, error) {
+	s.refs = append(s.refs, ref)
+	m := completeFixture("javdb", ref.Code)
+	m.Detail.ID, m.Detail.Sources[0].ID = "keep", "keep"
+	return m, nil
+}
+func (*refStub) Media(context.Context, string) (domain.Media, error) { return domain.Media{}, nil }
+
+func TestRefreshKeepsTheJavDBEntryConfirmedBefore(t *testing.T) {
+	source := &refStub{}
+	s := newTestService(t, source)
+	for _, refresh := range []bool{false, true} {
+		if _, err := s.Resolve(t.Context(), domain.MovieRef{Code: "PRED-768", Refresh: refresh}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(source.refs) != 2 || source.refs[0].JavDBID != "" || source.refs[1].JavDBID != "keep" {
+		t.Fatalf("refs = %+v", source.refs)
+	}
+}
