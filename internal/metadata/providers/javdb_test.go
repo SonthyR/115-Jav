@@ -141,3 +141,21 @@ func TestJavDBRejectsAmbiguousYearVariants(t *testing.T) {
 		t.Fatalf("ambiguous year spelling accepted: %v", err)
 	}
 }
+
+func TestJavDBPicksTheEntryWhoseReleaseDateMatchesTheLibrary(t *testing.T) {
+	s := &javdbStub{
+		search: []catalogue.Movie{
+			{Movie: domain.Movie{ID: "old", Code: "FNS-004", ReleaseDate: "2019-02-01"}},
+			{Movie: domain.Movie{ID: "new", Code: "FNS-004", ReleaseDate: "2025-04-23"}},
+		},
+		detail: domain.MovieDetail{Movie: domain.Movie{ID: "new", Code: "FNS-004", Title: "Title"}},
+	}
+	if _, err := NewJavDB(s).Fetch(t.Context(), domain.MovieRef{Code: "FNS-004", ReleaseDate: "2025-04-23"}); err != nil || s.requestedID != "new" {
+		t.Fatalf("requested %q, err = %v", s.requestedID, err)
+	}
+	for _, date := range []string{"", "2020-01-01"} {
+		if _, err := NewJavDB(s).Fetch(t.Context(), domain.MovieRef{Code: "FNS-004", ReleaseDate: date}); domain.KindOf(err) != domain.KindConflict {
+			t.Fatalf("date %q: err = %v", date, err)
+		}
+	}
+}
