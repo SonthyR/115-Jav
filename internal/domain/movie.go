@@ -6,6 +6,9 @@ type MovieRef struct {
 	Code    string `json:"code"`
 	JavDBID string `json:"javdb_id"`
 	Zone    Zone   `json:"zone,omitempty"`
+	// ReleaseDate (YYYY-MM-DD) from the library tells apart catalogue
+	// entries that share a code, e.g. a label that reused its numbering.
+	ReleaseDate string `json:"release_date,omitempty"`
 }
 
 // LocalMovie represents the identity and library ID of a movie indexed locally.

@@ -481,3 +481,24 @@ func TestConfirmedMissIsCachedAndSourceSettingsValidate(t *testing.T) {
 		t.Fatal("unknown source accepted")
 	}
 }
+
+func TestAmbiguousJavDBLeavesTheMovieToOtherSources(t *testing.T) {
+	ambiguous := domain.E(domain.KindConflict, "JavDB 同番号对应多个影片", nil)
+	catalogue := &sourceStub{id: "javdb", fetch: func(context.Context, string) (domain.MovieMetadata, error) {
+		return domain.MovieMetadata{}, ambiguous
+	}}
+	official := &sourceStub{id: "fanza", fetch: func(_ context.Context, code string) (domain.MovieMetadata, error) {
+		return completeFixture("fanza", code), nil
+	}}
+	m, err := newTestService(t, official, catalogue).Resolve(t.Context(), domain.MovieRef{Code: "PRED-768", Refresh: true})
+	if err != nil || m.Detail.Code != "PRED-768" {
+		t.Fatalf("result = %+v, err = %v", m.Detail, err)
+	}
+	missing := &sourceStub{id: "fanza", fetch: func(context.Context, string) (domain.MovieMetadata, error) {
+		return domain.MovieMetadata{}, ErrNotFound
+	}}
+	_, err = newTestService(t, missing, catalogue).Resolve(t.Context(), domain.MovieRef{Code: "PRED-768", Refresh: true})
+	if !errors.Is(err, ambiguous) {
+		t.Fatalf("err = %v, want the ambiguity", err)
+	}
+}

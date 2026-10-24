@@ -415,7 +415,14 @@ func (service *Service) pruneDirCache(now time.Time) {
 }
 
 func (service *Service) resolveMetadata(ctx context.Context, input *Payload) error {
-	result, err := service.metadata.Resolve(ctx, domain.MovieRef{Code: input.Code, JavDBID: input.JavDBID, Refresh: input.Rebuild})
+	ref := domain.MovieRef{Code: input.Code, JavDBID: input.JavDBID, Refresh: input.Rebuild}
+	if ref.JavDBID == "" {
+		// A date already in the library picks between JavDB entries sharing the code.
+		if record, err := service.db.Movie.Query().Where(movie.IDEQ(input.MovieID)).Select(movie.FieldReleaseDate).Only(ctx); err == nil && record.ReleaseDate != nil {
+			ref.ReleaseDate = record.ReleaseDate.Format(time.DateOnly)
+		}
+	}
+	result, err := service.metadata.Resolve(ctx, ref)
 	if err != nil {
 		return err
 	}

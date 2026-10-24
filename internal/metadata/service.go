@@ -149,6 +149,7 @@ func (s *Service) Resolve(ctx context.Context, ref domain.MovieRef) (domain.Movi
 	}
 	var failures []error
 	var failedSources []string
+	var ambiguous error
 	for _, layer := range codeid.Layers(ref.Code) {
 		var results []domain.MovieMetadata
 		var merged domain.MovieMetadata
@@ -158,7 +159,11 @@ func (s *Service) Resolve(ctx context.Context, ref domain.MovieRef) (domain.Movi
 			}
 			result, err := s.resolveLayer(ctx, s.sources[setting.ID], ref, layer)
 			if err != nil {
-				if !errors.Is(err, ErrNotFound) {
+				if domain.KindOf(err) == domain.KindConflict && ambiguous == nil {
+					// A source that cannot tell entries apart is reachable; other
+					// sources may still identify the movie.
+					ambiguous = err
+				} else if !errors.Is(err, ErrNotFound) && domain.KindOf(err) != domain.KindConflict {
 					failures = append(failures, fmt.Errorf("%s: %w", setting.ID, err))
 					if !slices.Contains(failedSources, setting.ID) {
 						failedSources = append(failedSources, setting.ID)
@@ -183,13 +188,17 @@ func (s *Service) Resolve(ctx context.Context, ref domain.MovieRef) (domain.Movi
 		if merged.Detail.Code != "" {
 			return attachJavDBIdentity(merged, ref.JavDBID)
 		}
-		if len(failures) > 0 {
+		// An ambiguous code must not fall through to a weaker layer either.
+		if len(failures) > 0 || ambiguous != nil {
 			break
 		}
 	}
 	if len(failures) > 0 {
 		message := "刮削来源查询失败: " + strings.Join(failedSources, "、") + "，请检查网络和代理设置"
 		return domain.MovieMetadata{}, domain.E(domain.KindUpstream, message, errors.Join(failures...))
+	}
+	if ambiguous != nil {
+		return domain.MovieMetadata{}, ambiguous
 	}
 	return domain.MovieMetadata{}, domain.E(domain.KindNotFound, "已启用的来源未找到可确认的影片资料", ErrNotFound)
 }
@@ -271,6 +280,8 @@ func (s *Service) fetch(ctx context.Context, source Source, ref domain.MovieRef)
 	knownJavDB := source.ID() == "javdb" && ref.JavDBID != ""
 	if knownJavDB {
 		key += ":" + ref.JavDBID
+	} else if ref.ReleaseDate != "" {
+		key += "@" + ref.ReleaseDate
 	}
 	if ref.Refresh {
 		key += ":refresh"

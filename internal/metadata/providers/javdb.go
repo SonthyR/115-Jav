@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/ppxb/miyabi/internal/catalogue"
 	"github.com/ppxb/miyabi/internal/codeid"
@@ -48,20 +49,29 @@ func (s *JavDB) Fetch(ctx context.Context, ref domain.MovieRef) (domain.MovieMet
 		// Do not use ResolveMovieID here: it performs weaker matching internally.
 		// The metadata service owns matching layers across all sources.
 		for _, exact := range []bool{true, false} {
+			var matched []domain.Movie
 			for _, candidate := range candidates {
 				matches := codeid.IsFormatEquivalent(candidate.Code, code)
 				if exact {
 					matches = codeid.Normalize(candidate.Code) == code
 				}
-				if !matches {
-					continue
+				if matches && !slices.ContainsFunc(matched, func(m domain.Movie) bool { return m.ID == candidate.ID }) {
+					matched = append(matched, candidate)
 				}
-				if id != "" && id != candidate.ID {
-					return domain.MovieMetadata{}, domain.E(domain.KindConflict, "JavDB 同番号对应多个影片", nil)
-				}
-				id = candidate.ID
 			}
-			if id != "" {
+			if len(matched) > 1 && ref.ReleaseDate != "" {
+				matched = slices.DeleteFunc(matched, func(m domain.Movie) bool {
+					return !strings.HasPrefix(m.ReleaseDate, ref.ReleaseDate)
+				})
+				if len(matched) == 0 {
+					return domain.MovieMetadata{}, domain.E(domain.KindConflict, "JavDB 同番号对应多个影片，发行日期都对不上", nil)
+				}
+			}
+			if len(matched) > 1 {
+				return domain.MovieMetadata{}, domain.E(domain.KindConflict, "JavDB 同番号对应多个影片", nil)
+			}
+			if len(matched) == 1 {
+				id = matched[0].ID
 				break
 			}
 		}
