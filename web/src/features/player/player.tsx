@@ -126,7 +126,8 @@ function Player({
       language: item.language
     }))
   )
-  const [activeTrack, setActiveTrack] = useState<string | undefined>(tracks[0]?.key)
+  // Subtitles start off; the subtitle menu turns one on.
+  const [activeTrack, setActiveTrack] = useState<string>()
   // MoviePlayer renders the player only for movies with videos.
   const file = info.files[fileIndex] ?? info.files[0]!
   // Where the next loaded source starts: the saved position, or the current

@@ -22,6 +22,24 @@ export type NavItem = {
 
 export type Side = 'watch' | 'manage'
 
+const HOMES: Record<Side, string> = { watch: '/', manage: '/library' }
+
+const MANAGE_PATHS = [
+  '/library',
+  '/organize',
+  '/discover',
+  '/search',
+  '/subscriptions',
+  '/settings'
+]
+
+function sideOf(href: string): Side | undefined {
+  const pathname = href.split(/[?#]/)[0] ?? ''
+  if (pathname.startsWith('/play/')) return undefined
+  const manage = MANAGE_PATHS.some(path => pathname === path || pathname.startsWith(`${path}/`))
+  return manage ? 'manage' : 'watch'
+}
+
 const SIDES: Array<{ side: Side; label: string; icon: LucideIcon }> = [
   { side: 'watch', label: '观看', icon: TvIcon },
   { side: 'manage', label: '管理', icon: WrenchIcon }
@@ -47,7 +65,11 @@ export function NavShell({
 }) {
   const location = useLocation()
   const remember = useLastPage(state => state.remember)
-  useEffect(() => remember(side, location.href), [side, location.href, remember])
+  // While a switch is loading, the old side still renders with the new
+  // location, so only a page of this side is remembered.
+  useEffect(() => {
+    if (sideOf(location.pathname) === side) remember(side, location.href)
+  }, [side, location.pathname, location.href, remember])
 
   return (
     <div className="relative min-h-dvh pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
@@ -124,7 +146,9 @@ function SideSwitch({ side }: { side: Side }) {
               : 'hover:text-foreground'
           )}
           onClick={() => {
-            if (item.side !== side) router.history.push(last[item.side])
+            if (item.side === side) return
+            const target = last[item.side]
+            router.history.push(sideOf(target) === item.side ? target : HOMES[item.side])
           }}
         >
           <item.icon className="size-4" />
