@@ -7,7 +7,9 @@ import {
   LoaderCircleIcon,
   type LucideIcon,
   MaximizeIcon,
-  SearchIcon
+  SearchIcon,
+  SkipForwardIcon,
+  TimerIcon
 } from 'lucide-react'
 import { type ReactNode, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -24,6 +26,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { formatSize } from '@/lib/format'
 import { subtitleFormat, toVTT } from '@/lib/subtitles'
+import { playbackRates, usePlaybackRate } from '@/stores/playback-rate'
 import { useSubtitleStyle } from '@/stores/subtitle-style'
 
 export type PlayerTrack = { key: string; label: string; src: string; language: string }
@@ -54,7 +57,8 @@ export function PlayerToolbar({
   activeTrack,
   onTrackChange,
   onAddTrack,
-  onFullscreen
+  onFullscreen,
+  onNext
 }: {
   container: HTMLElement | null
   movieId: number
@@ -70,7 +74,9 @@ export function PlayerToolbar({
   onTrackChange: (key?: string) => void
   onAddTrack: (track: PlayerTrack) => void
   onFullscreen: () => void
+  onNext?: () => void
 }) {
+  const rate = usePlaybackRate()
   const qualities: Array<'direct' | TranscodeSource> = ['direct', ...(transcodes ?? [])]
   if (mode !== 'direct' && !transcodes?.includes(mode)) qualities.push(mode)
   return (
@@ -123,6 +129,25 @@ export function PlayerToolbar({
           ))
         }
       </OverlayMenu>
+      <OverlayMenu
+        container={container}
+        label={rate.rate === 1 ? '倍速' : `${rate.rate}×`}
+        icon={TimerIcon}
+      >
+        {close =>
+          playbackRates.map(item => (
+            <MenuOption
+              key={item}
+              active={item === rate.rate}
+              label={item === 1 ? '正常' : `${item}×`}
+              onSelect={() => {
+                close()
+                rate.set(item)
+              }}
+            />
+          ))
+        }
+      </OverlayMenu>
       <SubtitleMenu
         container={container}
         movieId={movieId}
@@ -131,6 +156,18 @@ export function PlayerToolbar({
         onTrackChange={onTrackChange}
         onAddTrack={onAddTrack}
       />
+      {onNext ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          className={overlayButton + ' w-9 px-0'}
+          aria-label="下一部"
+          title="下一部 (N)"
+          onClick={onNext}
+        >
+          <SkipForwardIcon />
+        </Button>
+      ) : null}
       <Button
         variant="ghost"
         size="icon"

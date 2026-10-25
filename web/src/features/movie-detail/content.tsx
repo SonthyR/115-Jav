@@ -1,9 +1,12 @@
+import { Link } from '@tanstack/react-router'
+import { ExpandIcon, TvIcon } from 'lucide-react'
 import { lazy, Suspense, useState } from 'react'
 
 import { useRecordMovieView } from '@/api/browse-history'
 import { useDiscoverMagnets, useDiscoverMovie, useResolveDiscoverMovie } from '@/api/discover'
 import { useLibraryMovie } from '@/api/library'
 import { ErrorState, InlineError } from '@/components/error-state'
+import { Button } from '@/components/ui/button'
 import type { MovieDetailTarget } from './dialog-context'
 import { MovieHero } from './hero'
 import { MovieMagnets } from './magnets'
@@ -45,6 +48,21 @@ function LibraryMovieDetail({ movieId, play = false }: { movieId: number; play?:
           刷新失败，请重试。
         </InlineError>
       ) : null}
+      {/* The watch side plays full screen and keeps progress and versions. */}
+      <div className="-mb-6 flex flex-wrap gap-2">
+        <Button asChild size="sm" variant="secondary" className="rounded-full">
+          <Link to="/play/$id" params={{ id: String(movieId) }}>
+            <ExpandIcon data-icon="inline-start" />
+            全屏播放
+          </Link>
+        </Button>
+        <Button asChild size="sm" variant="ghost" className="rounded-full">
+          <Link to="/movie/$id" params={{ id: String(movieId) }}>
+            <TvIcon data-icon="inline-start" />
+            在观看页打开
+          </Link>
+        </Button>
+      </div>
       <MovieHero
         movie={detail.data}
         libraryStatus={detail.data.scrape_status}

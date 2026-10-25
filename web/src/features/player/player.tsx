@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import Hls from 'hls.js'
-import { LoaderCircleIcon } from 'lucide-react'
+import { LoaderCircleIcon, RotateCcwIcon } from 'lucide-react'
 import { cn } from 'cn'
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -19,13 +19,20 @@ import {
 } from '@/api/playback'
 import { describeApiError } from '@/api/client'
 import { ErrorState } from '@/components/error-state'
+import { Button } from '@/components/ui/button'
+import { usePlaybackRate } from '@/stores/playback-rate'
 import { useSubtitleStyle } from '@/stores/subtitle-style'
+import { PlayerGestures } from './gestures'
 import { PlayerToolbar, type PlayerTrack } from './toolbar'
 
 // Progress is saved this often while playing, and on pause and exit.
 const saveInterval = 10_000
 // Positions this close to either end are not worth resuming.
 const resumeMargin = 10
+// 115 sometimes refuses a freshly added file's link for a moment, so a
+// source that fails before loading anything is asked for once more first.
+const retryDelay = 3000
+const seekStep = 10
 
 type PlayerOptions = {
   // page fills the screen with an overlay; inline sits in a detail.
@@ -37,6 +44,8 @@ type PlayerOptions = {
   topLeft?: ReactNode
   // Runs when the last video ends, as when a collection plays in order.
   onFinished?: () => void
+  // Skips to the next movie of a collection playing in order.
+  onNext?: () => void
 }
 
 export function MoviePlayer({ movieId, ...options }: { movieId: number } & PlayerOptions) {
@@ -87,7 +96,8 @@ function Player({
   startFile,
   restart = false,
   topLeft,
-  onFinished
+  onFinished,
+  onNext
 }: { movieId: number; info: PlayInfo } & PlayerOptions) {
   const queryClient = useQueryClient()
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -101,6 +111,13 @@ function Player({
   const [mode, setMode] = useState<Mode>('direct')
   const [transcodes, setTranscodes] = useState<TranscodeSource[]>()
   const [failure, setFailure] = useState<string>()
+  // Bumped to ask the relay for a fresh link to the same source.
+  const [attempt, setAttempt] = useState(0)
+  const [buffering, setBuffering] = useState(true)
+  const [notice, setNotice] = useState<string>()
+  const loaded = useRef(false)
+  const retried = useRef(false)
+  const rate = usePlaybackRate()
   const [tracks, setTracks] = useState<PlayerTrack[]>(() =>
     info.subtitles.map(item => ({
       key: `saved:${item.id}`,
@@ -132,8 +149,11 @@ function Player({
     const video = videoRef.current
     if (!video) return
     setFailure(undefined)
+    setBuffering(true)
+    loaded.current = false
     let hls: Hls | undefined
-    const source = mode === 'direct' ? streamURL(file.file_id) : mode.url
+    const source =
+      mode === 'direct' ? streamURL(file.file_id) + (attempt ? `?retry=${attempt}` : '') : mode.url
     if (mode !== 'direct' && Hls.isSupported()) {
       hls = new Hls()
       hls.on(Hls.Events.ERROR, (_, data) => {
@@ -150,7 +170,15 @@ function Player({
       video.removeAttribute('src')
       video.load()
     }
-  }, [file.file_id, mode])
+  }, [file.file_id, mode, attempt])
+
+  // A new source starts at the default rate, so the chosen one is put back.
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    video.defaultPlaybackRate = rate.rate
+    video.playbackRate = rate.rate
+  }, [rate.rate, file.file_id, mode, attempt])
 
   const position = useCallback(() => {
     const video = videoRef.current
@@ -179,6 +207,7 @@ function Player({
   }, [movieId, position, queryClient])
 
   const fallBack = async () => {
+    setNotice('浏览器无法直接播放原画，正在切换 115 转码…')
     try {
       const [best] = await loadTranscodes()
       if (!best) throw new Error('115 没有返回转码版本')
@@ -189,7 +218,22 @@ function Player({
       setFailure(
         `浏览器无法播放这个格式，115 也没有转码版本（${describeApiError(error)}），请用 Emby 播放`
       )
+    } finally {
+      setNotice(undefined)
     }
+  }
+
+  const retry = () => {
+    retried.current = false
+    startAt.current = videoRef.current?.currentTime || startAt.current
+    setMode('direct')
+    setAttempt(value => value + 1)
+  }
+
+  const seekBy = (seconds: number) => {
+    const video = videoRef.current
+    if (!video || !Number.isFinite(video.duration)) return
+    video.currentTime = Math.min(video.duration, Math.max(0, video.currentTime + seconds))
   }
 
   const style = useSubtitleStyle()
@@ -250,8 +294,13 @@ function Player({
       const actions: Record<string, () => void> = {
         ' ': () => void (video.paused ? video.play() : video.pause()),
         k: () => void (video.paused ? video.play() : video.pause()),
-        ArrowLeft: () => (video.currentTime = Math.max(0, video.currentTime - 10)),
-        ArrowRight: () => (video.currentTime = video.currentTime + 10),
+        ArrowLeft: () => seekBy(-seekStep),
+        ArrowRight: () => seekBy(seekStep),
+        j: () => seekBy(-seekStep),
+        l: () => seekBy(seekStep),
+        '<': () => rate.step(-1),
+        '>': () => rate.step(1),
+        n: () => onNext?.(),
         ArrowUp: () => (video.volume = Math.min(1, video.volume + 0.1)),
         ArrowDown: () => (video.volume = Math.max(0, video.volume - 0.1)),
         f: toggleFullscreen,
@@ -259,6 +308,7 @@ function Player({
       }
       const action = actions[event.key.length === 1 ? event.key.toLowerCase() : event.key]
       if (!action || event.ctrlKey || event.metaKey || event.altKey) return
+      if (event.key === 'n' && !onNext) return
       event.preventDefault()
       action()
       wake()
@@ -291,6 +341,8 @@ function Player({
         playsInline
         onDoubleClick={toggleFullscreen}
         onLoadedMetadata={event => {
+          loaded.current = true
+          retried.current = false
           const video = event.currentTarget
           const target = startAt.current
           startAt.current = 0
@@ -307,6 +359,10 @@ function Player({
           setIdle(false)
         }}
         onPlay={wake}
+        onWaiting={() => setBuffering(true)}
+        onPlaying={() => setBuffering(false)}
+        onCanPlay={() => setBuffering(false)}
+        onLoadedData={() => setBuffering(false)}
         onEnded={() => {
           if (fileIndex + 1 < info.files.length) {
             selectFile(fileIndex + 1)
@@ -317,7 +373,15 @@ function Player({
           onFinished?.()
         }}
         onError={() => {
-          if (mode === 'direct') void fallBack()
+          setBuffering(false)
+          if (mode === 'direct' && !loaded.current && !retried.current) {
+            retried.current = true
+            setNotice('115 暂时没给出播放地址，正在重试…')
+            window.setTimeout(() => {
+              setNotice(undefined)
+              setAttempt(value => value + 1)
+            }, retryDelay)
+          } else if (mode === 'direct') void fallBack()
           else if (!Hls.isSupported()) setFailure('115 转码流播放失败，请稍后重试或换一个画质')
         }}
       >
@@ -334,6 +398,13 @@ function Player({
           />
         ))}
       </video>
+      <PlayerGestures video={videoRef} onSeek={seekBy} />
+      {(buffering || notice) && !failure ? (
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 text-sm text-white">
+          <LoaderCircleIcon className="size-10 animate-spin text-white/80" />
+          {notice ? <p className="rounded-full bg-black/60 px-3 py-1">{notice}</p> : null}
+        </div>
+      ) : null}
       <div
         className={cn(
           'pointer-events-none absolute inset-x-0 top-0 flex items-start gap-2 bg-linear-to-b from-black/75 to-transparent p-2 pb-12 text-white transition-opacity duration-300 sm:p-3',
@@ -366,12 +437,17 @@ function Player({
               setActiveTrack(track.key)
             }}
             onFullscreen={toggleFullscreen}
+            onNext={onNext}
           />
         </div>
       </div>
       {failure ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-6 text-center text-sm text-white">
-          {failure}
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/80 p-6 text-center text-sm text-white">
+          <p>{failure}</p>
+          <Button variant="secondary" size="sm" className="rounded-full" onClick={retry}>
+            <RotateCcwIcon data-icon="inline-start" />
+            重试
+          </Button>
         </div>
       ) : null}
     </div>
@@ -379,6 +455,7 @@ function Player({
 
   function selectFile(index: number) {
     save()
+    retried.current = false
     startAt.current = 0
     setTranscodes(undefined)
     setMode('direct')

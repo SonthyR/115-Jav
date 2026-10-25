@@ -1,5 +1,5 @@
 import { Ellipsis, PencilIcon, RefreshCwIcon } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { type ReactNode, useRef, useState } from 'react'
 
 import { describeApiError } from '@/api/client'
 import { useRescrapeLibraryMovie, type LibraryMovie } from '@/api/library'
@@ -24,16 +24,25 @@ import { notifyTaskError, useNotifyScanTask } from '@/features/tasks/task-toast'
 
 export function LibraryMovieActions({
   movie,
-  disabled = false
+  disabled = false,
+  trigger: triggerButton,
+  onSubmitted
 }: {
-  movie: LibraryMovie
+  movie: Pick<LibraryMovie, 'id' | 'code'> & Partial<LibraryMovie>
   disabled?: boolean
+  // Replaces the default icon button, as on the watch side's movie page.
+  trigger?: ReactNode
+  onSubmitted?: () => void
 }) {
   const [correcting, setCorrecting] = useState(false)
   const [code, setCode] = useState(movie.code)
   const trigger = useRef<HTMLButtonElement>(null)
   const scrape = useRescrapeLibraryMovie(movie.id)
-  const notifyScan = useNotifyScanTask()
+  const notifyTask = useNotifyScanTask()
+  const notifyScan: typeof notifyTask = task => {
+    onSubmitted?.()
+    notifyTask(task)
+  }
   const busy = disabled || scrape.isPending
 
   return (
@@ -44,10 +53,12 @@ export function LibraryMovieActions({
       }}
     >
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button ref={trigger} type="button" variant="ghost" size="icon-sm" disabled={busy}>
-            <Ellipsis />
-          </Button>
+        <DropdownMenuTrigger ref={trigger} asChild disabled={busy}>
+          {triggerButton ?? (
+            <Button type="button" variant="ghost" size="icon-sm">
+              <Ellipsis />
+            </Button>
+          )}
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
