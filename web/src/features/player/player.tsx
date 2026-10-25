@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import Hls from 'hls.js'
-import { LoaderCircleIcon, RotateCcwIcon } from 'lucide-react'
+import { LoaderCircleIcon, PlayIcon, RotateCcwIcon } from 'lucide-react'
 import { cn } from 'cn'
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -21,8 +21,10 @@ import { describeApiError } from '@/api/client'
 import { ErrorState } from '@/components/error-state'
 import { Button } from '@/components/ui/button'
 import { usePlaybackRate } from '@/stores/playback-rate'
+import { usePlayerVolume } from '@/stores/player-volume'
 import { useSubtitleStyle } from '@/stores/subtitle-style'
-import { PlayerGestures } from './gestures'
+import { ControlBar, togglePlay, useVideoState, type VideoApi } from './controls'
+import { PlayerSurface } from './gestures'
 import { PlayerToolbar, type PlayerTrack } from './toolbar'
 
 // Progress is saved this often while playing, and on pause and exit.
@@ -264,26 +266,72 @@ function Player({
     }
   }, [activeTrack, tracks, style.offset])
 
-  // The overlay hides while playing without pointer movement.
+  // The controls hide while playing without pointer movement, unless a menu
+  // is open or the pointer rests on them.
   const wake = () => {
     setIdle(false)
     window.clearTimeout(idleTimer.current)
     idleTimer.current = window.setTimeout(() => {
-      if (!videoRef.current?.paused) setIdle(true)
+      if (videoRef.current?.paused) return
+      if (containerRef.current?.querySelector('[data-slot=popover-content]')) return wake()
+      if (containerRef.current?.querySelector('[data-controls]:hover')) return wake()
+      setIdle(true)
     }, 3000)
   }
   useEffect(() => () => window.clearTimeout(idleTimer.current), [])
 
-  const toggleFullscreen = () => {
+  const [flash, setFlash] = useState<{ text: string; key: number }>()
+  const flashTimer = useRef(0)
+  const announce = (text: string) => {
+    setFlash({ text, key: Date.now() })
+    window.clearTimeout(flashTimer.current)
+    flashTimer.current = window.setTimeout(() => setFlash(undefined), 800)
+  }
+  useEffect(() => () => window.clearTimeout(flashTimer.current), [])
+
+  const [fullscreen, setFullscreen] = useState(false)
+  useEffect(() => {
+    const update = () => setFullscreen(document.fullscreenElement === containerRef.current)
+    document.addEventListener('fullscreenchange', update)
+    return () => document.removeEventListener('fullscreenchange', update)
+  }, [])
+
+  const enterFullscreen = async () => {
     const element = containerRef.current
     const video = videoRef.current as
       | (HTMLVideoElement & { webkitEnterFullscreen?: () => void })
       | null
-    if (document.fullscreenElement) void document.exitFullscreen()
-    else if (element?.requestFullscreen) void element.requestFullscreen()
+    if (element?.requestFullscreen) {
+      await element.requestFullscreen()
+      // Phones turn sideways for a wide video where the browser allows it.
+      const orientation = screen.orientation as ScreenOrientation & {
+        lock?: (orientation: string) => Promise<void>
+      }
+      if (
+        matchMedia('(pointer: coarse)').matches &&
+        (video?.videoWidth ?? 1) >= (video?.videoHeight ?? 0)
+      )
+        await orientation.lock?.('landscape').catch(() => undefined)
+    }
     // iOS Safari only fullscreens the video element itself.
     else video?.webkitEnterFullscreen?.()
   }
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) void document.exitFullscreen()
+    else void enterFullscreen().catch(() => undefined)
+  }
+
+  // Turning a phone sideways while a movie plays fills the screen.
+  useEffect(() => {
+    if (variant !== 'page' || !matchMedia('(pointer: coarse)').matches) return
+    const query = matchMedia('(orientation: landscape)')
+    const onChange = () => {
+      if (query.matches && !document.fullscreenElement && !videoRef.current?.paused)
+        void enterFullscreen().catch(() => undefined)
+    }
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  })
 
   useEffect(() => {
     if (variant !== 'page') return
@@ -292,20 +340,36 @@ function Player({
       const target = event.target as HTMLElement
       if (!video || target.closest('input, textarea, [role=dialog], [data-slot=popover-content]'))
         return
+      const volume = (delta: number) => {
+        video.muted = false
+        video.volume = Math.min(1, Math.max(0, Math.round((video.volume + delta) * 20) / 20))
+        announce(`音量 ${Math.round(video.volume * 100)}%`)
+      }
+      const skip = (seconds: number) => {
+        seekBy(seconds)
+        announce(seconds > 0 ? `前进 ${seconds} 秒` : `后退 ${-seconds} 秒`)
+      }
+      const speed = (direction: 1 | -1) => {
+        rate.step(direction)
+        announce(`${usePlaybackRate.getState().rate}×`)
+      }
       const actions: Record<string, () => void> = {
-        ' ': () => void (video.paused ? video.play() : video.pause()),
-        k: () => void (video.paused ? video.play() : video.pause()),
-        ArrowLeft: () => seekBy(-seekStep),
-        ArrowRight: () => seekBy(seekStep),
-        j: () => seekBy(-seekStep),
-        l: () => seekBy(seekStep),
-        '<': () => rate.step(-1),
-        '>': () => rate.step(1),
+        ' ': () => togglePlay(video),
+        k: () => togglePlay(video),
+        ArrowLeft: () => skip(-seekStep),
+        ArrowRight: () => skip(seekStep),
+        j: () => skip(-seekStep),
+        l: () => skip(seekStep),
+        ArrowUp: () => volume(0.05),
+        ArrowDown: () => volume(-0.05),
+        '<': () => speed(-1),
+        '>': () => speed(1),
         n: () => onNext?.(),
-        ArrowUp: () => (video.volume = Math.min(1, video.volume + 0.1)),
-        ArrowDown: () => (video.volume = Math.max(0, video.volume - 0.1)),
         f: toggleFullscreen,
-        m: () => (video.muted = !video.muted)
+        m: () => {
+          video.muted = !video.muted
+          announce(video.muted ? '静音' : `音量 ${Math.round(video.volume * 100)}%`)
+        }
       }
       const action = actions[event.key.length === 1 ? event.key.toLowerCase() : event.key]
       if (!action || event.ctrlKey || event.metaKey || event.altKey) return
@@ -318,7 +382,53 @@ function Player({
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  const state = useVideoState(videoRef, `${file.file_id}:${attempt}`)
+  const volume = usePlayerVolume()
+  // Each new source starts at the remembered volume.
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    video.volume = usePlayerVolume.getState().volume
+    video.muted = usePlayerVolume.getState().muted
+  }, [file.file_id, mode, attempt])
+  useEffect(() => {
+    if (state.volume !== volume.volume || state.muted !== volume.muted)
+      volume.set(state.volume, state.muted)
+  }, [state.volume, state.muted, volume])
+
+  const api: VideoApi = {
+    element: () => videoRef.current,
+    togglePlay: () => togglePlay(videoRef.current),
+    seekTo: seconds => {
+      if (videoRef.current) videoRef.current.currentTime = seconds
+    },
+    seekBy,
+    setVolume: level => {
+      const video = videoRef.current
+      if (!video) return
+      video.volume = level
+      video.muted = level === 0
+    },
+    toggleMute: () => {
+      const video = videoRef.current
+      if (!video) return
+      video.muted = !video.muted
+      if (!video.muted && video.volume === 0) video.volume = 0.5
+    },
+    togglePictureInPicture: () => {
+      const video = videoRef.current
+      if (!video) return
+      if (document.pictureInPictureElement) void document.exitPictureInPicture()
+      else void video.requestPictureInPicture().catch(() => undefined)
+    }
+  }
+
   const page = variant === 'page'
+  const shown = !idle || state.paused
+  const resumeAt =
+    info.progress?.file_id === file.file_id && info.progress.position > resumeMargin
+      ? info.progress.position
+      : undefined
   return (
     <div
       ref={element => {
@@ -327,20 +437,18 @@ function Player({
       }}
       className={cn(
         'group/player relative overflow-hidden bg-black',
-        page ? 'h-dvh w-full' : 'rounded-2xl',
-        idle && 'cursor-none'
+        page ? 'h-dvh w-full' : 'aspect-video rounded-2xl',
+        !shown && 'cursor-none'
       )}
-      onPointerMove={wake}
-      onPointerDown={wake}
+      onPointerMove={event => {
+        if (event.pointerType === 'mouse') wake()
+      }}
     >
       <style>{`.miyabi-player::cue{font-size:${style.size}%;color:${style.color};background:rgba(0,0,0,${style.background})}`}</style>
       <video
         ref={videoRef}
-        className={cn('miyabi-player w-full bg-black', page ? 'h-full' : 'aspect-video')}
-        controls
-        controlsList="nofullscreen"
+        className="miyabi-player size-full bg-black object-contain"
         playsInline
-        onDoubleClick={toggleFullscreen}
         onLoadedMetadata={event => {
           loaded.current = true
           retried.current = false
@@ -349,7 +457,7 @@ function Player({
           startAt.current = 0
           if (target > resumeMargin && target < video.duration - resumeMargin) {
             video.currentTime = target
-            if (mode === 'direct') toast.info(`已从 ${formatTime(target)} 继续播放`)
+            if (mode === 'direct') announce(`从 ${formatTime(target)} 继续播放`)
           }
         }}
         onTimeUpdate={() => {
@@ -399,49 +507,98 @@ function Player({
           />
         ))}
       </video>
-      <PlayerGestures video={videoRef} onSeek={seekBy} />
+
+      <PlayerSurface
+        api={api}
+        controlsShown={shown}
+        onTogglePlay={() => {
+          togglePlay(videoRef.current)
+          wake()
+        }}
+        onFullscreen={toggleFullscreen}
+        onShowControls={wake}
+        onHideControls={() => {
+          window.clearTimeout(idleTimer.current)
+          if (!videoRef.current?.paused) setIdle(true)
+        }}
+      />
+
       {(buffering || notice) && !failure ? (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 text-sm text-white">
           <LoaderCircleIcon className="size-10 animate-spin text-white/80" />
           {notice ? <p className="rounded-full bg-black/60 px-3 py-1">{notice}</p> : null}
         </div>
+      ) : state.paused && !failure && state.duration > 0 ? (
+        <button
+          type="button"
+          aria-label="播放"
+          className="absolute top-1/2 left-1/2 flex size-16 -translate-1/2 items-center justify-center rounded-full bg-black/55 text-white shadow-lg backdrop-blur transition-transform hover:scale-110 sm:size-20"
+          onClick={() => togglePlay(videoRef.current)}
+        >
+          <PlayIcon className="size-8 translate-x-0.5 fill-current sm:size-10" />
+        </button>
       ) : null}
+
+      {flash ? (
+        <p
+          key={flash.key}
+          className="pointer-events-none absolute top-1/4 left-1/2 -translate-x-1/2 rounded-full bg-black/65 px-4 py-1.5 text-sm text-white tabular-nums"
+        >
+          {flash.text}
+        </p>
+      ) : null}
+
       <div
+        data-controls
         className={cn(
-          'pointer-events-none absolute inset-x-0 top-0 flex items-start gap-2 bg-linear-to-b from-black/75 to-transparent p-2 pb-12 text-white transition-opacity duration-300 sm:p-3',
-          idle && 'opacity-0'
+          'absolute inset-x-0 top-0 flex items-center gap-2 bg-linear-to-b from-black/75 to-transparent p-2 pb-10 text-white transition-opacity duration-300 sm:p-3 sm:pb-12',
+          !shown && 'pointer-events-none opacity-0'
         )}
       >
-        <div className="pointer-events-auto flex min-w-0 flex-1 items-center gap-2">
-          {topLeft}
-          {title ? <p className="truncate text-sm font-medium sm:text-base">{title}</p> : null}
-        </div>
-        <div className="pointer-events-auto">
-          <PlayerToolbar
-            container={container}
-            movieId={movieId}
-            files={info.files}
-            fileIndex={fileIndex}
-            onFileChange={selectFile}
-            mode={mode}
-            transcodes={transcodes}
-            onLoadTranscodes={loadTranscodes}
-            onModeChange={next => {
-              startAt.current = videoRef.current?.currentTime ?? 0
-              setMode(next)
-            }}
-            tracks={tracks}
-            activeTrack={activeTrack}
-            onTrackChange={setActiveTrack}
-            onAddTrack={track => {
-              setTracks(current => [...current, track])
-              setActiveTrack(track.key)
-            }}
-            onFullscreen={toggleFullscreen}
-            onNext={onNext}
-          />
-        </div>
+        {topLeft}
+        {title ? <PlayerTitle title={title} /> : null}
       </div>
+
+      <div
+        data-controls
+        className={cn(
+          'absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 via-black/40 to-transparent pt-12 transition-opacity duration-300',
+          !shown && 'pointer-events-none opacity-0'
+        )}
+      >
+        <ControlBar
+          api={api}
+          state={state}
+          resumeAt={resumeAt}
+          fullscreen={fullscreen}
+          onNext={onNext}
+          onFullscreen={toggleFullscreen}
+          menus={
+            <PlayerToolbar
+              container={container}
+              movieId={movieId}
+              files={info.files}
+              fileIndex={fileIndex}
+              onFileChange={selectFile}
+              mode={mode}
+              transcodes={transcodes}
+              onLoadTranscodes={loadTranscodes}
+              onModeChange={next => {
+                startAt.current = videoRef.current?.currentTime ?? 0
+                setMode(next)
+              }}
+              tracks={tracks}
+              activeTrack={activeTrack}
+              onTrackChange={setActiveTrack}
+              onAddTrack={track => {
+                setTracks(current => [...current, track])
+                setActiveTrack(track.key)
+              }}
+            />
+          }
+        />
+      </div>
+
       {failure ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/80 p-6 text-center text-sm text-white">
           <p>{failure}</p>
@@ -473,4 +630,18 @@ export function formatTime(seconds: number) {
   const m = Math.floor((total % 3600) / 60)
   const s = String(total % 60).padStart(2, '0')
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`
+}
+
+// Long titles keep the code and are cut short rather than covering the picture.
+function PlayerTitle({ title }: { title: string }) {
+  const [code, ...rest] = title.split(' ')
+  return (
+    <p
+      className="min-w-0 flex-1 truncate text-sm sm:max-w-[60%] sm:flex-none sm:text-base"
+      title={title}
+    >
+      <span className="font-semibold">{code}</span>
+      {rest.length ? <span className="text-white/80"> {rest.join(' ')}</span> : null}
+    </p>
+  )
 }

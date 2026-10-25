@@ -1,132 +1,149 @@
 import { FastForwardIcon, RewindIcon } from 'lucide-react'
-import { type RefObject, useEffect, useRef, useState } from 'react'
+import { type PointerEvent, useRef, useState } from 'react'
 
+import type { VideoApi } from './controls'
 import { formatTime } from './player'
 
-// Taps this close together count as a double tap.
-const doubleTapWindow = 300
+// Taps or clicks this close together count as a double.
+const doubleWindow = 280
 // A finger must travel this far sideways before a swipe seeks.
 const swipeThreshold = 24
 // Swiping across the whole video moves this many seconds.
 const swipeRange = 180
-// The native controls' timeline sits at the bottom; swipes there are left alone.
-const controlsHeight = 72
 const seekStep = 10
-
-// Chrome on Android already seeks on double taps in its own controls.
-const nativeDoubleTap = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
 
 type Hint =
   | { kind: 'tap'; side: 'left' | 'right'; seconds: number }
   | { kind: 'swipe'; target: number; delta: number }
 
-// Touch gestures over the native controls: double tap either side to skip
-// ten seconds, swipe sideways to scrub.
-export function PlayerGestures({
-  video,
-  onSeek
+// The layer over the picture and under the controls. A mouse click plays or
+// pauses and a double click goes fullscreen. A tap shows or hides the
+// controls, a double tap on either side skips ten seconds, and a sideways
+// swipe scrubs.
+export function PlayerSurface({
+  api,
+  controlsShown,
+  onTogglePlay,
+  onFullscreen,
+  onShowControls,
+  onHideControls
 }: {
-  video: RefObject<HTMLVideoElement | null>
-  onSeek: (seconds: number) => void
+  api: VideoApi
+  controlsShown: boolean
+  onTogglePlay: () => void
+  onFullscreen: () => void
+  onShowControls: () => void
+  onHideControls: () => void
 }) {
   const [hint, setHint] = useState<Hint>()
   const hideTimer = useRef(0)
-  const onSeekRef = useRef(onSeek)
-  useEffect(() => {
-    onSeekRef.current = onSeek
-  })
+  const singleTimer = useRef(0)
+  const last = useRef({ time: 0, side: 'middle' as Side, streak: 0 })
+  const touch = useRef<{ x: number; y: number; start: number; swiping: boolean; target: number }>(
+    undefined
+  )
 
-  useEffect(() => {
-    const element = video.current
-    if (!element) return
-    let lastTap = { time: 0, side: 'left' as 'left' | 'right', streak: 0 }
-    let touch: { x: number; y: number; start: number; swiping: boolean; target: number } | undefined
+  const show = (next: Hint, linger = 700) => {
+    setHint(next)
+    window.clearTimeout(hideTimer.current)
+    hideTimer.current = window.setTimeout(() => setHint(undefined), linger)
+  }
 
-    const show = (next: Hint, linger = 700) => {
-      setHint(next)
-      window.clearTimeout(hideTimer.current)
-      hideTimer.current = window.setTimeout(() => setHint(undefined), linger)
+  const sideOf = (event: PointerEvent<HTMLDivElement>): Side => {
+    const box = event.currentTarget.getBoundingClientRect()
+    const x = event.clientX - box.left
+    return x < box.width / 3 ? 'left' : x > (box.width * 2) / 3 ? 'right' : 'middle'
+  }
+
+  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    const video = api.element()
+    if (event.pointerType === 'mouse' || !video) return
+    touch.current = {
+      x: event.clientX,
+      y: event.clientY,
+      start: video.currentTime,
+      swiping: false,
+      target: video.currentTime
     }
+  }
 
-    const onStart = (event: TouchEvent) => {
-      const point = event.touches[0]
-      if (event.touches.length !== 1 || !point) {
-        touch = undefined
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const current = touch.current
+    const video = api.element()
+    if (!current || !video || !Number.isFinite(video.duration)) return
+    const dx = event.clientX - current.x
+    const dy = event.clientY - current.y
+    if (!current.swiping) {
+      if (Math.abs(dx) < swipeThreshold || Math.abs(dx) < Math.abs(dy) * 1.5) return
+      current.swiping = true
+      event.currentTarget.setPointerCapture(event.pointerId)
+    }
+    const width = event.currentTarget.getBoundingClientRect().width || 1
+    const target = Math.min(video.duration, Math.max(0, current.start + (dx / width) * swipeRange))
+    current.target = target
+    show({ kind: 'swipe', target, delta: target - current.start }, 60_000)
+  }
+
+  const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    const current = touch.current
+    touch.current = undefined
+    if (current?.swiping) {
+      api.seekTo(current.target)
+      show({ kind: 'swipe', target: current.target, delta: current.target - current.start }, 500)
+      return
+    }
+    const side = event.pointerType === 'mouse' ? 'middle' : sideOf(event)
+    const now = Date.now()
+    const double = now - last.current.time < doubleWindow && last.current.side === side
+    window.clearTimeout(singleTimer.current)
+
+    if (event.pointerType === 'mouse') {
+      if (event.button !== 0) return
+      last.current = { time: now, side, streak: 0 }
+      if (double) {
+        last.current.time = 0
+        onFullscreen()
         return
       }
-      const box = element.getBoundingClientRect()
-      if (point.clientY > box.bottom - controlsHeight) {
-        touch = undefined
-        return
-      }
-      touch = {
-        x: point.clientX,
-        y: point.clientY,
-        start: element.currentTime,
-        swiping: false,
-        target: element.currentTime
-      }
+      // Waits a moment so a double click does not also pause.
+      singleTimer.current = window.setTimeout(onTogglePlay, doubleWindow)
+      return
     }
 
-    const onMove = (event: TouchEvent) => {
-      const point = event.touches[0]
-      if (!touch || !point || !Number.isFinite(element.duration)) return
-      const dx = point.clientX - touch.x
-      const dy = point.clientY - touch.y
-      if (!touch.swiping) {
-        if (Math.abs(dx) < swipeThreshold || Math.abs(dx) < Math.abs(dy) * 1.5) return
-        touch.swiping = true
-      }
-      event.preventDefault()
-      const width = element.getBoundingClientRect().width || 1
-      const target = Math.min(
-        element.duration,
-        Math.max(0, touch.start + (dx / width) * swipeRange)
-      )
-      touch.target = target
-      show({ kind: 'swipe', target, delta: target - touch.start }, 60_000)
+    if (double && side !== 'middle') {
+      const streak = last.current.streak + 1
+      api.seekBy(side === 'left' ? -seekStep : seekStep)
+      show({ kind: 'tap', side, seconds: streak * seekStep })
+      // Further quick taps keep adding ten seconds.
+      last.current = { time: now, side, streak }
+      return
     }
-
-    const onEnd = (event: TouchEvent) => {
-      const current = touch
-      touch = undefined
-      if (!current) return
-      if (current.swiping) {
-        event.preventDefault()
-        element.currentTime = current.target
-        show({ kind: 'swipe', target: current.target, delta: current.target - current.start }, 500)
-        return
-      }
-      if (nativeDoubleTap) return
-      const box = element.getBoundingClientRect()
-      const x = current.x - box.left
-      // The middle third is left to play and pause.
-      const side = x < box.width / 3 ? 'left' : x > (box.width * 2) / 3 ? 'right' : undefined
-      const now = Date.now()
-      if (side && now - lastTap.time < doubleTapWindow && lastTap.side === side) {
-        event.preventDefault()
-        const streak = lastTap.streak + 1
-        onSeekRef.current(side === 'left' ? -seekStep : seekStep)
-        show({ kind: 'tap', side, seconds: streak * seekStep })
-        // Further quick taps keep adding ten seconds.
-        lastTap = { time: now, side, streak }
-        return
-      }
-      lastTap = { time: now, side: side ?? 'left', streak: 0 }
+    if (double) {
+      last.current.time = 0
+      onTogglePlay()
+      return
     }
+    last.current = { time: now, side, streak: 0 }
+    const shown = controlsShown
+    singleTimer.current = window.setTimeout(shown ? onHideControls : onShowControls, doubleWindow)
+  }
 
-    element.addEventListener('touchstart', onStart, { passive: true })
-    element.addEventListener('touchmove', onMove, { passive: false })
-    element.addEventListener('touchend', onEnd, { passive: false })
-    return () => {
-      element.removeEventListener('touchstart', onStart)
-      element.removeEventListener('touchmove', onMove)
-      element.removeEventListener('touchend', onEnd)
-      window.clearTimeout(hideTimer.current)
-    }
-  }, [video])
+  return (
+    <div
+      className="absolute inset-0 touch-pan-y select-none"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={() => (touch.current = undefined)}
+    >
+      {hint ? <HintView hint={hint} /> : null}
+    </div>
+  )
+}
 
-  if (!hint) return null
+type Side = 'left' | 'right' | 'middle'
+
+function HintView({ hint }: { hint: Hint }) {
   if (hint.kind === 'swipe') {
     return (
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

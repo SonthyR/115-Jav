@@ -6,9 +6,7 @@ import {
   LayersIcon,
   LoaderCircleIcon,
   type LucideIcon,
-  MaximizeIcon,
   SearchIcon,
-  SkipForwardIcon,
   TimerIcon
 } from 'lucide-react'
 import { type ReactNode, useRef, useState } from 'react'
@@ -40,8 +38,8 @@ function vttTrack(key: string, label: string, text: string, language = ''): Play
   return { key, label, src, language }
 }
 
-const overlayButton =
-  'h-9 rounded-full bg-black/45 px-3 text-white backdrop-blur hover:bg-black/70 hover:text-white data-open:bg-black/70 data-open:text-white'
+export const controlButton =
+  'h-10 min-w-10 rounded-full px-2.5 text-white hover:bg-white/15 hover:text-white data-open:bg-white/15 data-open:text-white [&_svg:not([class*=size-])]:size-5'
 
 export function PlayerToolbar({
   container,
@@ -56,9 +54,7 @@ export function PlayerToolbar({
   tracks,
   activeTrack,
   onTrackChange,
-  onAddTrack,
-  onFullscreen,
-  onNext
+  onAddTrack
 }: {
   container: HTMLElement | null
   movieId: number
@@ -73,14 +69,12 @@ export function PlayerToolbar({
   activeTrack?: string
   onTrackChange: (key?: string) => void
   onAddTrack: (track: PlayerTrack) => void
-  onFullscreen: () => void
-  onNext?: () => void
 }) {
   const rate = usePlaybackRate()
   const qualities: Array<'direct' | TranscodeSource> = ['direct', ...(transcodes ?? [])]
   if (mode !== 'direct' && !transcodes?.includes(mode)) qualities.push(mode)
   return (
-    <div className="flex flex-wrap items-center justify-end gap-1.5">
+    <div className="flex items-center gap-0.5 sm:gap-1">
       {files.length > 1 ? (
         <OverlayMenu
           container={container}
@@ -156,27 +150,6 @@ export function PlayerToolbar({
         onTrackChange={onTrackChange}
         onAddTrack={onAddTrack}
       />
-      {onNext ? (
-        <Button
-          variant="ghost"
-          size="icon"
-          className={overlayButton + ' w-9 px-0'}
-          aria-label="下一部"
-          title="下一部 (N)"
-          onClick={onNext}
-        >
-          <SkipForwardIcon />
-        </Button>
-      ) : null}
-      <Button
-        variant="ghost"
-        size="icon"
-        className={overlayButton + ' w-9 px-0'}
-        aria-label="全屏"
-        onClick={onFullscreen}
-      >
-        <MaximizeIcon />
-      </Button>
     </div>
   )
 }
@@ -204,13 +177,14 @@ function OverlayMenu({
       }}
     >
       <PopoverTrigger asChild>
-        <Button variant="ghost" className={overlayButton}>
-          <Icon data-icon="inline-start" />
-          {label}
+        <Button variant="ghost" className={controlButton} aria-label={label}>
+          <Icon />
+          <span className="hidden sm:inline">{label}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent
         container={container}
+        side="top"
         align="end"
         className="max-h-[60dvh] w-[min(20rem,calc(100vw-1rem))] overflow-y-auto p-1.5"
       >
@@ -293,13 +267,18 @@ function SubtitleMenu({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" className={overlayButton}>
-          <CaptionsIcon data-icon="inline-start" />
-          字幕
+        <Button
+          variant="ghost"
+          className={controlButton + (activeTrack ? ' text-primary' : '')}
+          aria-label="字幕"
+        >
+          <CaptionsIcon />
+          <span className="hidden sm:inline">字幕</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent
         container={container}
+        side="top"
         align="end"
         className="max-h-[70dvh] w-[min(22rem,calc(100vw-2rem))] space-y-4 overflow-y-auto"
       >
