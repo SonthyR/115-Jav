@@ -101,7 +101,13 @@ export function MetadataSearchPage({
   )
 }
 
-function ActorSubscribeButton({ actorID, actorName }: { actorID: string; actorName: string }) {
+export function ActorSubscribeButton({
+  actorID,
+  actorName
+}: {
+  actorID: string
+  actorName: string
+}) {
   const { subscription, isPending } = useSubscription('actor', actorID)
   const add = useAddSubscription()
   const remove = useRemoveSubscription()

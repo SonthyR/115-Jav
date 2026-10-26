@@ -89,7 +89,7 @@ func TestFacetsCountAndFilterByName(t *testing.T) {
 		}
 	}
 	facets, err := lib.Facets(ctx)
-	if err != nil || len(facets.Actors) != 1 || facets.Actors[0].Count != 1 || facets.Makers[0].Count != 2 ||
+	if err != nil || len(facets.Actors) != 1 || facets.Actors[0].Count != 1 || facets.Actors[0].JavDBID != "a" || facets.Makers[0].Count != 2 ||
 		len(facets.Years) != 1 || facets.Years[0].Name != "2024" {
 		t.Fatalf("Facets() = %+v, %v", facets, err)
 	}

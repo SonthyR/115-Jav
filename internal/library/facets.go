@@ -21,6 +21,8 @@ type Facet struct {
 	// Alias is the catalogue's Japanese name for an actor whose files use a
 	// translated one; portrait collections are keyed by it.
 	Alias string `json:"alias,omitempty"`
+	// JavDBID is the actor's JavDB ID, for browsing their catalogue works.
+	JavDBID string `json:"javdb_id,omitempty"`
 }
 
 type Facets struct {
@@ -37,7 +39,8 @@ func (s *Service) Facets(ctx context.Context) (Facets, error) {
 	records, err := s.database.Movie.Query().Where(movie.HasFilesWith(libraryScope(s.Source()))).
 		Select(movie.FieldID, movie.FieldMakerName, movie.FieldSeriesName, movie.FieldReleaseDate).
 		WithActors(func(query *ent.ActorQuery) {
-			query.Where(actor.GenderNEQ(actor.GenderMale)).Select(actor.FieldID, actor.FieldName, actor.FieldAvatar)
+			query.Where(actor.GenderNEQ(actor.GenderMale)).
+				Select(actor.FieldID, actor.FieldProvider, actor.FieldSourceID, actor.FieldName, actor.FieldAvatar)
 		}).
 		WithTags(func(query *ent.TagQuery) { query.Select(tag.FieldID, tag.FieldName) }).
 		All(ctx)
@@ -45,6 +48,7 @@ func (s *Service) Facets(ctx context.Context) (Facets, error) {
 		return Facets{}, fmt.Errorf("list library facets: %w", err)
 	}
 	actors, makers, series, tags, years := newCounter(), newCounter(), newCounter(), newCounter(), newCounter()
+	javdbIDs := map[string]string{}
 	for _, record := range records {
 		// A movie counts once per name, even when sources repeat a person.
 		seen := map[string]bool{}
@@ -52,6 +56,9 @@ func (s *Service) Facets(ctx context.Context) (Facets, error) {
 			if !seen[person.Name] {
 				seen[person.Name] = true
 				actors.add(person.Name, person.Avatar)
+			}
+			if person.Provider == "javdb" {
+				javdbIDs[person.Name] = person.SourceID
 			}
 		}
 		for _, label := range record.Edges.Tags {
@@ -73,12 +80,16 @@ func (s *Service) Facets(ctx context.Context) (Facets, error) {
 	actorFacets := actors.facets()
 	aliases := s.aliases.Aliases(ctx)
 	for i, facet := range actorFacets {
+		actorFacets[i].JavDBID = javdbIDs[facet.Name]
 		if alias, ok := aliases[facet.Name]; ok {
 			if alias.Name != facet.Name {
 				actorFacets[i].Alias = alias.Name
 			}
 			if facet.Avatar == "" {
 				actorFacets[i].Avatar = alias.Avatar
+			}
+			if actorFacets[i].JavDBID == "" {
+				actorFacets[i].JavDBID = alias.ID
 			}
 		}
 	}

@@ -20,10 +20,11 @@ import (
 // Aliases are rebuilt at most this often; cached catalogue results change slowly.
 const ttl = 10 * time.Minute
 
-// Alias is the catalogue's name and portrait for a library actor.
+// Alias is the catalogue's name, portrait and actor ID for a library actor.
 type Alias struct {
 	Name   string
 	Avatar string
+	ID     string
 }
 
 // Index builds the pairs from the metadata cache and keeps them for a while.
@@ -94,7 +95,7 @@ func (i *Index) build(ctx context.Context) (map[string]Alias, error) {
 		return nil, err
 	}
 	catalogue := map[string][]string{}
-	avatars := map[string]string{}
+	avatars, ids := map[string]string{}, map[string]string{}
 	for _, entry := range entries {
 		if entry.Result == nil {
 			continue
@@ -111,6 +112,9 @@ func (i *Index) build(ctx context.Context) (map[string]Alias, error) {
 			names = append(names, person.Name)
 			if person.Avatar != "" {
 				avatars[person.Name] = person.Avatar
+			}
+			if person.ID != "" {
+				ids[person.Name] = person.ID
 			}
 		}
 		catalogue[code] = names
@@ -163,7 +167,7 @@ func (i *Index) build(ctx context.Context) (map[string]Alias, error) {
 
 	aliases := make(map[string]Alias, len(resolved))
 	for name, alias := range resolved {
-		aliases[name] = Alias{Name: alias, Avatar: avatars[alias]}
+		aliases[name] = Alias{Name: alias, Avatar: avatars[alias], ID: ids[alias]}
 	}
 	return aliases, nil
 }

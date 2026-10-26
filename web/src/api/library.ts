@@ -81,8 +81,15 @@ export type LibraryFilter = {
 
 export type LibraryFacetKind = 'actor' | 'maker' | 'series' | 'tag' | 'year'
 
-// alias is the catalogue's Japanese name when the library uses a translated one.
-export type LibraryFacet = { name: string; count: number; avatar?: string; alias?: string }
+// alias is the catalogue's Japanese name when the library uses a translated one;
+// javdb_id is the actor's JavDB ID when the library knows it.
+export type LibraryFacet = {
+  name: string
+  count: number
+  avatar?: string
+  alias?: string
+  javdb_id?: string
+}
 
 export type LibraryFacets = Record<
   'actors' | 'makers' | 'series' | 'tags' | 'years',

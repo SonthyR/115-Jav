@@ -1,17 +1,25 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
 
-import type { LibraryFacetKind, LibraryFilter } from '@/api/library'
+import { type LibraryFacetKind, type LibraryFilter, useLibraryFacets } from '@/api/library'
 import { AppPage } from '@/components/app-page'
 import { ErrorState } from '@/components/error-state'
 import { facetLabels } from '@/features/library/facet-filters'
 import { ProfileHeader } from '@/features/library/profile-header'
-import { parseLibrarySearch } from '@/features/library/search'
+import { type LibrarySearch, parseLibrarySearch } from '@/features/library/search'
+import {
+  ActorCatalogue,
+  ProfileActions,
+  type ProfileSource
+} from '@/features/watch/actor-catalogue'
 import { WatchBrowse } from '@/features/watch/browse'
 
 const kinds: LibraryFacetKind[] = ['actor', 'maker', 'series', 'tag']
 
 export const Route = createFileRoute('/_watch/browse_/$kind/$name')({
-  validateSearch: parseLibrarySearch,
+  validateSearch: (search: Record<string, unknown>): LibrarySearch & { source?: ProfileSource } =>
+    search.source === 'javdb'
+      ? { ...parseLibrarySearch(search), source: 'javdb' }
+      : parseLibrarySearch(search),
   beforeLoad: ({ params }) => {
     if (!kinds.includes(params.kind as LibraryFacetKind)) throw notFound()
   },
@@ -26,8 +34,33 @@ export const Route = createFileRoute('/_watch/browse_/$kind/$name')({
 function ProfileRoute() {
   const { kind: raw, name } = Route.useParams()
   const kind = raw as LibraryFacetKind
-  const { page, ...filter } = Route.useSearch()
+  const { page, source, ...filter } = Route.useSearch()
   const navigate = Route.useNavigate()
+  const facets = useLibraryFacets()
+  const javdbID =
+    kind === 'actor' ? facets.data?.actors.find(item => item.name === name)?.javdb_id : undefined
+  const header = <ProfileHeader kind={kind} name={name} />
+  const actions = javdbID ? (
+    <ProfileActions name={name} javdbID={javdbID} source={source ?? 'library'} />
+  ) : null
+  if (source === 'javdb' && javdbID) {
+    return (
+      <ActorCatalogue
+        key={javdbID}
+        name={name}
+        javdbID={javdbID}
+        page={page ?? 1}
+        header={header}
+        actions={actions}
+        onPageChange={next =>
+          void navigate({
+            search: previous => ({ ...previous, page: next > 1 ? next : undefined }),
+            resetScroll: false
+          })
+        }
+      />
+    )
+  }
   return (
     <WatchBrowse
       key={`${kind}:${name}`}
@@ -35,7 +68,8 @@ function ProfileRoute() {
       filter={{ ...filter, [kind]: name }}
       title={name}
       description={`${facetLabels[kind]}资料页`}
-      header={<ProfileHeader kind={kind} name={name} />}
+      header={header}
+      actions={actions}
       locked={kind}
       onPageChange={next =>
         void navigate({

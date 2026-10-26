@@ -23,6 +23,7 @@ export function WatchBrowse({
   title,
   description,
   header,
+  actions,
   locked
 }: {
   page: number
@@ -32,13 +33,16 @@ export function WatchBrowse({
   title: string
   description: string
   header?: ReactNode
+  actions?: ReactNode
   // Profile and collection pages keep their own filter.
   locked?: LibraryFacetKind
 }) {
   const library = useLibraryMovies(page, filter)
   return (
     <AppPage>
-      <PageHeader title={title} description={description} />
+      <PageHeader title={title} description={description}>
+        {actions}
+      </PageHeader>
       {header}
       <LibraryFilters filter={filter} locked={locked} onChange={onFilterChange} />
       {library.isPending ? (
