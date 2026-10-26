@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
 import {
-  LIBRARY_PAGE_SIZE,
+  WATCH_PAGE_SIZE,
   type LibraryFacetKind,
   type LibraryFilter,
   useLibraryMovies
@@ -37,7 +37,7 @@ export function WatchBrowse({
   // Profile and collection pages keep their own filter.
   locked?: LibraryFacetKind
 }) {
-  const library = useLibraryMovies(page, filter)
+  const library = useLibraryMovies(page, filter, WATCH_PAGE_SIZE)
   return (
     <AppPage>
       <PageHeader title={title} description={description}>
@@ -46,7 +46,7 @@ export function WatchBrowse({
       {header}
       <LibraryFilters filter={filter} locked={locked} onChange={onFilterChange} />
       {library.isPending ? (
-        <MovieGridSkeleton count={LIBRARY_PAGE_SIZE} compact />
+        <MovieGridSkeleton count={WATCH_PAGE_SIZE} compact />
       ) : library.isError ? (
         <ErrorState
           message="无法读取片库，请检查后端服务后重试"
@@ -66,7 +66,7 @@ export function WatchBrowse({
           )}
           <ListPagination
             page={page}
-            totalPages={Math.max(1, Math.ceil(library.data.total / LIBRARY_PAGE_SIZE))}
+            totalPages={Math.max(1, Math.ceil(library.data.total / WATCH_PAGE_SIZE))}
             hasMore={library.data.has_more}
             disabled={library.isFetching}
             onPageChange={onPageChange}

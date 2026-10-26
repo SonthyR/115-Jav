@@ -14,6 +14,8 @@ import { panKeys, type PanAccountStatus } from '@/api/pan'
 import { taskKeys, type LibrarySource, type ScanTask, type Task } from '@/api/tasks'
 
 export const LIBRARY_PAGE_SIZE = 20
+// The watch poster grid shows 3, 4 or 6 per row, so 24 always fills its rows.
+export const WATCH_PAGE_SIZE = 24
 
 export type LibraryEntity = { provider?: string; id?: string; name: string }
 
@@ -49,7 +51,8 @@ type LibraryPage = {
 export const libraryKeys = {
   all: ['library'] as const,
   detail: (id: number) => ['library', 'detail', id] as const,
-  movies: (page: number, filter: LibraryFilter = {}) => ['library', 'movies', page, filter] as const
+  movies: (page: number, filter: LibraryFilter = {}, limit = LIBRARY_PAGE_SIZE) =>
+    ['library', 'movies', page, filter, limit] as const
 }
 
 export type LibraryMovieDetail = Omit<DiscoverMovieDetail, 'release_status'> & {
@@ -112,15 +115,19 @@ export function useLibraryFacets() {
   })
 }
 
-export function useLibraryMovies(page: number, filter: LibraryFilter = {}) {
+export function useLibraryMovies(
+  page: number,
+  filter: LibraryFilter = {},
+  limit = LIBRARY_PAGE_SIZE
+) {
   return useQuery({
-    queryKey: libraryKeys.movies(page, filter),
+    queryKey: libraryKeys.movies(page, filter, limit),
     queryFn: ({ signal }) =>
       apiGet<LibraryPage>(
         '/api/library/movies',
         {
           page,
-          limit: LIBRARY_PAGE_SIZE,
+          limit,
           q: filter.q,
           chinese: filter.chinese ? 'true' : undefined,
           sort: filter.sort,
