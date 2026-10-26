@@ -33,3 +33,8 @@ Thumbs.db
 
 /deploy/*
 !/deploy/docker-compose.example.yml
+!/deploy/server/
+/deploy/server/*
+!/deploy/server/docker-compose.example.yml
+!/deploy/server/Caddyfile
+!/deploy/server/.env.example

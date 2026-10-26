@@ -1,0 +1,8 @@
+# 网页、STRM 和 Emby 接口都在同一个地址下，整个转发给 115-Jav 即可。
+# Caddy 默认就会带上 Host、X-Forwarded-For 和 X-Forwarded-Proto。
+{$MIYABI_DOMAIN} {
+	reverse_proxy miyabi:8080 {
+		# 任务进度是长连接推送，收到就立刻转发
+		flush_interval -1
+	}
+}

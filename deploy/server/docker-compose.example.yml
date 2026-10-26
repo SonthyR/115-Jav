@@ -1,0 +1,46 @@
+# 115-Jav 特别播放版：外网服务器一键部署，自带 Caddy 反代和自动 HTTPS 证书。
+# 1. 把 .env.example 复制成 .env，填好域名、密码和 Token
+# 2. 把这个文件复制成 docker-compose.yml
+# 3. 域名解析到这台服务器，放行 80 和 443 端口，然后运行：docker compose up -d --build
+# 网页和 Emby 播放器都用 https://你的域名 访问，证书由 Caddy 自动申请和续期。
+# 不要和家里的 115-Jav 同时运行：两边用同一个 115 账号，会抢登录令牌。
+services:
+  miyabi:
+    build:
+      context: ../..
+    image: 115-jav:special-play
+    container_name: miyabi
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    # 不映射端口，外网只能经 Caddy 进来
+    expose:
+      - "8080"
+    volumes:
+      # 数据库、图片缓存、STRM 都在这个目录，删容器不会丢
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Shanghai
+      - MIYABI_ACCESS_PASSWORD=${MIYABI_ACCESS_PASSWORD:?请在 .env 里填访问密码}
+      - MIYABI_STRM_TOKEN=${MIYABI_STRM_TOKEN:?请在 .env 里填 STRM Token}
+      - MIYABI_PUBLIC_URL=https://${MIYABI_DOMAIN:?请在 .env 里填域名}
+      # Caddy 在 Docker 网络里，信任它传来的访问者 IP，登录限流才按真实 IP 计算
+      - MIYABI_TRUSTED_PROXIES=172.16.0.0/12,192.168.0.0/16,10.0.0.0/8
+
+  caddy:
+    image: caddy:2
+    container_name: miyabi-caddy
+    restart: unless-stopped
+    depends_on:
+      - miyabi
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # 证书存在这里，重建容器不用重新申请
+      - ./caddy-data:/data
+      - ./caddy-config:/config
+    environment:
+      - MIYABI_DOMAIN=${MIYABI_DOMAIN}
