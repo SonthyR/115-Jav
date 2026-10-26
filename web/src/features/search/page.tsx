@@ -2,8 +2,6 @@ import { SearchIcon, XIcon } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 
 import { useSearchMovies } from '@/api/discover'
-import { AppPage } from '@/components/app-page'
-import { PageHeader } from '@/components/page-header'
 import {
   InputGroup,
   InputGroupAddon,
@@ -13,34 +11,7 @@ import {
 import { DISCOVER_PAGE_SIZE } from '@/features/discover/constants'
 import { DiscoverResults } from '@/features/discover/results'
 
-export function SearchPage({
-  keyword,
-  page,
-  onSearch,
-  onPageChange
-}: {
-  keyword: string
-  page: number
-  onSearch: (keyword: string) => void
-  onPageChange: (page: number) => void
-}) {
-  return (
-    <AppPage>
-      <PageHeader title="搜索" description="搜索 JavDB 的所有影片" />
-      <SearchForm key={`form:${keyword}`} keyword={keyword} onSearch={onSearch} />
-      {keyword ? (
-        <SearchResults
-          key={`results:${keyword}`}
-          keyword={keyword}
-          page={page}
-          onPageChange={onPageChange}
-        />
-      ) : null}
-    </AppPage>
-  )
-}
-
-function SearchForm({
+export function SearchForm({
   keyword,
   onSearch
 }: {
@@ -88,7 +59,7 @@ function SearchForm({
   )
 }
 
-function SearchResults({
+export function SearchResults({
   keyword,
   page,
   onPageChange

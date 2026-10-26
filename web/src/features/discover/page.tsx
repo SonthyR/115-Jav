@@ -11,6 +11,7 @@ import {
 import { BrowseResults } from './browse-results'
 import { CategoryContent } from './category-content'
 import { DISCOVER_PAGE_SIZE as PAGE_SIZE } from './constants'
+import { SearchForm, SearchResults } from '@/features/search/page'
 
 const route = getRouteApi('/_manage/discover')
 
@@ -30,42 +31,68 @@ export function DiscoverPage() {
 
   return (
     <AppPage>
-      <PageHeader title="发现" description="浏览最新发行、即将发行和分类内容" />
-      <div className="min-w-0 space-y-6">
-        <Tabs value={view} onValueChange={value => setView(value as DiscoverView)}>
-          <TabsList>
-            <TabsTrigger value="released">最新发行</TabsTrigger>
-            <TabsTrigger value="upcoming">即将发行</TabsTrigger>
-            <TabsTrigger value="category">分类浏览</TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <PageHeader
+        title="发现"
+        description="浏览最新发行、即将发行和分类内容，或搜索 JavDB 的所有影片"
+      />
+      <SearchForm
+        key={`form:${search.q ?? ''}`}
+        keyword={search.q ?? ''}
+        onSearch={q =>
+          void navigate({
+            search: previous => ({ ...previous, q: q || undefined, searchPage: undefined })
+          })
+        }
+      />
+      {search.q ? (
+        <SearchResults
+          key={`results:${search.q}`}
+          keyword={search.q}
+          page={search.searchPage ?? 1}
+          onPageChange={next =>
+            void navigate({
+              search: previous => ({ ...previous, searchPage: next > 1 ? next : undefined }),
+              resetScroll: false
+            })
+          }
+        />
+      ) : (
+        <div className="min-w-0 space-y-6">
+          <Tabs value={view} onValueChange={value => setView(value as DiscoverView)}>
+            <TabsList>
+              <TabsTrigger value="released">最新发行</TabsTrigger>
+              <TabsTrigger value="upcoming">即将发行</TabsTrigger>
+              <TabsTrigger value="category">分类浏览</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-        {view === 'category' ? (
-          <CategoryContent
-            category={categoryFromSearch(search)}
-            onCategoryChange={filters =>
-              void navigate({ search: previous => updateCategorySearch(previous, filters) })
-            }
-            sort={search.sort ?? 'release'}
-            onSortChange={sort =>
-              void navigate({ search: previous => updateSortSearch(previous, sort) })
-            }
-            page={page}
-            onPageChange={next => setPage('category', next)}
-          />
-        ) : (
-          <BrowseResults
-            key={view}
-            params={{
-              page,
-              limit: PAGE_SIZE,
-              order: 'desc',
-              ...(view === 'released' ? { main: ['m'], sort: 'update' } : { sort: 'release' })
-            }}
-            onPageChange={next => setPage(view, next)}
-          />
-        )}
-      </div>
+          {view === 'category' ? (
+            <CategoryContent
+              category={categoryFromSearch(search)}
+              onCategoryChange={filters =>
+                void navigate({ search: previous => updateCategorySearch(previous, filters) })
+              }
+              sort={search.sort ?? 'release'}
+              onSortChange={sort =>
+                void navigate({ search: previous => updateSortSearch(previous, sort) })
+              }
+              page={page}
+              onPageChange={next => setPage('category', next)}
+            />
+          ) : (
+            <BrowseResults
+              key={view}
+              params={{
+                page,
+                limit: PAGE_SIZE,
+                order: 'desc',
+                ...(view === 'released' ? { main: ['m'], sort: 'update' } : { sort: 'release' })
+              }}
+              onPageChange={next => setPage(view, next)}
+            />
+          )}
+        </div>
+      )}
     </AppPage>
   )
 }

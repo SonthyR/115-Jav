@@ -6,6 +6,9 @@ export type DiscoverView = 'released' | 'upcoming' | 'category'
 export type DiscoverSort = 'release' | 'score' | 'want_watch_count' | 'watched_count'
 export type CategoryFilters = { zone: JavDBZone; categoryID: string; tagID: string; main: string }
 export type DiscoverSearch = Partial<CategoryFilters> & {
+  // q searches all of JavDB and replaces the browsing views while set.
+  q?: string
+  searchPage?: number
   view?: DiscoverView
   sort?: DiscoverSort
   releasedPage?: number
@@ -23,7 +26,7 @@ export function validateMainSearch(search: Record<string, unknown>): { main?: st
 }
 
 export function validateDiscoverSearch(search: Record<string, unknown>): DiscoverSearch {
-  const { view, sort, zone, categoryID, tagID } = search
+  const { view, sort, zone, categoryID, tagID, q } = search
   if (view !== undefined && view !== 'released' && view !== 'upcoming' && view !== 'category') {
     throw new Error('浏览类型无效')
   }
@@ -35,6 +38,13 @@ export function validateDiscoverSearch(search: Record<string, unknown>): Discove
   }
   // The router parses bare numeric query values (for example a year) as numbers.
   const tag = typeof tagID === 'number' && Number.isSafeInteger(tagID) ? String(tagID) : tagID
+  if (q !== undefined && typeof q !== 'string' && typeof q !== 'number') {
+    throw new Error('搜索条件无效')
+  }
+  // A numeric keyword (a bare code number) also arrives parsed as a number.
+  const keyword = String(q ?? '')
+    .trim()
+    .slice(0, 200)
   if (
     (categoryID !== undefined && typeof categoryID !== 'string') ||
     (tag !== undefined && typeof tag !== 'string')
@@ -42,6 +52,8 @@ export function validateDiscoverSearch(search: Record<string, unknown>): Discove
     throw new Error('分类筛选无效')
   }
   return {
+    q: keyword || undefined,
+    searchPage: keyword ? parseSearchPage(search.searchPage) : undefined,
     view: view === 'upcoming' || view === 'category' ? view : undefined,
     sort: sort && sort !== 'release' ? (sort as DiscoverSort) : undefined,
     releasedPage: parseSearchPage(search.releasedPage),

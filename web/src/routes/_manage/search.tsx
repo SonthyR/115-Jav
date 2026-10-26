@@ -1,44 +1,17 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { AppPage } from '@/components/app-page'
-import { ErrorState } from '@/components/error-state'
-import { SearchPage } from '@/features/search/page'
 import { parseSearchPage } from '@/lib/search-schema'
 
-type SearchParams = { q?: string; page?: number }
-
+// Search moved into the discover page; old links and bookmarks land there.
 export const Route = createFileRoute('/_manage/search')({
-  validateSearch: (search: Record<string, unknown>): SearchParams => {
-    const q = search.q ?? ''
-    if (typeof q !== 'string') {
-      throw new Error('搜索条件无效')
-    }
-    const page = parseSearchPage(search.page)
-    const keyword = q.trim()
-    return keyword ? { q: keyword, ...(page ? { page } : {}) } : {}
-  },
-  component: SearchRoute,
-  errorComponent: () => (
-    <AppPage>
-      <ErrorState message="搜索条件无效" />
-    </AppPage>
-  )
+  beforeLoad: ({ search }) => {
+    const { q, page } = search as Record<string, unknown>
+    const keyword = typeof q === 'string' || typeof q === 'number' ? String(q).trim() : ''
+    const searchPage = parseSearchPage(page)
+    throw redirect({
+      to: '/discover',
+      search: keyword ? { q: keyword, ...(searchPage ? { searchPage } : {}) } : {},
+      replace: true
+    })
+  }
 })
-
-function SearchRoute() {
-  const search = Route.useSearch()
-  const navigate = Route.useNavigate()
-  return (
-    <SearchPage
-      keyword={search.q ?? ''}
-      page={search.page ?? 1}
-      onSearch={q => void navigate({ search: q ? { q } : {} })}
-      onPageChange={page =>
-        void navigate({
-          search: { q: search.q, ...(page > 1 ? { page } : {}) },
-          resetScroll: false
-        })
-      }
-    />
-  )
-}

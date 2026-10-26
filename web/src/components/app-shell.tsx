@@ -1,11 +1,4 @@
-import {
-  BellIcon,
-  CompassIcon,
-  FilmIcon,
-  FolderInputIcon,
-  SearchIcon,
-  SettingsIcon
-} from 'lucide-react'
+import { BellIcon, CompassIcon, FilmIcon, FolderInputIcon, SettingsIcon } from 'lucide-react'
 import type { PropsWithChildren } from 'react'
 
 import { isTaskActive, useTasks } from '@/api/tasks'
@@ -29,15 +22,14 @@ function ManageNav({ children }: PropsWithChildren) {
   const library: NavItem = { label: '影片', icon: FilmIcon, to: '/library', dot: busy }
   const organize: NavItem = { label: '整理', icon: FolderInputIcon, to: '/organize' }
   const discover: NavItem = { label: '发现', icon: CompassIcon, to: '/discover' }
-  const search: NavItem = { label: '搜索', icon: SearchIcon, to: '/search' }
   const subscriptions: NavItem = { label: '订阅', icon: BellIcon, to: '/subscriptions' }
   const settings: NavItem = { label: '设置', icon: SettingsIcon, to: '/settings' }
   return (
     <NavShell
       side="manage"
-      items={[library, organize, discover, search, subscriptions, settings]}
+      items={[library, organize, discover, subscriptions, settings]}
       phoneItems={[library, organize, discover, subscriptions]}
-      moreItems={[search, settings]}
+      moreItems={[settings]}
     >
       {children}
     </NavShell>
