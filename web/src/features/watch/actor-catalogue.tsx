@@ -71,6 +71,34 @@ export function ActorCatalogue({
   )
 }
 
+// SourceTabs switches a page between the library and JavDB.
+export function SourceTabs({
+  source,
+  query
+}: {
+  source: ProfileSource
+  // query keeps a search keyword on both sides.
+  query?: string
+}) {
+  const keep = query ? { q: query } : {}
+  return (
+    <Tabs value={source}>
+      <TabsList>
+        <TabsTrigger value="library" asChild>
+          <Link to="." search={keep} resetScroll={false}>
+            片库
+          </Link>
+        </TabsTrigger>
+        <TabsTrigger value="javdb" asChild>
+          <Link to="." search={{ ...keep, source: 'javdb' }} resetScroll={false}>
+            JavDB
+          </Link>
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
+  )
+}
+
 // ProfileActions switches an actor page between the library and JavDB, and
 // subscribes to the actor's new releases.
 export function ProfileActions({
@@ -84,20 +112,7 @@ export function ProfileActions({
 }) {
   return (
     <>
-      <Tabs value={source}>
-        <TabsList>
-          <TabsTrigger value="library" asChild>
-            <Link to="." search={{}} resetScroll={false}>
-              片库
-            </Link>
-          </TabsTrigger>
-          <TabsTrigger value="javdb" asChild>
-            <Link to="." search={{ source: 'javdb' }} resetScroll={false}>
-              JavDB 作品
-            </Link>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <SourceTabs source={source} />
       <ActorSubscribeButton actorID={javdbID} actorName={name} />
     </>
   )

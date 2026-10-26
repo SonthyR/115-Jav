@@ -175,8 +175,8 @@ export function WatchSearchBox() {
             </Link>
           ))}
           {found.length === 0 && actors.length === 0 ? (
-            <p className="px-3 py-4 text-center text-sm text-muted-foreground">
-              没有找到「{query}」
+            <p className="px-3 pt-4 pb-2 text-center text-sm text-muted-foreground">
+              片库里没有「{query}」
             </p>
           ) : (
             <button
@@ -186,6 +186,16 @@ export function WatchSearchBox() {
               在片库里查看全部结果
             </button>
           )}
+          <button
+            type="button"
+            className="w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={() => {
+              finish()
+              void navigate({ to: '/browse', search: { q: query, source: 'javdb' } })
+            }}
+          >
+            在 JavDB 搜索「{query}」，包括没入库的片子
+          </button>
         </div>
       ) : null}
     </form>
