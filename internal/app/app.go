@@ -199,6 +199,7 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 	}
 
 	relay := strm.New(store.Client, driveSvc)
+	subtitlePlayer := subtitle.NewPlayer(store.Client, subtitleFinder, exportMgr)
 	router := api.NewRouter(api.Dependencies{
 		Logger:         logger,
 		Access:         api.NewAccessGateService(cfg.AccessPassword, cfg.JWTSecret),
@@ -217,7 +218,9 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 		Organize:       organizer,
 		Playback:       libSvc,
 		Collections:    libSvc,
-		Subtitles:      subtitle.NewPlayer(store.Client, subtitleFinder, exportMgr),
+		Subtitles:      subtitlePlayer,
+		EmbyLibrary:    libSvc,
+		EmbySubtitles:  subtitlePlayer,
 		Transcoder:     relay,
 		Avatars:        gfriendsClient,
 		Frontend:       miyabi.Frontend(),

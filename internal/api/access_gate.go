@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/hex"
 	"errors"
 	"time"
 
@@ -78,4 +79,15 @@ func (gate *AccessGateService) VerifyToken(token string) error {
 	}
 	_, err := verifyToken(gate.jwtSecret, token)
 	return err
+}
+
+// MediaToken is the access token of Emby clients. Players keep it for good,
+// so it never expires; it changes with the password or JWT secret.
+func (gate *AccessGateService) MediaToken() string {
+	if !gate.enabled {
+		return ""
+	}
+	mac := hmac.New(sha256.New, gate.jwtSecret)
+	mac.Write([]byte("emby-access-token"))
+	return hex.EncodeToString(mac.Sum(nil)[:16])
 }

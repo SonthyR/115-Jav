@@ -7,7 +7,9 @@ import (
 	"entgo.io/ent/schema/index"
 )
 
-// PlaybackProgress is where web playback of a movie stopped, one row per movie.
+// PlaybackProgress is where playback of a movie stopped, one row per movie.
+// Played marks a movie watched to the end; its position is then zero unless
+// it is being watched again.
 type PlaybackProgress struct {
 	ent.Schema
 }
@@ -22,6 +24,7 @@ func (PlaybackProgress) Fields() []ent.Field {
 		field.String("file_id").NotEmpty(),
 		field.Float("position").Min(0),
 		field.Float("duration").Min(0),
+		field.Bool("played").Default(false),
 	}
 }
 

@@ -7905,6 +7905,7 @@ type PlaybackProgressMutation struct {
 	addposition   *float64
 	duration      *float64
 	addduration   *float64
+	played        *bool
 	clearedFields map[string]struct{}
 	movie         *int
 	clearedmovie  bool
@@ -8267,6 +8268,42 @@ func (m *PlaybackProgressMutation) ResetDuration() {
 	m.addduration = nil
 }
 
+// SetPlayed sets the "played" field.
+func (m *PlaybackProgressMutation) SetPlayed(b bool) {
+	m.played = &b
+}
+
+// Played returns the value of the "played" field in the mutation.
+func (m *PlaybackProgressMutation) Played() (r bool, exists bool) {
+	v := m.played
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlayed returns the old "played" field's value of the PlaybackProgress entity.
+// If the PlaybackProgress object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PlaybackProgressMutation) OldPlayed(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlayed is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlayed requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlayed: %w", err)
+	}
+	return oldValue.Played, nil
+}
+
+// ResetPlayed resets all changes to the "played" field.
+func (m *PlaybackProgressMutation) ResetPlayed() {
+	m.played = nil
+}
+
 // ClearMovie clears the "movie" edge to the Movie entity.
 func (m *PlaybackProgressMutation) ClearMovie() {
 	m.clearedmovie = true
@@ -8328,7 +8365,7 @@ func (m *PlaybackProgressMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *PlaybackProgressMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 7)
 	if m.created_at != nil {
 		fields = append(fields, playbackprogress.FieldCreatedAt)
 	}
@@ -8346,6 +8383,9 @@ func (m *PlaybackProgressMutation) Fields() []string {
 	}
 	if m.duration != nil {
 		fields = append(fields, playbackprogress.FieldDuration)
+	}
+	if m.played != nil {
+		fields = append(fields, playbackprogress.FieldPlayed)
 	}
 	return fields
 }
@@ -8367,6 +8407,8 @@ func (m *PlaybackProgressMutation) Field(name string) (ent.Value, bool) {
 		return m.Position()
 	case playbackprogress.FieldDuration:
 		return m.Duration()
+	case playbackprogress.FieldPlayed:
+		return m.Played()
 	}
 	return nil, false
 }
@@ -8388,6 +8430,8 @@ func (m *PlaybackProgressMutation) OldField(ctx context.Context, name string) (e
 		return m.OldPosition(ctx)
 	case playbackprogress.FieldDuration:
 		return m.OldDuration(ctx)
+	case playbackprogress.FieldPlayed:
+		return m.OldPlayed(ctx)
 	}
 	return nil, fmt.Errorf("unknown PlaybackProgress field %s", name)
 }
@@ -8438,6 +8482,13 @@ func (m *PlaybackProgressMutation) SetField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetDuration(v)
+		return nil
+	case playbackprogress.FieldPlayed:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlayed(v)
 		return nil
 	}
 	return fmt.Errorf("unknown PlaybackProgress field %s", name)
@@ -8532,6 +8583,9 @@ func (m *PlaybackProgressMutation) ResetField(name string) error {
 		return nil
 	case playbackprogress.FieldDuration:
 		m.ResetDuration()
+		return nil
+	case playbackprogress.FieldPlayed:
+		m.ResetPlayed()
 		return nil
 	}
 	return fmt.Errorf("unknown PlaybackProgress field %s", name)

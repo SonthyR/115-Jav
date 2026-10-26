@@ -75,6 +75,20 @@ func (_c *PlaybackProgressCreate) SetDuration(v float64) *PlaybackProgressCreate
 	return _c
 }
 
+// SetPlayed sets the "played" field.
+func (_c *PlaybackProgressCreate) SetPlayed(v bool) *PlaybackProgressCreate {
+	_c.mutation.SetPlayed(v)
+	return _c
+}
+
+// SetNillablePlayed sets the "played" field if the given value is not nil.
+func (_c *PlaybackProgressCreate) SetNillablePlayed(v *bool) *PlaybackProgressCreate {
+	if v != nil {
+		_c.SetPlayed(*v)
+	}
+	return _c
+}
+
 // SetMovie sets the "movie" edge to the Movie entity.
 func (_c *PlaybackProgressCreate) SetMovie(v *Movie) *PlaybackProgressCreate {
 	return _c.SetMovieID(v.ID)
@@ -123,6 +137,10 @@ func (_c *PlaybackProgressCreate) defaults() {
 		v := playbackprogress.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.Played(); !ok {
+		v := playbackprogress.DefaultPlayed
+		_c.mutation.SetPlayed(v)
+	}
 }
 
 // check runs all checks and user-defined validators on the builder.
@@ -164,6 +182,9 @@ func (_c *PlaybackProgressCreate) check() error {
 		if err := playbackprogress.DurationValidator(v); err != nil {
 			return &ValidationError{Name: "duration", err: fmt.Errorf(`ent: validator failed for field "PlaybackProgress.duration": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.Played(); !ok {
+		return &ValidationError{Name: "played", err: errors.New(`ent: missing required field "PlaybackProgress.played"`)}
 	}
 	if len(_c.mutation.MovieIDs()) == 0 {
 		return &ValidationError{Name: "movie", err: errors.New(`ent: missing required edge "PlaybackProgress.movie"`)}
@@ -214,6 +235,10 @@ func (_c *PlaybackProgressCreate) createSpec() (*PlaybackProgress, *sqlgraph.Cre
 	if value, ok := _c.mutation.Duration(); ok {
 		_spec.SetField(playbackprogress.FieldDuration, field.TypeFloat64, value)
 		_node.Duration = value
+	}
+	if value, ok := _c.mutation.Played(); ok {
+		_spec.SetField(playbackprogress.FieldPlayed, field.TypeBool, value)
+		_node.Played = value
 	}
 	if nodes := _c.mutation.MovieIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -356,6 +381,18 @@ func (u *PlaybackProgressUpsert) AddDuration(v float64) *PlaybackProgressUpsert 
 	return u
 }
 
+// SetPlayed sets the "played" field.
+func (u *PlaybackProgressUpsert) SetPlayed(v bool) *PlaybackProgressUpsert {
+	u.Set(playbackprogress.FieldPlayed, v)
+	return u
+}
+
+// UpdatePlayed sets the "played" field to the value that was provided on create.
+func (u *PlaybackProgressUpsert) UpdatePlayed() *PlaybackProgressUpsert {
+	u.SetExcluded(playbackprogress.FieldPlayed)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -482,6 +519,20 @@ func (u *PlaybackProgressUpsertOne) AddDuration(v float64) *PlaybackProgressUpse
 func (u *PlaybackProgressUpsertOne) UpdateDuration() *PlaybackProgressUpsertOne {
 	return u.Update(func(s *PlaybackProgressUpsert) {
 		s.UpdateDuration()
+	})
+}
+
+// SetPlayed sets the "played" field.
+func (u *PlaybackProgressUpsertOne) SetPlayed(v bool) *PlaybackProgressUpsertOne {
+	return u.Update(func(s *PlaybackProgressUpsert) {
+		s.SetPlayed(v)
+	})
+}
+
+// UpdatePlayed sets the "played" field to the value that was provided on create.
+func (u *PlaybackProgressUpsertOne) UpdatePlayed() *PlaybackProgressUpsertOne {
+	return u.Update(func(s *PlaybackProgressUpsert) {
+		s.UpdatePlayed()
 	})
 }
 
@@ -777,6 +828,20 @@ func (u *PlaybackProgressUpsertBulk) AddDuration(v float64) *PlaybackProgressUps
 func (u *PlaybackProgressUpsertBulk) UpdateDuration() *PlaybackProgressUpsertBulk {
 	return u.Update(func(s *PlaybackProgressUpsert) {
 		s.UpdateDuration()
+	})
+}
+
+// SetPlayed sets the "played" field.
+func (u *PlaybackProgressUpsertBulk) SetPlayed(v bool) *PlaybackProgressUpsertBulk {
+	return u.Update(func(s *PlaybackProgressUpsert) {
+		s.SetPlayed(v)
+	})
+}
+
+// UpdatePlayed sets the "played" field to the value that was provided on create.
+func (u *PlaybackProgressUpsertBulk) UpdatePlayed() *PlaybackProgressUpsertBulk {
+	return u.Update(func(s *PlaybackProgressUpsert) {
+		s.UpdatePlayed()
 	})
 }
 

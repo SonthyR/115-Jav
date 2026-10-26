@@ -18,6 +18,7 @@ type AccessGate interface {
 	Verify(string) error
 	GenerateToken() (string, int64, error)
 	VerifyToken(string) error
+	MediaToken() string
 }
 
 type accessLoginInput struct {

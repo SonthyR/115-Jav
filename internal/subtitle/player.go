@@ -45,22 +45,32 @@ func NewPlayer(db *ent.Client, finder *Finder, exports *export.Manager) *Player 
 
 // Track reads a saved subtitle of the movie.
 func (p *Player) Track(ctx context.Context, movieID, id int) (string, error) {
+	text, format, err := p.Source(ctx, movieID, id)
+	if err != nil {
+		return "", err
+	}
+	return ToVTT(text, format), nil
+}
+
+// Source reads a saved subtitle of the movie as UTF-8 text in its own format,
+// for players that render SRT and ASS themselves.
+func (p *Player) Source(ctx context.Context, movieID, id int) (string, string, error) {
 	track, err := p.db.Subtitle.Query().Where(subtitle.IDEQ(id), subtitle.MovieIDEQ(movieID)).Only(ctx)
 	if ent.IsNotFound(err) || (err == nil && track.StoragePath == "") {
-		return "", domain.E(domain.KindNotFound, "字幕不存在", err)
+		return "", "", domain.E(domain.KindNotFound, "字幕不存在", err)
 	}
 	if err != nil {
-		return "", fmt.Errorf("read subtitle: %w", err)
+		return "", "", fmt.Errorf("read subtitle: %w", err)
 	}
 	raw, err := os.ReadFile(track.StoragePath)
 	if err != nil {
-		return "", domain.E(domain.KindNotFound, "字幕文件不存在", err)
+		return "", "", domain.E(domain.KindNotFound, "字幕文件不存在", err)
 	}
 	text, err := DecodeToUTF8(raw)
 	if err != nil {
-		return "", fmt.Errorf("decode subtitle: %w", err)
+		return "", "", fmt.Errorf("decode subtitle: %w", err)
 	}
-	return ToVTT(text, track.Format), nil
+	return text, track.Format, nil
 }
 
 // Search queries online providers by the movie's code and keeps the results,

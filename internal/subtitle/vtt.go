@@ -1,6 +1,7 @@
 package subtitle
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -88,4 +89,46 @@ func assToVTT(text string) string {
 		}
 	}
 	return out.String()
+}
+
+var vttTime = regexp.MustCompile(`(?:(\d+):)?(\d{2}):(\d{2})\.(\d{3})`)
+
+// ToSRT converts subtitle text to SubRip for players that read SRT but not
+// the original format.
+func ToSRT(text, format string) string {
+	if strings.EqualFold(format, "srt") {
+		return strings.TrimPrefix(text, "\uFEFF")
+	}
+	var out strings.Builder
+	cue := 0
+	for _, block := range strings.Split(ToVTT(text, format), "\n\n") {
+		lines := strings.Split(strings.Trim(block, "\n"), "\n")
+		for i, line := range lines {
+			if !strings.Contains(line, "-->") {
+				continue
+			}
+			cue++
+			stamps := strings.SplitN(line, "-->", 2)
+			fmt.Fprintf(&out, "%d\n%s --> %s\n", cue, srtStamp(stamps[0]), srtStamp(stamps[1]))
+			for _, body := range lines[i+1:] {
+				out.WriteString(body)
+				out.WriteByte('\n')
+			}
+			out.WriteByte('\n')
+			break
+		}
+	}
+	return out.String()
+}
+
+func srtStamp(value string) string {
+	parts := vttTime.FindStringSubmatch(value)
+	if parts == nil {
+		return "00:00:00,000"
+	}
+	hours := parts[1]
+	if hours == "" {
+		hours = "0"
+	}
+	return pad(hours) + ":" + parts[2] + ":" + parts[3] + "," + parts[4]
 }

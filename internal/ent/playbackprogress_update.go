@@ -105,6 +105,20 @@ func (_u *PlaybackProgressUpdate) AddDuration(v float64) *PlaybackProgressUpdate
 	return _u
 }
 
+// SetPlayed sets the "played" field.
+func (_u *PlaybackProgressUpdate) SetPlayed(v bool) *PlaybackProgressUpdate {
+	_u.mutation.SetPlayed(v)
+	return _u
+}
+
+// SetNillablePlayed sets the "played" field if the given value is not nil.
+func (_u *PlaybackProgressUpdate) SetNillablePlayed(v *bool) *PlaybackProgressUpdate {
+	if v != nil {
+		_u.SetPlayed(*v)
+	}
+	return _u
+}
+
 // SetMovie sets the "movie" edge to the Movie entity.
 func (_u *PlaybackProgressUpdate) SetMovie(v *Movie) *PlaybackProgressUpdate {
 	return _u.SetMovieID(v.ID)
@@ -214,6 +228,9 @@ func (_u *PlaybackProgressUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if value, ok := _u.mutation.AddedDuration(); ok {
 		_spec.AddField(playbackprogress.FieldDuration, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.Played(); ok {
+		_spec.SetField(playbackprogress.FieldPlayed, field.TypeBool, value)
 	}
 	if _u.mutation.MovieCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -337,6 +354,20 @@ func (_u *PlaybackProgressUpdateOne) SetNillableDuration(v *float64) *PlaybackPr
 // AddDuration adds value to the "duration" field.
 func (_u *PlaybackProgressUpdateOne) AddDuration(v float64) *PlaybackProgressUpdateOne {
 	_u.mutation.AddDuration(v)
+	return _u
+}
+
+// SetPlayed sets the "played" field.
+func (_u *PlaybackProgressUpdateOne) SetPlayed(v bool) *PlaybackProgressUpdateOne {
+	_u.mutation.SetPlayed(v)
+	return _u
+}
+
+// SetNillablePlayed sets the "played" field if the given value is not nil.
+func (_u *PlaybackProgressUpdateOne) SetNillablePlayed(v *bool) *PlaybackProgressUpdateOne {
+	if v != nil {
+		_u.SetPlayed(*v)
+	}
 	return _u
 }
 
@@ -479,6 +510,9 @@ func (_u *PlaybackProgressUpdateOne) sqlSave(ctx context.Context) (_node *Playba
 	}
 	if value, ok := _u.mutation.AddedDuration(); ok {
 		_spec.AddField(playbackprogress.FieldDuration, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.Played(); ok {
+		_spec.SetField(playbackprogress.FieldPlayed, field.TypeBool, value)
 	}
 	if _u.mutation.MovieCleared() {
 		edge := &sqlgraph.EdgeSpec{

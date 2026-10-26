@@ -104,6 +104,16 @@ func (s *Service) MovieCollections(ctx context.Context, movieID int) ([]int, err
 	return ids, nil
 }
 
+// CollectionMovieIDs lists the IDs of the movies a collection holds.
+func (s *Service) CollectionMovieIDs(ctx context.Context, id int) ([]int, error) {
+	ids, err := s.database.CollectionItem.Query().Where(collectionitem.CollectionIDEQ(id)).
+		Select(collectionitem.FieldMovieID).Ints(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list collection movies: %w", err)
+	}
+	return ids, nil
+}
+
 func collectionError(err error) error {
 	if ent.IsNotFound(err) {
 		return domain.E(domain.KindNotFound, "收藏夹不存在", err)

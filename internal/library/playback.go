@@ -35,6 +35,7 @@ type Progress struct {
 	FileID    string    `json:"file_id"`
 	Position  float64   `json:"position"`
 	Duration  float64   `json:"duration"`
+	Played    bool      `json:"played"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
@@ -119,7 +120,7 @@ func (s *Service) ClearProgress(ctx context.Context, id int) error {
 func (s *Service) ContinueWatching(ctx context.Context) ([]ContinueItem, error) {
 	scope := libraryScope(s.Source())
 	records, err := s.database.PlaybackProgress.Query().
-		Where(playbackprogress.HasMovieWith(movie.HasFilesWith(scope))).
+		Where(playbackprogress.PositionGT(0), playbackprogress.HasMovieWith(movie.HasFilesWith(scope))).
 		Order(ent.Desc(playbackprogress.FieldUpdatedAt)).
 		Limit(continueLimit).
 		WithMovie().All(ctx)
@@ -139,6 +140,45 @@ func (s *Service) ContinueWatching(ctx context.Context) ([]ContinueItem, error) 
 	return items, nil
 }
 
+// PlayStates maps each movie with saved playback to where it stopped and
+// whether it was watched to the end.
+func (s *Service) PlayStates(ctx context.Context) (map[int]Progress, error) {
+	records, err := s.database.PlaybackProgress.Query().All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list playback progress: %w", err)
+	}
+	states := make(map[int]Progress, len(records))
+	for _, record := range records {
+		states[record.MovieID] = progressOf(record)
+	}
+	return states, nil
+}
+
+// MarkPlayed records a movie as watched, forgetting where it stopped, or
+// forgets its playback altogether.
+func (s *Service) MarkPlayed(ctx context.Context, id int, played bool) error {
+	if !played {
+		return s.ClearProgress(ctx, id)
+	}
+	info, err := s.PlayInfo(ctx, id)
+	if err != nil {
+		return err
+	}
+	if len(info.Files) == 0 {
+		return domain.E(domain.KindNotFound, "影片没有视频文件", nil)
+	}
+	err = s.database.PlaybackProgress.Create().
+		SetMovieID(id).SetFileID(info.Files[0].FileID).SetPosition(0).SetDuration(0).SetPlayed(true).
+		OnConflictColumns(playbackprogress.FieldMovieID).
+		UpdatePosition().UpdatePlayed().UpdateUpdatedAt().
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("mark movie played: %w", err)
+	}
+	return nil
+}
+
 func progressOf(record *ent.PlaybackProgress) Progress {
-	return Progress{FileID: record.FileID, Position: record.Position, Duration: record.Duration, UpdatedAt: record.UpdatedAt}
+	return Progress{FileID: record.FileID, Position: record.Position, Duration: record.Duration,
+		Played: record.Played, UpdatedAt: record.UpdatedAt}
 }

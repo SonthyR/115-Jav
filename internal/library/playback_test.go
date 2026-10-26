@@ -143,3 +143,51 @@ func TestFacetsPairTranslatedActorsWithCatalogueNames(t *testing.T) {
 		}
 	}
 }
+
+func TestPlayedMoviesLeaveContinueWatchingAndKeepTheirState(t *testing.T) {
+	lib, _, payload := libraryFixture(t)
+	ctx := t.Context()
+	var ids []int
+	for _, code := range []string{"ABP-001", "ABP-002", "ABP-003"} {
+		film := lib.database.Movie.Create().SetCode(code).SaveX(ctx)
+		lib.database.File.Create().SetFileID(code).SetName(code + ".mp4").SetSize(1024).
+			SetAccountID(payload.Source.AccountID).SetRootID(payload.Source.Directory.ID).SetMovieID(film.ID).SaveX(ctx)
+		ids = append(ids, film.ID)
+	}
+	if err := lib.SaveProgress(ctx, ids[0], Progress{FileID: "ABP-001", Position: 300, Duration: 600}); err != nil {
+		t.Fatal(err)
+	}
+	if err := lib.MarkPlayed(ctx, ids[1], true); err != nil {
+		t.Fatal(err)
+	}
+	items, err := lib.ContinueWatching(ctx)
+	if err != nil || len(items) != 1 || items[0].Movie.ID != ids[0] {
+		t.Fatalf("ContinueWatching() = %+v, %v", items, err)
+	}
+	// Watching a played movie again keeps it played.
+	if err := lib.SaveProgress(ctx, ids[1], Progress{FileID: "ABP-002", Position: 60, Duration: 600}); err != nil {
+		t.Fatal(err)
+	}
+	states, err := lib.PlayStates(ctx)
+	if err != nil || len(states) != 2 || !states[ids[1]].Played || states[ids[1]].Position != 60 || states[ids[0]].Played {
+		t.Fatalf("PlayStates() = %+v, %v", states, err)
+	}
+	if err := lib.MarkPlayed(ctx, ids[1], false); err != nil {
+		t.Fatal(err)
+	}
+	if states, _ := lib.PlayStates(ctx); len(states) != 1 {
+		t.Fatalf("after unplayed = %+v", states)
+	}
+
+	page, err := lib.SearchMovies(ctx, MovieFilter{Limit: 1, Offset: 1, Sort: "code", Reverse: true, ExcludeIDs: []int{ids[0]}})
+	if err != nil || page.Total != 2 || len(page.Movies) != 1 || page.Movies[0].ID != ids[1] || page.HasMore {
+		t.Fatalf("SearchMovies() = %+v, %v", page, err)
+	}
+	if page, err := lib.SearchMovies(ctx, MovieFilter{Page: 1, Limit: 10, IDs: []int{}}); err != nil || page.Total != 0 {
+		t.Fatalf("SearchMovies(no IDs) = %+v, %v", page, err)
+	}
+	page, err = lib.SearchMovies(ctx, MovieFilter{Page: 1, Limit: 10, IDs: []int{ids[2]}})
+	if err != nil || page.Total != 1 || page.Movies[0].ID != ids[2] || page.Movies[0].AddedAt.IsZero() {
+		t.Fatalf("SearchMovies(IDs) = %+v, %v", page, err)
+	}
+}

@@ -85,6 +85,11 @@ func Duration(v float64) predicate.PlaybackProgress {
 	return predicate.PlaybackProgress(sql.FieldEQ(FieldDuration, v))
 }
 
+// Played applies equality check predicate on the "played" field. It's identical to PlayedEQ.
+func Played(v bool) predicate.PlaybackProgress {
+	return predicate.PlaybackProgress(sql.FieldEQ(FieldPlayed, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.PlaybackProgress {
 	return predicate.PlaybackProgress(sql.FieldEQ(FieldCreatedAt, v))
@@ -328,6 +333,16 @@ func DurationLT(v float64) predicate.PlaybackProgress {
 // DurationLTE applies the LTE predicate on the "duration" field.
 func DurationLTE(v float64) predicate.PlaybackProgress {
 	return predicate.PlaybackProgress(sql.FieldLTE(FieldDuration, v))
+}
+
+// PlayedEQ applies the EQ predicate on the "played" field.
+func PlayedEQ(v bool) predicate.PlaybackProgress {
+	return predicate.PlaybackProgress(sql.FieldEQ(FieldPlayed, v))
+}
+
+// PlayedNEQ applies the NEQ predicate on the "played" field.
+func PlayedNEQ(v bool) predicate.PlaybackProgress {
+	return predicate.PlaybackProgress(sql.FieldNEQ(FieldPlayed, v))
 }
 
 // HasMovie applies the HasEdge predicate on the "movie" edge.

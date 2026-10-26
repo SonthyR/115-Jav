@@ -340,6 +340,10 @@ func init() {
 	playbackprogressDescDuration := playbackprogressFields[3].Descriptor()
 	// playbackprogress.DurationValidator is a validator for the "duration" field. It is called by the builders before save.
 	playbackprogress.DurationValidator = playbackprogressDescDuration.Validators[0].(func(float64) error)
+	// playbackprogressDescPlayed is the schema descriptor for played field.
+	playbackprogressDescPlayed := playbackprogressFields[4].Descriptor()
+	// playbackprogress.DefaultPlayed holds the default value on creation for the played field.
+	playbackprogress.DefaultPlayed = playbackprogressDescPlayed.Default.(bool)
 	settingMixin := schema.Setting{}.Mixin()
 	settingMixinFields0 := settingMixin[0].Fields()
 	_ = settingMixinFields0

@@ -30,6 +30,8 @@ type PlaybackProgress struct {
 	Position float64 `json:"position,omitempty"`
 	// Duration holds the value of the "duration" field.
 	Duration float64 `json:"duration,omitempty"`
+	// Played holds the value of the "played" field.
+	Played bool `json:"played,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the PlaybackProgressQuery when eager-loading is set.
 	Edges        PlaybackProgressEdges `json:"edges"`
@@ -61,6 +63,8 @@ func (*PlaybackProgress) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case playbackprogress.FieldPlayed:
+			values[i] = new(sql.NullBool)
 		case playbackprogress.FieldPosition, playbackprogress.FieldDuration:
 			values[i] = new(sql.NullFloat64)
 		case playbackprogress.FieldID, playbackprogress.FieldMovieID:
@@ -126,6 +130,12 @@ func (_m *PlaybackProgress) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Duration = value.Float64
 			}
+		case playbackprogress.FieldPlayed:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field played", values[i])
+			} else if value.Valid {
+				_m.Played = value.Bool
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -184,6 +194,9 @@ func (_m *PlaybackProgress) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("duration=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Duration))
+	builder.WriteString(", ")
+	builder.WriteString("played=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Played))
 	builder.WriteByte(')')
 	return builder.String()
 }

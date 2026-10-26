@@ -56,7 +56,8 @@ type Movie struct {
 	Tags         []Tag              `json:"tags"`
 	ScrapeStatus movie.ScrapeStatus `json:"scrape_status"`
 	// FileCount is how many videos of the movie, versions or parts, the library holds.
-	FileCount int `json:"file_count"`
+	FileCount int       `json:"file_count"`
+	AddedAt   time.Time `json:"-"`
 }
 
 type Page struct {
@@ -247,6 +248,12 @@ type MovieFilter struct {
 	Actor, Maker, Series, Tag string
 	Year                      int
 	Collection                int
+	// IDs keeps only these movies; ExcludeIDs leaves these out.
+	IDs, ExcludeIDs []int
+	// Offset, when set, replaces the page as the number of movies to skip.
+	Offset int
+	// Reverse flips the usual direction of the sort.
+	Reverse bool
 }
 
 // chineseMarks are the name fragments that mark Chinese subtitles, as
@@ -289,14 +296,29 @@ func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, e
 	if filter.Collection > 0 {
 		where = append(where, movie.HasCollectionItemsWith(collectionitem.CollectionIDEQ(filter.Collection)))
 	}
-	order := []movie.OrderOption{ent.Desc(movie.FieldCreatedAt), ent.Desc(movie.FieldID)}
+	if filter.IDs != nil {
+		where = append(where, movie.IDIn(filter.IDs...))
+	}
+	if len(filter.ExcludeIDs) > 0 {
+		where = append(where, movie.IDNotIn(filter.ExcludeIDs...))
+	}
+	field, ascending := movie.FieldCreatedAt, false
 	switch filter.Sort {
 	case "release":
-		order = []movie.OrderOption{ent.Desc(movie.FieldReleaseDate), ent.Desc(movie.FieldID)}
+		field = movie.FieldReleaseDate
 	case "code":
-		order = []movie.OrderOption{ent.Asc(movie.FieldCode), ent.Asc(movie.FieldID)}
+		field, ascending = movie.FieldCode, true
 	case "rating":
-		order = []movie.OrderOption{ent.Desc(movie.FieldRating), ent.Desc(movie.FieldID)}
+		field = movie.FieldRating
+	}
+	direction := ent.Desc
+	if ascending != filter.Reverse {
+		direction = ent.Asc
+	}
+	order := []movie.OrderOption{direction(field), direction(movie.FieldID)}
+	offset := (page - 1) * limit
+	if filter.Offset > 0 {
+		offset = filter.Offset
 	}
 	var err error
 	result.Total, err = s.database.Movie.Query().Where(where...).Count(ctx)
@@ -311,9 +333,9 @@ func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, e
 			movie.FieldFanarts, movie.FieldReleaseDate, movie.FieldDuration, movie.FieldRating,
 			movie.FieldDirectorID, movie.FieldDirectorName, movie.FieldMakerID, movie.FieldMakerName,
 			movie.FieldSeriesID, movie.FieldSeriesName,
-			movie.FieldScrapeStatus).
+			movie.FieldScrapeStatus, movie.FieldCreatedAt).
 		Order(order...).
-		Offset((page - 1) * limit).Limit(limit).
+		Offset(offset).Limit(limit).
 		WithActors(func(query *ent.ActorQuery) {
 			query.Select(actor.FieldID, actor.FieldProvider, actor.FieldSourceID, actor.FieldName).Order(ent.Asc(actor.FieldName), ent.Asc(actor.FieldID))
 		}).
@@ -335,7 +357,7 @@ func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, e
 			Maker:    libraryEntity(record.MakerID, record.MakerName), Series: libraryEntity(record.SeriesID, record.SeriesName),
 			Actors: make([]Entity, 0, len(record.Edges.Actors)),
 			Tags:   make([]Tag, 0, len(record.Edges.Tags)), ScrapeStatus: record.ScrapeStatus,
-			FileCount: len(record.Edges.Files),
+			FileCount: len(record.Edges.Files), AddedAt: record.CreatedAt,
 		}
 		if record.ReleaseDate != nil {
 			item.ReleaseDate = record.ReleaseDate.Format(time.DateOnly)
@@ -351,7 +373,7 @@ func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, e
 		}
 		result.Movies = append(result.Movies, item)
 	}
-	result.HasMore = (page-1)*limit+len(result.Movies) < result.Total
+	result.HasMore = offset+len(result.Movies) < result.Total
 	return result, nil
 }
 

@@ -34,6 +34,8 @@ type Dependencies struct {
 	Subtitles      SubtitlePlayer
 	Transcoder     TranscodeRelay
 	Collections    CollectionManager
+	EmbyLibrary    EmbyLibrary
+	EmbySubtitles  SubtitleSource
 	Avatars        AvatarSource
 	Frontend       fs.FS
 	STRMToken      string
@@ -63,6 +65,9 @@ func NewRouter(deps Dependencies) *gin.Engine {
 	)
 
 	loginLimiter := newLoginRateLimiter(5, 5*time.Minute, 24*time.Hour)
+	if deps.EmbyLibrary != nil {
+		router.Use(newEmbyServer(deps, loginLimiter).middleware)
+	}
 
 	api := router.Group("/api", sameOriginMiddleware())
 

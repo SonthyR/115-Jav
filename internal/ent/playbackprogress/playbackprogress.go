@@ -26,6 +26,8 @@ const (
 	FieldPosition = "position"
 	// FieldDuration holds the string denoting the duration field in the database.
 	FieldDuration = "duration"
+	// FieldPlayed holds the string denoting the played field in the database.
+	FieldPlayed = "played"
 	// EdgeMovie holds the string denoting the movie edge name in mutations.
 	EdgeMovie = "movie"
 	// Table holds the table name of the playbackprogress in the database.
@@ -48,6 +50,7 @@ var Columns = []string{
 	FieldFileID,
 	FieldPosition,
 	FieldDuration,
+	FieldPlayed,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -75,6 +78,8 @@ var (
 	PositionValidator func(float64) error
 	// DurationValidator is a validator for the "duration" field. It is called by the builders before save.
 	DurationValidator func(float64) error
+	// DefaultPlayed holds the default value on creation for the "played" field.
+	DefaultPlayed bool
 )
 
 // OrderOption defines the ordering options for the PlaybackProgress queries.
@@ -113,6 +118,11 @@ func ByPosition(opts ...sql.OrderTermOption) OrderOption {
 // ByDuration orders the results by the duration field.
 func ByDuration(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDuration, opts...).ToFunc()
+}
+
+// ByPlayed orders the results by the played field.
+func ByPlayed(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPlayed, opts...).ToFunc()
 }
 
 // ByMovieField orders the results by movie field.

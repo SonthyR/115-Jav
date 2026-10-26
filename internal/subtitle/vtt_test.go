@@ -22,3 +22,15 @@ func TestToVTTConvertsASSDialogue(t *testing.T) {
 		t.Fatalf("ToVTT() = %q, want %q", got, want)
 	}
 }
+
+func TestToSRTKeepsSRTAndConvertsOthers(t *testing.T) {
+	srt := "1\n00:00:01,000 --> 00:00:02,000\nhi\n"
+	if got := ToSRT("\uFEFF"+srt, "srt"); got != srt {
+		t.Fatalf("srt = %q", got)
+	}
+	vtt := "WEBVTT\n\n00:01.500 --> 00:03.000\n第一行\n第二行\n\n01:00:00.000 --> 01:00:01.250\nbye\n"
+	want := "1\n00:00:01,500 --> 00:00:03,000\n第一行\n第二行\n\n2\n01:00:00,000 --> 01:00:01,250\nbye\n\n"
+	if got := ToSRT(vtt, "vtt"); got != want {
+		t.Fatalf("vtt = %q", got)
+	}
+}

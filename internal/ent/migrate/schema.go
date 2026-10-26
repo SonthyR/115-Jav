@@ -264,6 +264,7 @@ var (
 		{Name: "file_id", Type: field.TypeString},
 		{Name: "position", Type: field.TypeFloat64},
 		{Name: "duration", Type: field.TypeFloat64},
+		{Name: "played", Type: field.TypeBool, Default: false},
 		{Name: "movie_id", Type: field.TypeInt, Unique: true},
 	}
 	// PlaybackProgressesTable holds the schema information for the "playback_progresses" table.
@@ -274,7 +275,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "playback_progresses_movies_progress",
-				Columns:    []*schema.Column{PlaybackProgressesColumns[6]},
+				Columns:    []*schema.Column{PlaybackProgressesColumns[7]},
 				RefColumns: []*schema.Column{MoviesColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
