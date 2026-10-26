@@ -1,6 +1,11 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
 
-import { type LibraryFacetKind, type LibraryFilter, useLibraryFacets } from '@/api/library'
+import {
+  findFacet,
+  type LibraryFacetKind,
+  type LibraryFilter,
+  useLibraryFacets
+} from '@/api/library'
 import { AppPage } from '@/components/app-page'
 import { ErrorState } from '@/components/error-state'
 import { facetLabels } from '@/features/library/facet-filters'
@@ -37,8 +42,7 @@ function ProfileRoute() {
   const { page, source, ...filter } = Route.useSearch()
   const navigate = Route.useNavigate()
   const facets = useLibraryFacets()
-  const javdbID =
-    kind === 'actor' ? facets.data?.actors.find(item => item.name === name)?.javdb_id : undefined
+  const javdbID = kind === 'actor' ? findFacet(facets.data?.actors, name)?.javdb_id : undefined
   const header = <ProfileHeader kind={kind} name={name} />
   const actions = javdbID ? (
     <ProfileActions name={name} javdbID={javdbID} source={source ?? 'library'} />

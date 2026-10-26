@@ -3,6 +3,7 @@ package library
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/ppxb/miyabi/internal/domain"
 	"github.com/ppxb/miyabi/internal/ent"
@@ -45,9 +46,14 @@ func (s *Service) Movie(ctx context.Context, id int) (MovieDetail, error) {
 	for _, id := range doc.IDs {
 		detail.Sources = append(detail.Sources, domain.SourceID{Provider: id.Type, ID: id.Value})
 	}
+	people := s.aliases.People(ctx)
 	for _, person := range doc.Actors {
+		name := people.Name(person.Name)
+		if slices.ContainsFunc(detail.Actors, func(actor domain.Actor) bool { return actor.Name == name }) {
+			continue
+		}
 		detail.Actors = append(detail.Actors, domain.Actor{Provider: person.Provider, ID: person.ID,
-			Name: person.Name, NameZHT: person.NameZHT, Gender: person.Gender})
+			Name: name, NameZHT: person.NameZHT, Gender: person.Gender})
 	}
 	for _, tag := range doc.Tags {
 		detail.Tags = append(detail.Tags, domain.Tag{Provider: tag.Provider, ID: tag.ID,

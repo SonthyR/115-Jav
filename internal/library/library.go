@@ -3,6 +3,7 @@ package library
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -277,8 +278,10 @@ func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, e
 		}
 		where = append(where, movie.HasFilesWith(scope, file.Or(marks...)))
 	}
+	people := s.aliases.People(ctx)
 	if filter.Actor != "" {
-		where = append(where, movie.HasActorsWith(actor.Or(actor.NameEQ(filter.Actor), actor.NameZhtEQ(filter.Actor))))
+		names := people.Names(filter.Actor)
+		where = append(where, movie.HasActorsWith(actor.Or(actor.NameIn(names...), actor.NameZhtIn(names...))))
 	}
 	if filter.Maker != "" {
 		where = append(where, movie.MakerNameEQ(filter.Maker))
@@ -365,9 +368,7 @@ func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, e
 		if len(record.Fanarts) > 0 {
 			item.Fanart = record.Fanarts[0]
 		}
-		for _, person := range record.Edges.Actors {
-			item.Actors = append(item.Actors, Entity{Provider: person.Provider, ID: person.SourceID, Name: person.Name})
-		}
+		item.Actors = mergeActors(people, record.Edges.Actors)
 		for _, label := range record.Edges.Tags {
 			item.Tags = append(item.Tags, Tag{ID: label.ID, Provider: label.Provider, SourceID: label.SourceID, Name: label.Name})
 		}
@@ -375,6 +376,20 @@ func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, e
 	}
 	result.HasMore = offset+len(result.Movies) < result.Total
 	return result, nil
+}
+
+// mergeActors lists a movie's actors under the names shown for them, once
+// per person.
+func mergeActors(people actoralias.People, actors []*ent.Actor) []Entity {
+	result := make([]Entity, 0, len(actors))
+	for _, person := range actors {
+		name := people.Name(person.Name)
+		if slices.ContainsFunc(result, func(entity Entity) bool { return entity.Name == name }) {
+			continue
+		}
+		result = append(result, Entity{Provider: person.Provider, ID: person.SourceID, Name: name})
+	}
+	return result
 }
 
 func libraryEntity(id, name *string) *Entity {

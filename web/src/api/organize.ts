@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiGet, apiPost, apiPut } from '@/api/client'
+import { libraryKeys } from '@/api/library'
 
 export type OrganizeFolder = {
   id: string
@@ -111,6 +112,44 @@ export function useMergeActors() {
       void queryClient.invalidateQueries({ queryKey: organizeKeys.log })
       void queryClient.invalidateQueries({ queryKey: ['organize', 'actors'] })
     }
+  })
+}
+
+// ActorLinkStatus reports looking up, on JavDB, the films of actresses not yet
+// tied to a JavDB actor; unresolved counts those still untied.
+export type ActorLinkStatus = {
+  running: boolean
+  total: number
+  done: number
+  failed: number
+  unresolved: number
+  error?: string
+}
+
+const actorLinkKey = ['organize', 'actor-link'] as const
+
+export function useActorLinkStatus() {
+  const queryClient = useQueryClient()
+  return useQuery({
+    queryKey: actorLinkKey,
+    queryFn: async ({ signal }) => {
+      const previous = queryClient.getQueryData<ActorLinkStatus>(actorLinkKey)
+      const status = await apiGet<ActorLinkStatus>('/api/organize/actors/link', undefined, signal)
+      if (previous?.running && !status.running) {
+        // Newly paired names merge actors across the library.
+        void queryClient.invalidateQueries({ queryKey: libraryKeys.all })
+      }
+      return status
+    },
+    refetchInterval: query => (query.state.data?.running ? 3000 : false)
+  })
+}
+
+export function useStartActorLink() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => apiPost<ActorLinkStatus>('/api/organize/actors/link'),
+    onSuccess: status => queryClient.setQueryData(actorLinkKey, status)
   })
 }
 

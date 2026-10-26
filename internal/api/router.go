@@ -30,6 +30,7 @@ type Dependencies struct {
 	Network        NetworkManager
 	Emby           EmbyManager
 	Organize       OrganizeManager
+	ActorLinks     ActorLinker
 	Playback       PlaybackManager
 	Subtitles      SubtitlePlayer
 	Transcoder     TranscodeRelay
@@ -135,6 +136,10 @@ func NewRouter(deps Dependencies) *gin.Engine {
 	protected.POST("/organize/run", organizeRunHandler(deps.Organize))
 	protected.GET("/organize/actors", noStore(), organizeActorsHandler(deps.Organize))
 	protected.POST("/organize/actors/merge", organizeMergeActorsHandler(deps.Organize))
+	if deps.ActorLinks != nil {
+		protected.GET("/organize/actors/link", noStore(), actorLinkStatusHandler(deps.ActorLinks))
+		protected.POST("/organize/actors/link", actorLinkStartHandler(deps.ActorLinks))
+	}
 	protected.GET("/organize/failed", noStore(), organizeFailedHandler(deps.Organize))
 	protected.POST("/organize/retry", organizeRetryHandler(deps.Organize))
 

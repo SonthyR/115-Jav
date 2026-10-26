@@ -23,6 +23,8 @@ type Facet struct {
 	Alias string `json:"alias,omitempty"`
 	// JavDBID is the actor's JavDB ID, for browsing their catalogue works.
 	JavDBID string `json:"javdb_id,omitempty"`
+	// Names lists the library names merged into this actor, when several are.
+	Names []string `json:"names,omitempty"`
 }
 
 type Facets struct {
@@ -49,16 +51,19 @@ func (s *Service) Facets(ctx context.Context) (Facets, error) {
 	}
 	actors, makers, series, tags, years := newCounter(), newCounter(), newCounter(), newCounter(), newCounter()
 	javdbIDs := map[string]string{}
+	people := s.aliases.People(ctx)
 	for _, record := range records {
-		// A movie counts once per name, even when sources repeat a person.
+		// A movie counts once per person, even when sources repeat or
+		// translate a name.
 		seen := map[string]bool{}
 		for _, person := range record.Edges.Actors {
-			if !seen[person.Name] {
-				seen[person.Name] = true
-				actors.add(person.Name, person.Avatar)
+			name := people.Name(person.Name)
+			if !seen[name] {
+				seen[name] = true
+				actors.add(name, person.Avatar)
 			}
 			if person.Provider == "javdb" {
-				javdbIDs[person.Name] = person.SourceID
+				javdbIDs[name] = person.SourceID
 			}
 		}
 		for _, label := range record.Edges.Tags {
@@ -81,7 +86,19 @@ func (s *Service) Facets(ctx context.Context) (Facets, error) {
 	aliases := s.aliases.Aliases(ctx)
 	for i, facet := range actorFacets {
 		actorFacets[i].JavDBID = javdbIDs[facet.Name]
-		if alias, ok := aliases[facet.Name]; ok {
+		if names := people.Names(facet.Name); len(names) > 1 {
+			actorFacets[i].Names = names
+		}
+		alias, ok := aliases[facet.Name]
+		if !ok {
+			// A merged actor shown under a catalogue name no film credits.
+			for _, name := range people.Names(facet.Name) {
+				if alias, ok = aliases[name]; ok {
+					break
+				}
+			}
+		}
+		if ok {
 			if alias.Name != facet.Name {
 				actorFacets[i].Alias = alias.Name
 			}

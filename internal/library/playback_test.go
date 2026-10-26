@@ -1,6 +1,7 @@
 package library
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -138,8 +139,59 @@ func TestFacetsPairTranslatedActorsWithCatalogueNames(t *testing.T) {
 		"葵司":   {Name: "葵司", Count: 1, Alias: "葵つかさ"},
 	}
 	for _, facet := range facets.Actors {
-		if facet != want[facet.Name] {
+		if !reflect.DeepEqual(facet, want[facet.Name]) {
 			t.Errorf("facet %+v, want %+v", facet, want[facet.Name])
+		}
+	}
+}
+
+func TestPairedSpellingsAreOneActor(t *testing.T) {
+	lib, _, payload := libraryFixture(t)
+	ctx := t.Context()
+	translated := lib.database.Actor.Create().SetProvider("nfo").SetSourceID("三上悠亚").SetName("三上悠亚").SaveX(ctx)
+	scraped := lib.database.Actor.Create().SetProvider("javdb").SetSourceID("mk1").SetName("三上悠亞").SaveX(ctx)
+	other := lib.database.Actor.Create().SetProvider("nfo").SetSourceID("葵司").SetName("葵司").SaveX(ctx)
+	films := []struct {
+		code string
+		cast []*ent.Actor
+	}{
+		{"SSIS-001", []*ent.Actor{translated}},
+		{"SSIS-002", []*ent.Actor{translated}},
+		{"SSIS-003", []*ent.Actor{scraped}},
+		{"SSIS-004", []*ent.Actor{other}},
+	}
+	for _, film := range films {
+		movie := lib.database.Movie.Create().SetCode(film.code).AddActors(film.cast...).SaveX(ctx)
+		lib.database.File.Create().SetFileID(film.code).SetName(film.code + ".mp4").SetSize(1024).
+			SetAccountID(payload.Source.AccountID).SetRootID(payload.Source.Directory.ID).SetMovieID(movie.ID).SaveX(ctx)
+		result := domain.MovieMetadata{Detail: domain.MovieDetail{Movie: domain.Movie{Code: film.code,
+			Actors: []domain.Actor{{Name: "三上悠亞", Gender: "female", ID: "mk1"}}}}}
+		if film.code == "SSIS-004" {
+			result.Detail.Actors = []domain.Actor{{Name: "葵つかさ", Gender: "female"}}
+		}
+		lib.database.MetadataCache.Create().SetProvider("javdb").SetCode(film.code).SetResult(&result).
+			SetExpiresAt(time.Now().Add(time.Hour)).SaveX(ctx)
+	}
+	facets, err := lib.Facets(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Facet{
+		{Name: "三上悠亞", Count: 3, JavDBID: "mk1", Names: []string{"三上悠亚", "三上悠亞"}},
+		{Name: "葵司", Count: 1, Alias: "葵つかさ"},
+	}
+	if !reflect.DeepEqual(facets.Actors, want) {
+		t.Fatalf("actors = %+v, want %+v", facets.Actors, want)
+	}
+	for _, name := range []string{"三上悠亚", "三上悠亞"} {
+		page, err := lib.SearchMovies(ctx, MovieFilter{Page: 1, Limit: 10, Actor: name, Sort: "code"})
+		if err != nil || page.Total != 3 {
+			t.Fatalf("actor %s page = %+v, %v", name, page, err)
+		}
+		for _, item := range page.Movies {
+			if len(item.Actors) != 1 || item.Actors[0].Name != "三上悠亞" {
+				t.Fatalf("%s actors = %+v", item.Code, item.Actors)
+			}
 		}
 	}
 }

@@ -97,6 +97,8 @@ func TestLibraryPageLoadsCardMetadataWithScopedCounts(t *testing.T) {
 		}
 		builder.ExecX(ctx)
 	}
+	// Actor pairings are built once and kept, not loaded per page.
+	lib.aliases.People(ctx)
 	queries := make(map[string]int)
 	database.Intercept(ent.InterceptFunc(func(next ent.Querier) ent.Querier {
 		return ent.QuerierFunc(func(ctx context.Context, query ent.Query) (ent.Value, error) {

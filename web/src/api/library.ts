@@ -82,13 +82,21 @@ export type LibraryFilter = {
 export type LibraryFacetKind = 'actor' | 'maker' | 'series' | 'tag' | 'year'
 
 // alias is the catalogue's Japanese name when the library uses a translated one;
-// javdb_id is the actor's JavDB ID when the library knows it.
+// javdb_id is the actor's JavDB ID when the library knows it; names lists the
+// spellings merged into one actor, such as a Chinese and a Japanese name.
 export type LibraryFacet = {
   name: string
   count: number
   avatar?: string
   alias?: string
   javdb_id?: string
+  names?: string[]
+}
+
+// findFacet finds a facet by its name or one merged into it, so links made
+// before a merge still land on the actor.
+export function findFacet(list: LibraryFacet[] | undefined, name: string) {
+  return list?.find(item => item.name === name) ?? list?.find(item => item.names?.includes(name))
 }
 
 export type LibraryFacets = Record<

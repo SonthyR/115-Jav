@@ -4,8 +4,30 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ppxb/miyabi/internal/actoralias"
 	"github.com/ppxb/miyabi/internal/organize"
 )
+
+// ActorLinker looks up the JavDB entries of films whose actresses no JavDB
+// actor is tied to yet, so their names pair with the catalogue's.
+type ActorLinker interface {
+	Status(context.Context) (actoralias.LinkStatus, error)
+	Start(context.Context) (actoralias.LinkStatus, error)
+}
+
+func actorLinkStatusHandler(linker ActorLinker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		status, err := linker.Status(c.Request.Context())
+		respond(c, status, err)
+	}
+}
+
+func actorLinkStartHandler(linker ActorLinker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		status, err := linker.Start(c.Request.Context())
+		accepted(c, status, err)
+	}
+}
 
 // OrganizeManager reads and saves the 115 organizing rules and runs them.
 type OrganizeManager interface {

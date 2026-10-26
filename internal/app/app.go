@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ppxb/miyabi"
+	"github.com/ppxb/miyabi/internal/actoralias"
 	"github.com/ppxb/miyabi/internal/api"
 	"github.com/ppxb/miyabi/internal/catalogue"
 	"github.com/ppxb/miyabi/internal/config"
@@ -199,6 +200,14 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 	}
 
 	relay := strm.New(store.Client, driveSvc)
+	// Looking a film up on JavDB caches its cast, which pairs the names.
+	actorLinker := actoralias.NewLinker(actoralias.New(store.Client), func(ctx context.Context, code string) error {
+		_, err := metadataSvc.Fallback(ctx, domain.MovieRef{Code: code})
+		if errors.Is(err, metadata.ErrNotFound) {
+			return nil
+		}
+		return err
+	})
 	subtitlePlayer := subtitle.NewPlayer(store.Client, subtitleFinder, exportMgr)
 	router := api.NewRouter(api.Dependencies{
 		Logger:         logger,
@@ -216,6 +225,7 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 		Network:        networkSvc,
 		Emby:           embySvc,
 		Organize:       organizer,
+		ActorLinks:     actorLinker,
 		Playback:       libSvc,
 		Collections:    libSvc,
 		Subtitles:      subtitlePlayer,

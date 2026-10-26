@@ -1,4 +1,11 @@
-import { FolderInputIcon, FolderOpenIcon, ListIcon, LoaderCircleIcon, PlayIcon } from 'lucide-react'
+import {
+  FolderInputIcon,
+  FolderOpenIcon,
+  ListIcon,
+  LoaderCircleIcon,
+  PlayIcon,
+  UserSearchIcon
+} from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -8,9 +15,11 @@ import {
   type OrganizeConfig,
   type OrganizeFolder,
   type OrganizeRule,
+  useActorLinkStatus,
   useOrganizeConfig,
   useOrganizeLog,
   useRunOrganize,
+  useStartActorLink,
   useUpdateOrganizeConfig
 } from '@/api/organize'
 import { usePanAccount } from '@/api/pan'
@@ -215,11 +224,69 @@ export function OrganizeSection() {
         <ActorMergeDialog disabled={disabled || !mounted} />
       </SettingRow>
 
+      <ActorLinkRow />
+
       {!mounted && account.data ? (
         <InlineError>请先在 115 网盘里挂载媒体目录，整理后的文件会放进媒体目录。</InlineError>
       ) : null}
       {settings.isError ? <InlineError>后端服务暂不可用，无法读取整理设置。</InlineError> : null}
     </SettingsSection>
+  )
+}
+
+function ActorLinkRow() {
+  const status = useActorLinkStatus()
+  const start = useStartActorLink()
+  const data = status.data
+  let summary = ''
+  if (data?.running) {
+    summary = `正在查第 ${data.done} / ${data.total} 部`
+  } else if (data?.error) {
+    summary = `上次没查成：${data.error}`
+  } else if (data && data.unresolved > 0) {
+    summary = `还有 ${data.unresolved} 位演员没对上 JavDB`
+  } else if (data) {
+    summary = '所有演员都已对上 JavDB'
+  }
+  return (
+    <SettingRow
+      title="补全演员资料"
+      description={
+        <>
+          旧 NFO 里的演员没有 JavDB 资料，中文名和日文名会被当成两个人。这里把她们的片子去 JavDB
+          查一遍，配上同一个人后片库里合成一个演员，演员页也能看 JavDB
+          作品。片子多时要查一阵，每部间隔 2 秒
+          {summary ? <span className="block text-foreground">{summary}</span> : null}
+        </>
+      }
+    >
+      <Button
+        type="button"
+        variant="outline"
+        disabled={!data || data.running || data.unresolved === 0 || start.isPending}
+        onClick={() =>
+          start.mutate(undefined, {
+            onSuccess: result => {
+              if (result.running) {
+                toast.success(`开始查 ${result.total} 部片子，可以离开这个页面`)
+              } else {
+                toast.info(
+                  '这些演员的片子都查过了，JavDB 上查不到或者分不清是谁，可以用演员目录合并手动合'
+                )
+              }
+            },
+            onError: error => toast.error(describeApiError(error))
+          })
+        }
+      >
+        {data?.running || start.isPending ? (
+          <LoaderCircleIcon className="size-4 animate-spin" />
+        ) : (
+          <UserSearchIcon className="size-4" />
+        )}
+        开始补全
+      </Button>
+    </SettingRow>
   )
 }
 
