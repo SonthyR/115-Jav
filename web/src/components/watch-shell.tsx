@@ -1,4 +1,4 @@
-import { FolderHeartIcon, HomeIcon, LibraryIcon, UsersIcon } from 'lucide-react'
+import { FolderHeartIcon, HomeIcon, LibraryIcon, SparklesIcon, UsersIcon } from 'lucide-react'
 import type { PropsWithChildren } from 'react'
 
 import { type NavItem, NavShell } from '@/components/nav-shell'
@@ -9,6 +9,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: '首页', icon: HomeIcon, to: '/', exact: true },
   { label: '演员', icon: UsersIcon, to: '/actors' },
   { label: '片库', icon: LibraryIcon, to: '/browse' },
+  { label: '推荐', icon: SparklesIcon, to: '/recommend' },
   { label: '收藏夹', icon: FolderHeartIcon, to: '/collections' }
 ]
 

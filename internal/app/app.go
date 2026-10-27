@@ -33,6 +33,7 @@ import (
 	"github.com/ppxb/miyabi/internal/netx"
 	"github.com/ppxb/miyabi/internal/offline"
 	"github.com/ppxb/miyabi/internal/organize"
+	"github.com/ppxb/miyabi/internal/recommend"
 	"github.com/ppxb/miyabi/internal/strm"
 	"github.com/ppxb/miyabi/internal/subtitle"
 	"github.com/ppxb/miyabi/internal/tasks"
@@ -226,6 +227,7 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 		Emby:           embySvc,
 		Organize:       organizer,
 		ActorLinks:     actorLinker,
+		Recommend:      recommend.New(catalogueSvc, libSvc),
 		Playback:       libSvc,
 		Collections:    libSvc,
 		Subtitles:      subtitlePlayer,
