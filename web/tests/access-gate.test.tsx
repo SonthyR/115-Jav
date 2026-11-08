@@ -32,7 +32,7 @@ function renderGate(client: QueryClient) {
 
 test('login unlocks the gate despite an older config response, and a fresh config can lock it again', async () => {
   const { client, login } = fixture()
-  assert.match(renderGate(client), /访问 Miyabi/)
+  assert.match(renderGate(client), /访问 115-JAV/)
   const oldResponse = Promise.withResolvers<Response>()
   let readSignal: AbortSignal | null | undefined
   const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (path, init) => {
@@ -62,7 +62,7 @@ test('login unlocks the gate despite an older config response, and a fresh confi
 
   fetch.mockResolvedValue(Response.json(locked))
   await client.refetchQueries({ queryKey: authKeys.config })
-  assert.match(renderGate(client), /访问 Miyabi/)
+  assert.match(renderGate(client), /访问 115-JAV/)
   assert.doesNotMatch(renderGate(client), /Protected content/)
 })
 
@@ -77,7 +77,7 @@ test('a rejected login preserves the locked config and keeps protected content h
     return true
   })
   assert.deepEqual(client.getQueryData(authKeys.config), locked)
-  assert.match(renderGate(client), /访问 Miyabi/)
+  assert.match(renderGate(client), /访问 115-JAV/)
   assert.doesNotMatch(renderGate(client), /Protected content/)
 })
 

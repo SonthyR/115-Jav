@@ -217,7 +217,7 @@ export function EmbySection() {
           </SettingRow>
 
           <SettingRow
-            title="Miyabi 对外服务地址"
+            title="115-JAV 对外服务地址"
             description="生成 STRM 播放文件时写入的对外地址，供播放器直接访问。留空自动使用局域网 IP"
           >
             <Input

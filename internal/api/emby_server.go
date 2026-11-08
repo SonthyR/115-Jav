@@ -24,7 +24,7 @@ import (
 // videos are redirected to 115 like STRM files.
 
 const (
-	embyServerName = "115-Jav"
+	embyServerName = "115-JAV"
 	embyVersion    = "4.8.11.0"
 	embyServerID   = "1150e5b1a7c94d6e8f2b3c4d5e6f7a80"
 	embyUserID     = "1150e5b1a7c94d6e8f2b3c4d5e6f7a81"

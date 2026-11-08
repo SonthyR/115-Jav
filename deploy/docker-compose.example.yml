@@ -1,4 +1,6 @@
-# 115-Jav 部署示例：115-Jav（刮削、整理、STRM、302 直链）+ Emby。
+# 115-JAV 部署示例：115-JAV（刮削、整理、STRM、302 直链）+ Emby。
+# 115-JAV 自带 Emby 兼容接口，Infuse、SenPlayer 等播放器可以直接连 115-JAV 的 20030 端口；
+# 只用这些播放器的话，下面的 emby 服务可以删掉。
 # 复制为 docker-compose.yml，改掉密码、Token 和 IP 后运行：docker compose up -d
 services:
   miyabi:
@@ -38,7 +40,7 @@ services:
     volumes:
       # Emby 自己的配置、数据库
       - ./emby-config:/config
-      # 115-Jav 生成的 STRM/NFO/图片，在 Emby 里把媒体库目录选成 /media
+      # 115-JAV 生成的 STRM/NFO/图片，在 Emby 里把媒体库目录选成 /media
       - ./data/emby:/media
     environment:
       - TZ=Asia/Shanghai

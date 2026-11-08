@@ -1,10 +1,28 @@
-# 115-Jav
+# 115-JAV
 
-115 网盘一条龙：识别番号 → 刮削 → 在 115 上整理成 `演员/番号` → 生成 STRM（302 直链播放）→ 接入 Emby。
+115 网盘一条龙：识别番号 → 刮削 → 在 115 上整理成 `演员/番号` → 生成 STRM（302 直链播放）→ 网页直接看，或用 Infuse、SenPlayer 等播放器当 Emby 服务器连上来看。
 
-本项目 fork 自 [ppxb/miyabi](https://github.com/ppxb/miyabi)，在它的刮削、订阅、STRM 和 Emby 支持基础上，补上了 115 端的整理入库和一些日常使用上的改进。
+本项目 fork 自 [ppxb/miyabi](https://github.com/ppxb/miyabi)，在它的刮削、订阅、STRM 和 Emby 支持基础上，补上了 115 端的整理入库、网页观看端和 Emby 兼容接口。
 
-## 相比 Miyabi 新增的功能
+## 版本与分支
+
+| 分支 | 内容 |
+| --- | --- |
+| `master` | 主版本：整理入库 + 网页观看端 + Emby 兼容接口 + 推荐 |
+| `original` | 原版：只有刮削、整理、STRM，配合真正的 Emby 使用 |
+| `special` | 特别版：原版加网页观看端，没有 Emby 兼容接口和推荐页 |
+
+Docker 镜像 `ghcr.io/sonthyr/115-jav:latest` 由 `master` 构建。
+
+## 观看与播放
+
+- **观看端**（首页）：Netflix 式首页（继续观看、演员、中文字幕、最新发行、高分、标签等多行），影片详情整页，演员 / 厂牌 / 系列资料页，组合筛选，收藏夹。
+- **网页播放**：STRM 302 直连 115 原画，浏览器解不了时自动切 115 转码（HLS）；外挂字幕和在线字幕，播放进度和继续观看，多版本切换，手机手势（双击快进、横滑拖进度）、倍速、收藏夹连播。
+- **Emby 兼容接口**：Infuse、SenPlayer 等第三方播放器把 115-JAV 当 Emby 服务器添加（地址同网页，用户名随意，密码为访问密码），直接 302 到 115 播放，字幕、进度、收藏和网页互通。官方 Emby App 需要 Premiere 授权，不支持。
+- **推荐**：按片库里的演员、标签、厂牌、系列偏好从 JavDB 推荐还没入库的片子，一键离线下载。
+- **外网部署**：[`deploy/server`](./deploy/server) 提供带 Caddy 自动 HTTPS 的一键部署，也可以交给 1Panel 等面板反代。
+
+## 整理与刮削（相比 Miyabi 新增）
 
 - **115 整理入库**：选一个「整理前」目录，新片放进去（包括离线下载完成的）会自动识别番号、刮削，移动到「整理后」目录的 `演员/番号/` 下，NFO 和封面图也一起放到 115。1–3 位演员用逗号连接，4 位以上进「多人作品」，没有演员进「未知演员」；识别失败的移到失败目录，空文件夹和垃圾文件删到 115 回收站。
 - **整理页**：查看失败目录里的片子和原因，手动填番号重新整理；整理日志可按状态筛选。
@@ -33,7 +51,7 @@
 ghcr.io/sonthyr/115-jav
 ```
 
-[`deploy/docker-compose.example.yml`](./deploy/docker-compose.example.yml) 是一份 115-Jav + Emby 的完整示例，复制为 `docker-compose.yml`、改掉密码、Token 和 IP 即可使用。
+[`deploy/docker-compose.example.yml`](./deploy/docker-compose.example.yml) 是一份 115-JAV + Emby 的完整示例，复制为 `docker-compose.yml`、改掉密码、Token 和 IP 即可使用。
 
 ### 1. 使用 Docker CLI 运行
 
@@ -118,7 +136,7 @@ docker rm miyabi
 | 环境变量                 | 用途                                                  | 默认值                                        |
 | ------------------------ | ----------------------------------------------------- | --------------------------------------------- |
 | `MIYABI_ACCESS_PASSWORD` | Web 入口访问密码                                      | 空，关闭门禁（强烈建议配置）                  |
-| `MIYABI_PUBLIC_URL`      | 外部访问 Miyabi 的根地址，用于生成 STRM 播放直链      | 默认根据监听端口推导                          |
+| `MIYABI_PUBLIC_URL`      | 外部访问 115-JAV 的根地址，用于生成 STRM 播放直链      | 默认根据监听端口推导                          |
 | `MIYABI_LISTEN`          | HTTP 监听地址                                         | `:8080`                                       |
 | `MIYABI_DATA_DIR`        | SQLite 与图片缓存目录                                 | 容器内为 `/app/data`，二进制为 `./data`       |
 | `MIYABI_EMBY_DIR`        | STRM 与媒体导出目录                                   | `$MIYABI_DATA_DIR/emby`                       |

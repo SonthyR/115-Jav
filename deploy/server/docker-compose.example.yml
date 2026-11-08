@@ -1,4 +1,4 @@
-# 115-Jav 特别播放版：外网服务器部署。
+# 115-JAV：外网服务器部署。
 # 1. 把 .env.example 复制成 .env，填好域名、密码和 Token
 # 2. 把这个文件复制成 docker-compose.yml
 # 3. 二选一：
@@ -7,12 +7,12 @@
 #    - 服务器上没有别的反代：域名解析过来、放行 80 和 443 端口，运行
 #      docker compose --profile caddy up -d --build，由自带的 Caddy 自动申请和续期 HTTPS 证书
 # 网页和 Emby 播放器都用 https://你的域名 访问。
-# 不要和家里的 115-Jav 同时运行：两边用同一个 115 账号，会抢登录令牌。
+# 不要和家里的 115-JAV 同时运行：两边用同一个 115 账号，会抢登录令牌。
 services:
   miyabi:
     build:
       context: ../..
-    image: 115-jav:special-play
+    image: 115-jav:local
     container_name: miyabi
     restart: unless-stopped
     security_opt:

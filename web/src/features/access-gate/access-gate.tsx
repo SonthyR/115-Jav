@@ -41,7 +41,7 @@ export function AccessGate({ children }: PropsWithChildren) {
     <main className="flex min-h-dvh items-center justify-center bg-muted px-4 py-10">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle>访问 Miyabi</CardTitle>
+          <CardTitle>访问 115-JAV</CardTitle>
           <CardDescription>请输入部署时配置的访问密码</CardDescription>
         </CardHeader>
         <CardContent>

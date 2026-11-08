@@ -75,7 +75,7 @@ export function NavShell({
     <div className="relative min-h-dvh pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-3 sm:px-4">
-          <span className="mr-1 shrink-0 text-base font-bold sm:text-lg">115-Jav</span>
+          <span className="mr-1 shrink-0 text-base font-bold sm:text-lg">115-JAV</span>
           <nav className="hidden items-center gap-1 md:flex">
             {items.map(item => (
               <Link
