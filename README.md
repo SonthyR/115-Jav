@@ -9,8 +9,7 @@
 | 分支 | 内容 |
 | --- | --- |
 | `master` | 主版本：整理入库 + 网页观看端 + Emby 兼容接口 + 推荐 |
-| `original` | 原版：只有刮削、整理、STRM，配合真正的 Emby 使用 |
-| `special` | 特别版：原版加网页观看端，没有 Emby 兼容接口和推荐页 |
+| `lite` | 简洁版：只有刮削、整理、STRM，没有网页播放，配合 Emby 使用 |
 
 Docker 镜像 `ghcr.io/sonthyr/115-jav:latest` 由 `master` 构建。
 
