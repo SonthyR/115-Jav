@@ -3,10 +3,12 @@ package strm
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ppxb/miyabi/internal/drive"
 	"github.com/ppxb/miyabi/internal/pan"
@@ -196,6 +198,49 @@ func TestStreamURLDoesNotFallbackOnFatalErrors(t *testing.T) {
 			_, err := relay.StreamURL(t.Context(), "101", "")
 			if !errors.Is(err, tc.err) {
 				t.Fatalf("StreamURL error = %v, want %v", err, tc.err)
+			}
+		})
+	}
+}
+
+func TestStreamURLRetriesWhileCDNRefusesFreshDownload(t *testing.T) {
+	saved := forbiddenRetryDelays
+	forbiddenRetryDelays = []time.Duration{time.Millisecond, time.Millisecond}
+	t.Cleanup(func() { forbiddenRetryDelays = saved })
+
+	for _, scenario := range []struct {
+		name     string
+		refusals int
+		want     string
+	}{
+		{"recovers", 1, "https://cdn.example/2"},
+		{"falls back to the stream", 10, "https://cdn.example/stream"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			relay, client := relayFixture(t, "pick")
+			issued := 0
+			client.downloadURL = func(context.Context, string, string, string) (string, error) {
+				issued++
+				return fmt.Sprintf("https://cdn.example/%d", issued), nil
+			}
+			client.playURL = func(context.Context, string, string, string) ([]pan.PlaySource, error) {
+				return []pan.PlaySource{{URL: "https://cdn.example/stream", Height: 1080, Definition: originalDefinition}}, nil
+			}
+			refused := 0
+			client.openMedia = func(_ context.Context, method, _ string, headers http.Header) (*http.Response, error) {
+				if method != http.MethodHead || headers.Get("User-Agent") != "Player/1" {
+					t.Errorf("probe = %s with %q", method, headers.Get("User-Agent"))
+				}
+				status := http.StatusOK
+				if refused < scenario.refusals {
+					refused++
+					status = http.StatusForbidden
+				}
+				return &http.Response{StatusCode: status, Body: http.NoBody}, nil
+			}
+			address, err := relay.StreamURL(t.Context(), "101", "Player/1")
+			if err != nil || address != scenario.want {
+				t.Fatalf("StreamURL = %q, %v; want %q", address, err, scenario.want)
 			}
 		})
 	}

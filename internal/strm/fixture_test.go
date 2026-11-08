@@ -74,6 +74,9 @@ func (client *panStub) DownloadURL(ctx context.Context, token, pickCode, userAge
 }
 
 func (client *panStub) OpenMedia(ctx context.Context, method, address string, headers http.Header) (*http.Response, error) {
+	if client.openMedia == nil {
+		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
+	}
 	return client.openMedia(ctx, method, address, headers)
 }
 

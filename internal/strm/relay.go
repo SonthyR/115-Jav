@@ -90,11 +90,56 @@ func (relay *Relay) resolveURL(ctx context.Context, sess drive.Session, fileID, 
 	// Prefer the direct download URL for full CDN throughput and instant seeking.
 	downloadURL, err := sess.DownloadURL(ctx, pickCode, ua)
 	if err == nil {
-		return downloadURL, nil
+		return relay.settleDownloadURL(ctx, sess, pickCode, ua, downloadURL)
 	}
 	if !errors.Is(err, pan.ErrDownloadUnavailable) {
 		return "", err
 	}
+	return relay.streamURL(ctx, sess, pickCode, ua)
+}
+
+// forbiddenRetryDelays space the fresh download URLs requested while the CDN
+// refuses a file. 115 answers 403 for a minute or two after an offline
+// download lands, then serves it normally.
+var forbiddenRetryDelays = []time.Duration{2 * time.Second, 4 * time.Second, 6 * time.Second}
+
+// settleDownloadURL checks the URL with the player's user agent before the
+// player is redirected to it. While the CDN refuses it, fresh URLs are tried
+// for a few seconds, then the transcoded stream, which 115 serves sooner.
+func (relay *Relay) settleDownloadURL(ctx context.Context, sess drive.Session, pickCode, ua, address string) (string, error) {
+	for attempt := 0; relay.forbidden(ctx, address, ua); attempt++ {
+		if attempt == len(forbiddenRetryDelays) {
+			if stream, err := relay.streamURL(ctx, sess, pickCode, ua); err == nil {
+				return stream, nil
+			}
+			return address, nil
+		}
+		select {
+		case <-time.After(forbiddenRetryDelays[attempt]):
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+		next, err := sess.DownloadURL(ctx, pickCode, ua)
+		if err != nil {
+			return "", err
+		}
+		address = next
+	}
+	return address, nil
+}
+
+// forbidden reports a definite 403 only; a failed check lets the player try.
+func (relay *Relay) forbidden(ctx context.Context, address, ua string) bool {
+	response, err := relay.drive.OpenMedia(ctx, http.MethodHead, address, http.Header{"User-Agent": {ua}})
+	if err != nil {
+		return false
+	}
+	_ = response.Body.Close()
+	return response.StatusCode == http.StatusForbidden
+}
+
+// streamURL picks the original or highest transcoded 115 stream.
+func (relay *Relay) streamURL(ctx context.Context, sess drive.Session, pickCode, ua string) (string, error) {
 	sources, err := sess.PlayURL(ctx, pickCode, ua)
 	if err != nil {
 		// pan reports the raw condition; the user-facing text lives in drive.

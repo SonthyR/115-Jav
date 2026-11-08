@@ -126,11 +126,45 @@ jobs:
           VERSION: ${{ needs.version.outputs.version }}
           RELEASE_BODY: ${{ needs.changelog.outputs.release_body }}
 
+  # 测试和检查全部通过才构建镜像。
+  check:
+    name: Test and lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Go tests
+        run: go test -tags dev ./internal/...
+
+      - name: Web checks
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm lint
+          pnpm fmt:check
+          pnpm test
+          pnpm build
+
   # Go 和前端都在构建机原生架构下交叉编译，只有运行时层走 QEMU，
   # 所以一个 job 直接构建并推送多架构镜像，不依赖 arm 专用 runner（私有仓库不可用）。
   publish:
     name: Build and push multi-arch image
-    needs: version
+    needs: [version, check]
     runs-on: ubuntu-latest
     permissions:
       contents: read

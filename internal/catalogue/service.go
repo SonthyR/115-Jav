@@ -106,8 +106,8 @@ func NewWithClients(
 // Response caches absorb repeated page loads; entries are small and short-lived
 // so JavDB changes (new magnets, edited metadata) surface within minutes.
 const (
-	listCacheSize, listCacheTTL       = 128, time.Minute
-	detailCacheSize, detailCacheTTL   = 256, 5 * time.Minute
+	listCacheSize, listCacheTTL       = 256, 10 * time.Minute
+	detailCacheSize, detailCacheTTL   = 512, 30 * time.Minute
 	tagsCacheSize, tagsCacheTTL       = 5, 24 * time.Hour
 	magnetsCacheSize, magnetsCacheTTL = 64, time.Minute
 )
