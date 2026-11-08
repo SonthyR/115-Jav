@@ -17,10 +17,10 @@ export function AppPage({
   showBackTop = true
 }: AppPageProps) {
   return (
-    <main
-      className={cn('relative flex min-h-dvh flex-col bg-background px-4 pt-8 pb-24', className)}
-    >
-      <div className={cn('mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6', contentClassName)}>
+    <main className={cn('relative flex min-h-dvh flex-col bg-background pt-8 pb-24', className)}>
+      <div
+        className={cn('mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4', contentClassName)}
+      >
         {children}
       </div>
       {showBackTop ? <BackTopButton /> : null}

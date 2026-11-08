@@ -6,7 +6,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import {
-  clearProgress,
+  markPlayed,
   fetchTranscodes,
   playbackKeys,
   saveProgress,
@@ -478,7 +478,7 @@ function Player({
             return
           }
           lastSaved.current = Date.now()
-          void clearProgress(movieId).catch(() => undefined)
+          void markPlayed(movieId, true).catch(() => undefined)
           onFinished?.()
         }}
         onError={() => {

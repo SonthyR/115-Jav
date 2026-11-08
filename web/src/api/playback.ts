@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiDelete, apiGet, apiPut } from '@/api/client'
 import type { LibraryMovie } from '@/api/library'
@@ -11,6 +11,7 @@ export type PlayProgress = {
   file_id: string
   position: number
   duration: number
+  played?: boolean
   updated_at: string
 }
 
@@ -94,4 +95,18 @@ export function saveProgressOnExit(movieID: number, progress: Omit<PlayProgress,
 
 export function clearProgress(movieID: number) {
   return apiDelete<void>(`/api/library/movies/${movieID}/progress`)
+}
+
+export function markPlayed(movieID: number, played: boolean) {
+  return apiPut<void>(`/api/library/movies/${movieID}/played`, { played })
+}
+
+// Marks a movie watched or not; the library cards and rows follow.
+export function useMarkPlayed(movieID: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (played: boolean) => markPlayed(movieID, played),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['library'] }),
+    meta: { errorTitle: '标记失败' }
+  })
 }

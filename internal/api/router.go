@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io/fs"
 	"log/slog"
+	"mime"
 	"net/http"
 	"path"
 	"regexp"
@@ -194,6 +195,8 @@ func NewRouter(deps Dependencies) *gin.Engine {
 var hashedFrontendAsset = regexp.MustCompile(`^assets/.+-[A-Za-z0-9_-]{8}\.[^/]+$`)
 
 func installFrontend(router *gin.Engine, frontend fs.FS) {
+	// The home-screen app manifest; Go has no type for it built in.
+	_ = mime.AddExtensionType(".webmanifest", "application/manifest+json")
 	fileServer := http.FileServer(http.FS(frontend))
 	indexHTML, indexErr := fs.ReadFile(frontend, "index.html")
 	serveIndex := func(c *gin.Context) {

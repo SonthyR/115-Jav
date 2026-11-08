@@ -38,6 +38,8 @@ export type LibraryMovie = {
   scrape_status: 'pending' | 'done' | 'failed'
   // Versions or parts of the movie in the library.
   file_count: number
+  // Watched to the end, here or in an Emby client.
+  played?: boolean
 }
 
 type LibraryPage = {
@@ -80,7 +82,13 @@ export type LibraryFilter = {
   tag?: string
   year?: number
   collection?: number
+  watched?: LibraryWatched
+  problem?: LibraryProblem
 }
+
+export type LibraryWatched = 'yes' | 'no'
+// Movies needing attention: failed scrapes, no artwork, or several videos.
+export type LibraryProblem = 'failed' | 'nocover' | 'versions'
 
 export type LibraryFacetKind = 'actor' | 'maker' | 'series' | 'tag' | 'year'
 
@@ -136,7 +144,9 @@ export function useLibraryMovies(
           series: filter.series,
           tag: filter.tag,
           year: filter.year,
-          collection: filter.collection
+          collection: filter.collection,
+          watched: filter.watched,
+          problem: filter.problem
         },
         signal
       ),

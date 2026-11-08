@@ -11,6 +11,8 @@ export type DataInfo = {
     unused_size_bytes: number
     unused_entry_count: number
   }
+  // Daily database copies, newest first.
+  backups?: Array<{ name: string; size_bytes: number; created_at: string }>
 }
 
 const dataKeys = { system: ['settings', 'system'] as const }

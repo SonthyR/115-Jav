@@ -1,10 +1,9 @@
 import { Link, useRouter } from '@tanstack/react-router'
-import { ArrowLeftIcon, PlayIcon, RotateCcwIcon, WrenchIcon } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowLeftIcon, CheckIcon, PlayIcon, RotateCcwIcon, WrenchIcon } from 'lucide-react'
 
 import { imageURL } from '@/api/client'
 import { useLibraryMovie } from '@/api/library'
-import { usePlayInfo } from '@/api/playback'
+import { useMarkPlayed, usePlayInfo } from '@/api/playback'
 import { ErrorState } from '@/components/error-state'
 import { Button } from '@/components/ui/button'
 import { CollectionButton } from '@/features/collections/collection-button'
@@ -14,8 +13,6 @@ import { MovieMetadata } from '@/features/movie-detail/metadata'
 import { MoviePreviews } from '@/features/movie-detail/previews'
 import { MovieDetailSkeleton } from '@/features/movie-detail/skeleton'
 import { formatTime } from '@/features/player/player'
-import { TaskEventsProvider } from '@/features/tasks/task-events'
-import { TaskNotifications } from '@/features/tasks/task-notifications'
 import { formatSize } from '@/lib/format'
 
 // The movie page leads with the backdrop and one play button; versions and
@@ -24,9 +21,7 @@ export function WatchMoviePage({ id }: { id: number }) {
   const router = useRouter()
   const detail = useLibraryMovie(id)
   const play = usePlayInfo(id)
-  // The task stream opens only once a scrape is asked for here, so the page
-  // refreshes when it finishes without every visit holding a connection.
-  const [tracking, setTracking] = useState(false)
+  const mark = useMarkPlayed(id)
   if (detail.isPending) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-8">
@@ -53,11 +48,6 @@ export function WatchMoviePage({ id }: { id: number }) {
 
   return (
     <div className="pb-24">
-      {tracking ? (
-        <TaskEventsProvider>
-          <TaskNotifications />
-        </TaskEventsProvider>
-      ) : null}
       <section className="relative isolate overflow-hidden">
         {movie.cover ? (
           <img
@@ -147,11 +137,20 @@ export function WatchMoviePage({ id }: { id: number }) {
                     </Link>
                   </Button>
                 ) : null}
+                <Button
+                  size="lg"
+                  variant={progress?.played ? 'default' : 'secondary'}
+                  className="rounded-full"
+                  disabled={mark.isPending || files.length === 0}
+                  onClick={() => mark.mutate(!progress?.played)}
+                >
+                  <CheckIcon data-icon="inline-start" />
+                  {progress?.played ? '看过' : '标为看过'}
+                </Button>
                 <CollectionButton movieId={id} />
                 <LibraryMovieActions
                   movie={{ id, code: movie.code }}
                   disabled={movie.scrape_status === 'pending'}
-                  onSubmitted={() => setTracking(true)}
                   trigger={
                     <Button size="lg" variant="secondary" className="rounded-full">
                       <WrenchIcon data-icon="inline-start" />

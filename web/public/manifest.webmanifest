@@ -1,0 +1,16 @@
+{
+  "name": "115-JAV",
+  "short_name": "115-JAV",
+  "description": "115 网盘影片库：整理、刮削和播放",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#16181f",
+  "theme_color": "#16181f",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

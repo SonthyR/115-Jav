@@ -60,7 +60,7 @@ export function WatchHome() {
         ) : null}
 
         <MovieRow title="中文字幕" filter={{ chinese: true }} />
-        <RandomRow total={recent.data?.total ?? 0} />
+        <RandomRow />
         <MovieRow title="最新发行" filter={{ sort: 'release' }} />
         <MovieRow title="高分影片" filter={{ sort: 'rating' }} />
         {tags.map(tag => (
@@ -110,18 +110,19 @@ function MovieRow({ title, filter }: { title: string; filter: LibraryFilter }) {
   )
 }
 
-// A random page of the library, so older films come back into view.
-function RandomRow({ total }: { total: number }) {
-  const pages = Math.ceil(total / LIBRARY_PAGE_SIZE)
+// A random page of the movies not watched yet, so older films come back into view.
+function RandomRow() {
+  const unwatched = useLibraryMovies(1, { watched: 'no' }, 1)
+  const pages = Math.ceil((unwatched.data?.total ?? 0) / LIBRARY_PAGE_SIZE)
   const [roll, setRoll] = useState(() => Math.random())
-  // Page 1 is already the 最近入库 row.
-  const page = pages < 2 ? 1 : 2 + Math.floor(roll * (pages - 1))
-  const result = useLibraryMovies(page, {})
-  if (pages < 2 || !result.data?.movies.length) return null
+  const page = 1 + Math.floor(roll * pages)
+  const result = useLibraryMovies(page, { watched: 'no' })
+  if (pages < 1 || !result.data?.movies.length) return null
   const movies = shuffle(result.data.movies, roll)
   return (
     <Row
       title="随便看看"
+      link={{ to: '/browse', search: { watched: 'no' } }}
       action={
         <Button variant="ghost" size="sm" onClick={() => setRoll(Math.random())}>
           <ShuffleIcon data-icon="inline-start" />

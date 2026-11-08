@@ -22,7 +22,7 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <ThemeProvider
         attribute="class"
-        defaultTheme="system"
+        defaultTheme="dark"
         storageKey="miyabi-theme"
         enableSystem
         disableTransitionOnChange

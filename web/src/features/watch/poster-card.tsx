@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { PlayIcon } from 'lucide-react'
+import { CheckIcon, PlayIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { imageURL } from '@/api/client'
@@ -41,6 +41,12 @@ export function PosterCard({ movie, className }: { movie: LibraryMovie; classNam
             </div>
           )}
         </Link>
+        {movie.played ? (
+          <span className="pointer-events-none absolute top-1.5 left-1.5 flex items-center gap-1 rounded-md bg-black/65 px-1.5 py-0.5 text-[11px] text-white">
+            <CheckIcon className="size-3" />
+            看过
+          </span>
+        ) : null}
         {movie.file_count > 1 ? (
           <span className="pointer-events-none absolute top-1.5 right-1.5 rounded-md bg-black/65 px-1.5 py-0.5 text-[11px] text-white">
             {movie.file_count} 个文件
