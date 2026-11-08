@@ -167,6 +167,11 @@ var (
 				Unique:  true,
 				Columns: []*schema.Column{MetadataCachesColumns[1], MetadataCachesColumns[2]},
 			},
+			{
+				Name:    "metadatacache_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{MetadataCachesColumns[4]},
+			},
 		},
 	}
 	// MoviesColumns holds the columns for the "movies" table.
@@ -339,6 +344,11 @@ var (
 				Name:    "subscription_status_next_check_at",
 				Unique:  false,
 				Columns: []*schema.Column{SubscriptionsColumns[11], SubscriptionsColumns[15]},
+			},
+			{
+				Name:    "subscription_kind_origin_id_release_date",
+				Unique:  false,
+				Columns: []*schema.Column{SubscriptionsColumns[3], SubscriptionsColumns[9], SubscriptionsColumns[8]},
 			},
 		},
 	}

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
@@ -44,7 +45,7 @@ func Open(ctx context.Context, dataDir string) (*Store, error) {
 	opts := []ent.Option{
 		ent.Driver(driver),
 		ent.Log(func(args ...any) {
-			slog.Debug(fmt.Sprint(args...))
+			slog.Debug(withoutQueryArgs(fmt.Sprint(args...)))
 		}),
 	}
 	if slog.Default().Enabled(ctx, slog.LevelDebug) {
@@ -61,6 +62,13 @@ func Open(ctx context.Context, dataDir string) (*Store, error) {
 	}
 
 	return &Store{Client: client, db: db}, nil
+}
+
+// Backup writes a consistent copy of the live database to path, which must
+// not exist yet.
+func (store *Store) Backup(ctx context.Context, path string) error {
+	_, err := store.db.ExecContext(ctx, "VACUUM INTO ?", path)
+	return err
 }
 
 func (store *Store) Close() error {
@@ -83,4 +91,13 @@ func sqliteDSN(databasePath string) string {
 	query.Set("_txlock", "immediate")
 	uri.RawQuery = query.Encode()
 	return uri.String()
+}
+
+// withoutQueryArgs drops the bound values from an Ent debug line. Settings rows
+// carry 115 tokens and other credentials, which must not reach the logs.
+func withoutQueryArgs(line string) string {
+	if index := strings.Index(line, " args="); index >= 0 {
+		return line[:index]
+	}
+	return line
 }

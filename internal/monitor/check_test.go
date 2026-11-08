@@ -1,11 +1,14 @@
 package monitor
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/ppxb/miyabi/internal/domain"
+	"github.com/ppxb/miyabi/internal/ent"
+	"github.com/ppxb/miyabi/internal/ent/hook"
 	"github.com/ppxb/miyabi/internal/ent/subscription"
 )
 
@@ -146,5 +149,44 @@ func TestActorSubscriptionZeroInitialWorksSpawnsFirstWorks(t *testing.T) {
 	targetIDs := map[string]bool{feed[0].TargetID: true, feed[1].TargetID: true}
 	if !targetIDs["act-debut-1"] || !targetIDs["act-debut-2"] {
 		t.Fatalf("expected act-debut-1 and act-debut-2 in feed, got %#v", feed)
+	}
+}
+
+func TestActorSubscriptionRetriesWorksThatFailedToTrack(t *testing.T) {
+	f, ctx := newFixture(t), t.Context()
+	failNext := map[string]bool{"act-upcoming": true, "act-new": true}
+	f.client.Subscription.Use(func(next ent.Mutator) ent.Mutator {
+		return hook.SubscriptionFunc(func(ctx context.Context, m *ent.SubscriptionMutation) (ent.Value, error) {
+			if target, ok := m.TargetID(); ok && m.Op().Is(ent.OpCreate) && failNext[target] {
+				delete(failNext, target)
+				return nil, errors.New("injected write failure")
+			}
+			return next.Mutate(ctx, m)
+		})
+	})
+	f.discover.actorMovies["actor-1"] = []domain.Movie{{ID: "act-upcoming", Code: "UP-001", ReleaseDate: "2099-01-01"}}
+	actor, err := f.service.AddActor(ctx, "actor-1", AddActorOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if feed, _ := f.service.ActorFeed(ctx, actor.ID, 1, 10); len(feed) != 0 {
+		t.Fatalf("the failed work must not be tracked yet: %v", feed)
+	}
+
+	f.discover.actorMovies["actor-1"] = append([]domain.Movie{{ID: "act-new", Code: "NEW-001", ReleaseDate: "2099-02-01"}}, f.discover.actorMovies["actor-1"]...)
+	f.forceDue(t, actor.ID)
+	if err := f.service.Check(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if feed, _ := f.service.ActorFeed(ctx, actor.ID, 1, 10); len(feed) != 1 || feed[0].TargetID != "act-upcoming" {
+		t.Fatalf("the work that failed at subscription time is tracked on the next check: %v", feed)
+	}
+
+	f.forceDue(t, actor.ID)
+	if err := f.service.Check(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if feed, _ := f.service.ActorFeed(ctx, actor.ID, 1, 10); len(feed) != 2 {
+		t.Fatalf("the work that failed during a check is tracked on the following one: %v", feed)
 	}
 }

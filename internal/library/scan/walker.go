@@ -3,6 +3,7 @@ package scan
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"path"
@@ -205,6 +206,11 @@ func (r *scanRun) runTarget(ctx context.Context, isResume bool) error {
 	return r.walk(ctx, Directory{ID: info.ID, Path: r.payload.TargetPath}, isResume)
 }
 
+const (
+	checkpointEvery    = 50
+	checkpointInterval = 5 * time.Second
+)
+
 func (r *scanRun) walk(ctx context.Context, start Directory, isResume bool) error {
 	r.seen = make(map[string]bool)
 	if r.payload.Checkpoint != "" {
@@ -225,24 +231,45 @@ func (r *scanRun) walk(ctx context.Context, start Directory, isResume bool) erro
 			}
 		}
 	}
+	// The checkpoint is the whole remaining queue, so writing it before every
+	// directory costs quadratic time on wide trees. Write it every few seconds
+	// or directories instead; a resume re-indexes the few directories since,
+	// which is idempotent, and restarts the counters from the same point.
+	var checkpointedAt time.Time
+	lastCheckpoint := -checkpointEvery
 	for next := 0; next < len(r.directories); next++ {
 		directory := r.directories[next]
 		r.payload.Scan.CurrentPath = directory.Path
-		data, _ := json.Marshal(r.directories[next:])
-		r.payload.Checkpoint = string(data)
-		if err := ReportScan(ctx, r.scanner.db.Task, r.taskID, *r.payload, r.scanner.tasksSvc); err != nil {
-			return err
+		save := func() error {
+			data, _ := json.Marshal(r.directories[next:])
+			r.payload.Checkpoint = string(data)
+			if err := ReportScan(ctx, r.scanner.db.Task, r.taskID, *r.payload, r.scanner.tasksSvc); err != nil {
+				return err
+			}
+			progress := r.payload.Scan
+			r.checkpointProgress = &progress
+			lastCheckpoint, checkpointedAt = next, time.Now()
+			return nil
+		}
+		if next-lastCheckpoint >= checkpointEvery || time.Since(checkpointedAt) >= checkpointInterval {
+			if err := save(); err != nil {
+				return err
+			}
 		}
 		if err := tasks.Checkpoint(ctx, r.scanner.db); err != nil {
+			// Pausing lands on this directory boundary; resume from exactly here.
+			if errors.Is(err, tasks.ErrPaused) && lastCheckpoint != next {
+				if saveErr := save(); saveErr != nil {
+					return saveErr
+				}
+			}
 			return err
 		}
-		progress := r.payload.Scan
-		r.checkpointProgress = &progress
 		if err := r.indexDirectory(ctx, directory); err != nil {
 			return err
 		}
-		r.checkpointProgress = nil
 	}
+	r.checkpointProgress = nil
 
 	r.payload.Checkpoint = ""
 	r.payload.Scan.Stage = "reconciling"

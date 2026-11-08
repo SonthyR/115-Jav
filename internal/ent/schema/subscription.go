@@ -64,5 +64,7 @@ func (Subscription) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("kind", "target_id").Unique(),
 		index.Fields("status", "next_check_at"),
+		// One actor's feed: filter by origin, newest release first.
+		index.Fields("kind", "origin_id", "release_date"),
 	}
 }

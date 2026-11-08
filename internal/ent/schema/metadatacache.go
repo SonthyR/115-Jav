@@ -19,5 +19,8 @@ func (MetadataCache) Fields() []ent.Field {
 }
 
 func (MetadataCache) Indexes() []ent.Index {
-	return []ent.Index{index.Fields("provider", "code").Unique()}
+	return []ent.Index{
+		index.Fields("provider", "code").Unique(),
+		index.Fields("expires_at"),
+	}
 }

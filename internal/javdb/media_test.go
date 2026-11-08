@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"image/png"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -76,13 +77,18 @@ func TestFetchMediaUsesImageTransportWithoutAPIRoute(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(client.Close)
-			client.media.SetTransport(server.Client().Transport)
+			// Reach the test server under a public-looking name, as the CDN would be.
+			transport := server.Client().Transport.(*http.Transport).Clone()
+			transport.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
+				return (&net.Dialer{}).DialContext(ctx, network, server.Listener.Addr().String())
+			}
+			client.media.SetTransport(transport)
 			client.selector = func(context.Context, routeSelection) (*routeState, error) {
 				t.Fatal("image download must not select an API route")
 				return nil, nil
 			}
 
-			media, err := client.FetchMedia(t.Context(), server.URL+"/cover.jpg")
+			media, err := client.FetchMedia(t.Context(), "https://example.com/cover.jpg")
 			if status != http.StatusOK {
 				var responseError *HTTPError
 				if !errors.As(err, &responseError) || responseError.StatusCode != status {
@@ -97,5 +103,18 @@ func TestFetchMediaUsesImageTransportWithoutAPIRoute(t *testing.T) {
 				t.Fatalf("downloaded media = %s, %x", media.ContentType, media.Body)
 			}
 		})
+	}
+}
+
+func TestFetchMediaRejectsLocalTargets(t *testing.T) {
+	client, err := New(Options{DeviceUUID: "00000000-0000-4000-8000-000000000001"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(client.Close)
+	for _, target := range []string{"https://127.0.0.1/a.jpg", "https://localhost/a.jpg", "https://192.168.5.21/a.jpg", "https://[::1]/a.jpg"} {
+		if _, err := client.FetchMedia(t.Context(), target); err == nil {
+			t.Errorf("FetchMedia(%s) succeeded", target)
+		}
 	}
 }

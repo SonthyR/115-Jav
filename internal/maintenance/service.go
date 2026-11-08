@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/ppxb/miyabi/internal/domain"
@@ -22,6 +23,7 @@ type Info struct {
 	DataDirectory     string                `json:"data_directory"`
 	DatabaseSizeBytes int64                 `json:"database_size_bytes"`
 	Cache             mediaimage.CacheStats `json:"cache"`
+	Backups           []Backup              `json:"backups"`
 }
 
 // ArtworkLocker excludes pruning while new images gain durable references.
@@ -35,14 +37,21 @@ type Service struct {
 	db        *ent.Client
 	images    *mediaimage.Cache
 	scrape    ArtworkLocker
+	backup    BackupWriter
+	// lastCleanup starts an hour short of a day, so the first cache cleanup
+	// runs an hour after startup rather than during it.
+	lastCleanup time.Time
 }
 
-func New(directory string, db *ent.Client, images *mediaimage.Cache, scrapeSvc ArtworkLocker) (*Service, error) {
+func New(directory string, db *ent.Client, images *mediaimage.Cache, scrapeSvc ArtworkLocker, backup BackupWriter) (*Service, error) {
 	absolute, err := filepath.Abs(directory)
 	if err != nil {
 		return nil, fmt.Errorf("resolve data directory: %w", err)
 	}
-	return &Service{directory: absolute, db: db, images: images, scrape: scrapeSvc}, nil
+	return &Service{
+		directory: absolute, db: db, images: images, scrape: scrapeSvc, backup: backup,
+		lastCleanup: time.Now().Add(-23 * time.Hour),
+	}, nil
 }
 
 func (service *Service) Info(ctx context.Context) (Info, error) {
@@ -75,6 +84,9 @@ func (service *Service) ClearCache(ctx context.Context) (Info, error) {
 func (service *Service) info(ctx context.Context, retained map[string]bool) (Info, error) {
 	result := Info{DataDirectory: service.directory}
 	var err error
+	if result.Backups, err = service.Backups(); err != nil {
+		return Info{}, err
+	}
 	result.Cache, err = service.images.Stats(ctx, retained)
 	if err != nil {
 		return Info{}, err

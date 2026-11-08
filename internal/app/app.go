@@ -42,25 +42,27 @@ const (
 	offlineSyncInterval  = 30 * time.Second
 	monitorCheckInterval = 5 * time.Minute
 	organizeInterval     = 5 * time.Minute
+	maintenanceInterval  = time.Hour
 	// Bound a remote offline submission after detaching from its caller.
 	offlineSubmitTimeout = 2 * time.Minute
 )
 
 // App is the composition root assembling services, background workers, and the HTTP server.
 type App struct {
-	cfg       *config.Config
-	logger    *slog.Logger
-	store     *database.Store
-	server    *http.Server
-	pools     []*tasks.Pool
-	offline   *offline.Service
-	monitors  *monitor.Service
-	driveSvc  *drive.Drive
-	catalogue *catalogue.Service
-	scrape    *scrape.Service
-	metadata  *metadata.Service
-	embySvc   *emby.Service
-	organizer *organize.Service
+	cfg         *config.Config
+	logger      *slog.Logger
+	store       *database.Store
+	server      *http.Server
+	pools       []*tasks.Pool
+	offline     *offline.Service
+	monitors    *monitor.Service
+	driveSvc    *drive.Drive
+	catalogue   *catalogue.Service
+	scrape      *scrape.Service
+	metadata    *metadata.Service
+	embySvc     *emby.Service
+	organizer   *organize.Service
+	maintenance *maintenance.Service
 }
 
 // New initializes all services, database connections, and registers task handlers.
@@ -163,7 +165,7 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 		ExportManager: exportMgr, MediaNotifier: embySvc, Subtitles: subtitleSvc,
 		Sidecars: organize.NewSidecars(driveSvc), RebuildInterval: 5 * time.Second,
 	})
-	maintenanceSvc, err := maintenance.New(cfg.DataDir, store.Client, images, scrapeSvc)
+	maintenanceSvc, err := maintenance.New(cfg.DataDir, store.Client, images, scrapeSvc, store.Backup)
 	if err != nil {
 		scrapeSvc.Close()
 		embySvc.Close()
@@ -246,19 +248,20 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 	}
 
 	return &App{
-		cfg:       cfg,
-		logger:    logger,
-		store:     store,
-		server:    server,
-		pools:     pools,
-		offline:   offlineSvc,
-		monitors:  monitorSvc,
-		driveSvc:  driveSvc,
-		catalogue: catalogueSvc,
-		scrape:    scrapeSvc,
-		metadata:  metadataSvc,
-		embySvc:   embySvc,
-		organizer: organizer,
+		cfg:         cfg,
+		logger:      logger,
+		store:       store,
+		server:      server,
+		pools:       pools,
+		offline:     offlineSvc,
+		monitors:    monitorSvc,
+		driveSvc:    driveSvc,
+		catalogue:   catalogueSvc,
+		scrape:      scrapeSvc,
+		metadata:    metadataSvc,
+		embySvc:     embySvc,
+		organizer:   organizer,
+		maintenance: maintenanceSvc,
 	}, nil
 }
 
@@ -285,6 +288,9 @@ func (a *App) Run(ctx context.Context) error {
 	})
 	workers.Go(func() {
 		tasks.RunPeriodic(ctx, a.logger, "organize 115", organizeInterval, nil, a.organizer.Run)
+	})
+	workers.Go(func() {
+		tasks.RunPeriodic(ctx, a.logger, "daily maintenance", maintenanceInterval, nil, a.maintenance.Daily)
 	})
 
 	serverError := make(chan error, 1)

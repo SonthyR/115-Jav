@@ -406,3 +406,39 @@ func TestAPIRequestHoldsRequestsAtTheAccessLimit(t *testing.T) {
 		t.Fatalf("retry = %v %v", delay, retry)
 	}
 }
+
+func TestPanTransportHoldsSlotUntilBodyIsRead(t *testing.T) {
+	var current, peak int64
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		cur := atomic.AddInt64(&current, 1)
+		for {
+			max := atomic.LoadInt64(&peak)
+			if cur <= max || atomic.CompareAndSwapInt64(&peak, max, cur) {
+				break
+			}
+		}
+		// Headers are out; the slow part is the body.
+		time.Sleep(50 * time.Millisecond)
+		atomic.AddInt64(&current, -1)
+		_, _ = w.Write([]byte(`{"state":1,"code":0,"data":{}}`))
+	}))
+	defer ts.Close()
+
+	restyClient := resty.New().SetTransport(newPanTransport(http.DefaultTransport, rate.NewLimiter(rate.Inf, 1), 2))
+	client := &Client{http: restyClient}
+	var wg sync.WaitGroup
+	for range 6 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _ = client.request(client.http.R().SetContext(context.Background()), http.MethodGet, ts.URL)
+		}()
+	}
+	wg.Wait()
+	if max := atomic.LoadInt64(&peak); max > 2 {
+		t.Fatalf("%d bodies were in flight at once, want <= 2", max)
+	}
+}

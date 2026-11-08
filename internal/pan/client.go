@@ -65,13 +65,19 @@ func newPanTransport(base http.RoundTripper, limiter *rate.Limiter, maxConcurren
 }
 
 func (t *panTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// 1. Limit concurrent in-flight requests
+	// 1. Limit concurrent in-flight requests. A slot is held until the
+	// response body is consumed or closed, not just until headers arrive.
 	select {
 	case t.inFlight <- struct{}{}:
-		defer func() { <-t.inFlight }()
 	case <-req.Context().Done():
 		return nil, req.Context().Err()
 	}
+	handedOff := false
+	defer func() {
+		if !handedOff {
+			<-t.inFlight
+		}
+	}()
 
 	// Wait for the shared deadline before rate limiting each attempt. Recheck
 	// after both waits: another in-flight response may extend the deadline.
@@ -104,10 +110,15 @@ func (t *panTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// alive until the response body is consumed or closed.
 	ctx, cancel := context.WithTimeout(req.Context(), requestTimeout)
 	resp, err := t.base.RoundTrip(req.Clone(ctx))
-	if err != nil {
-		cancel()
-	} else if resp != nil {
-		resp.Body = &timedResponseBody{ReadCloser: resp.Body, cancel: cancel}
+	if err == nil && resp != nil {
+		var once sync.Once
+		resp.Body = &timedResponseBody{ReadCloser: resp.Body, done: func() {
+			once.Do(func() {
+				cancel()
+				<-t.inFlight
+			})
+		}}
+		handedOff = true
 	} else {
 		cancel()
 	}
@@ -132,21 +143,23 @@ func (t *panTransport) holdUntil(until time.Time) {
 	t.mu.Unlock()
 }
 
+// timedResponseBody ends the request deadline and frees the in-flight slot
+// once the body is fully read or closed, whichever comes first.
 type timedResponseBody struct {
 	io.ReadCloser
-	cancel context.CancelFunc
+	done func()
 }
 
 func (b *timedResponseBody) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
 	if err != nil {
-		b.cancel()
+		b.done()
 	}
 	return n, err
 }
 
 func (b *timedResponseBody) Close() error {
-	defer b.cancel()
+	defer b.done()
 	return b.ReadCloser.Close()
 }
 

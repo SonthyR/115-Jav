@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -13,10 +14,21 @@ import (
 	"github.com/ppxb/miyabi/internal/netx"
 )
 
+const (
+	// maxMediaBytes bounds one image response; covers and previews are far smaller.
+	maxMediaBytes = 10 << 20
+	// maxMediaFetches bounds concurrent image transfers so a poster wall cannot
+	// hold an unbounded number of buffered responses.
+	maxMediaFetches = 8
+)
+
+// newMediaClient refuses private and loopback targets at dial time, so the
+// image proxy cannot be pointed at the local network.
 func newMediaClient(options Options) *resty.Client {
-	restyOptions := netx.RestyOptions{Timeout: options.Timeout}
-	client := netx.NewRestyClient(options.Proxy, restyOptions)
-	return client.
+	return resty.New().
+		SetTimeout(options.Timeout).
+		SetTransport(netx.NewSafeTransport(options.Proxy)).
+		SetResponseBodyLimit(maxMediaBytes).
 		SetHeader("User-Agent", userAgent).
 		SetRedirectPolicy(resty.NoRedirectPolicy())
 }
@@ -28,7 +40,19 @@ func (c *Client) FetchMedia(ctx context.Context, rawURL string) (domain.Media, e
 	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
 		return domain.Media{}, errors.New("JavDB media URL must be an absolute https URL")
 	}
+	// Direct connections are checked again at dial time; this also covers a
+	// proxied request naming a local address outright.
+	host := parsed.Hostname()
+	if ip := net.ParseIP(host); strings.EqualFold(host, "localhost") || ip != nil && netx.IsPrivateOrLoopbackIP(ip) {
+		return domain.Media{}, errors.New("JavDB media URL must not target a local address")
+	}
 
+	select {
+	case c.mediaSlots <- struct{}{}:
+		defer func() { <-c.mediaSlots }()
+	case <-ctx.Done():
+		return domain.Media{}, ctx.Err()
+	}
 	response, err := c.media.R().SetContext(ctx).Get(rawURL)
 	if err != nil {
 		return domain.Media{}, fmt.Errorf("download JavDB image: %w", err)

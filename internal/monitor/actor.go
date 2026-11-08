@@ -82,10 +82,19 @@ func (service *Service) AddActor(ctx context.Context, actorID string, opts AddAc
 		}
 		return Item{}, fmt.Errorf("create actor subscription: %w", err)
 	}
+	var failed map[string]bool
 	for _, movie := range movies {
 		if movie.ReleaseDate == "" || movie.ReleaseDate >= today {
-			service.spawnMovie(ctx, record, movie)
+			failed = service.spawnMovie(ctx, record, movie, failed)
 		}
+	}
+	if len(failed) > 0 {
+		// Leave failed works unseen so the next daily check tracks them again.
+		cursor := snapshotCursor(withoutMovies(movies, failed), today).encode()
+		if err := record.Update().SetCursor(cursor).Exec(ctx); err != nil {
+			return Item{}, fmt.Errorf("save actor subscription cursor: %w", err)
+		}
+		record.Cursor = cursor
 	}
 	service.tasks.NotifyMonitorChanged()
 	return subscriptionItem(record), nil
@@ -103,12 +112,28 @@ func (service *Service) browseActor(ctx context.Context, actorID string) ([]doma
 }
 
 // spawnMovie tracks one work of an actor subscription, inheriting its
-// auto-download setting. Failures are logged; one bad title must not stop
-// the actor check.
-func (service *Service) spawnMovie(ctx context.Context, origin *ent.Subscription, movie domain.Movie) {
+// auto-download setting. A failure is logged and added to failed, so the
+// caller keeps that work out of the cursor; one bad title must not stop the
+// actor check.
+func (service *Service) spawnMovie(ctx context.Context, origin *ent.Subscription, movie domain.Movie, failed map[string]bool) map[string]bool {
 	summary := domain.MovieSummary{ID: movie.ID, Code: movie.Code, Title: movie.Title, Cover: movie.Cover, ReleaseDate: movie.ReleaseDate}
 	opts := AddMovieOptions{AutoDownload: &origin.AutoDownload, OriginID: &origin.ID}
 	if _, err := service.addMovie(ctx, summary, opts); err != nil {
 		slog.WarnContext(ctx, "actor subscription could not track a work", "actor", origin.Title, "code", movie.Code, "error", err)
+		if failed == nil {
+			failed = map[string]bool{}
+		}
+		failed[movie.ID] = true
 	}
+	return failed
+}
+
+func withoutMovies(movies []domain.Movie, excluded map[string]bool) []domain.Movie {
+	kept := make([]domain.Movie, 0, len(movies))
+	for _, movie := range movies {
+		if !excluded[movie.ID] {
+			kept = append(kept, movie)
+		}
+	}
+	return kept
 }

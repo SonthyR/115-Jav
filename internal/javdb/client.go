@@ -37,6 +37,7 @@ type Client struct {
 	cooldownMu    sync.Mutex
 	cooldownUntil time.Time
 	media         *resty.Client
+	mediaSlots    chan struct{}
 	current       atomic.Pointer[routeState]
 	lastProbe     atomic.Pointer[[]RouteCandidate]
 	routes        singleflight.Group
@@ -70,6 +71,7 @@ func New(options Options) (*Client, error) {
 		options:      options,
 		limiter:      rate.NewLimiter(defaultRate, defaultBurst),
 		media:        newMediaClient(options),
+		mediaSlots:   make(chan struct{}, maxMediaFetches),
 		routeContext: routeContext,
 		stopRoutes:   stopRoutes,
 		fingerprint:  fingerprint,

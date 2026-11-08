@@ -59,7 +59,7 @@ func TestCoverCleanupOnlyBlocksUntilArtworkCheckpoint(t *testing.T) {
 	if err != nil || job == nil {
 		t.Fatalf("claim cover: %+v, %v", job, err)
 	}
-	cleanup, err := maintenance.New(fixture.dataDir, fixture.store.Client, fixture.images, fixture.scrape)
+	cleanup, err := maintenance.New(fixture.dataDir, fixture.store.Client, fixture.images, fixture.scrape, fixture.store.Backup)
 	if err != nil {
 		t.Fatal(err)
 	}

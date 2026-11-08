@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/ppxb/miyabi/internal/domain"
@@ -71,7 +72,7 @@ func TestDataEndpointsReturnUncachedStatsAndCleanupErrors(t *testing.T) {
 				}
 			} else {
 				var info maintenance.Info
-				if err := json.Unmarshal(response.Body.Bytes(), &info); err != nil || info != stub.info {
+				if err := json.Unmarshal(response.Body.Bytes(), &info); err != nil || !reflect.DeepEqual(info, stub.info) {
 					t.Fatalf("data response=%s %v", response.Body, err)
 				}
 			}

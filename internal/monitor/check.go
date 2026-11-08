@@ -169,10 +169,11 @@ func (service *Service) checkActor(ctx context.Context, record *ent.Subscription
 		// catalogue as new releases.
 		cursor = snapshotCursor(movies, today)
 	} else {
+		var failed map[string]bool
 		for _, movie := range cursor.newWorks(movies) {
-			service.spawnMovie(ctx, record, movie)
+			failed = service.spawnMovie(ctx, record, movie, failed)
 		}
-		cursor = cursor.advance(movies, today)
+		cursor = cursor.advance(withoutMovies(movies, failed), today)
 	}
 	if err := record.Update().SetCursor(cursor.encode()).SetLastCheckedAt(now).SetNextCheckAt(nextDaily(now, checkTime)).
 		AddChecks(1).ClearError().Exec(ctx); err != nil && !ent.IsNotFound(err) {
