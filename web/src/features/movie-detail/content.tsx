@@ -73,7 +73,7 @@ function LibraryMovieDetail({ movieId, play = false }: { movieId: number; play?:
         onPlay={lite ? undefined : () => setPlaying(true)}
         player={
           playing ? (
-            <Suspense fallback={<div className="aspect-video rounded-2xl bg-black" />}>
+            <Suspense fallback={<div className="aspect-video rounded-lg bg-black" />}>
               <MoviePlayer movieId={movieId} />
             </Suspense>
           ) : undefined

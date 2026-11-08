@@ -61,6 +61,8 @@ type Movie struct {
 	ScrapeStatus movie.ScrapeStatus `json:"scrape_status"`
 	// FileCount is how many videos of the movie, versions or parts, the library holds.
 	FileCount int `json:"file_count"`
+	// Chinese marks a movie with a video named as having Chinese subtitles.
+	Chinese bool `json:"chinese,omitempty"`
 	// Played marks a movie watched to the end, here or in an Emby client.
 	Played  bool      `json:"played,omitempty"`
 	AddedAt time.Time `json:"-"`
@@ -273,6 +275,11 @@ type MovieFilter struct {
 // ch glued to the code (pred-709ch.mp4) as many releases do.
 var chineseMarks = []string{"-c.", "-c-", "-c_", "-c ", "_c.", "-uc.", "-uc-", "ch.", "-ch-", "中字", "中文字幕"}
 
+func hasChineseMark(name string) bool {
+	name = strings.ToLower(name)
+	return slices.ContainsFunc(chineseMarks, func(mark string) bool { return strings.Contains(name, mark) })
+}
+
 func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, error) {
 	page, limit := max(filter.Page, 1), filter.Limit
 	result := Page{Movies: []Movie{}, Page: page, Source: s.Source()}
@@ -377,7 +384,7 @@ func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, e
 			query.Select(tag.FieldID, tag.FieldProvider, tag.FieldSourceID, tag.FieldName).Order(ent.Asc(tag.FieldName), ent.Asc(tag.FieldID))
 		}).
 		WithFiles(func(query *ent.FileQuery) {
-			query.Where(scope).Select(file.FieldID, file.FieldMovieID)
+			query.Where(scope).Select(file.FieldID, file.FieldMovieID, file.FieldName)
 		}).All(ctx)
 	if err != nil {
 		return result, fmt.Errorf("list library movies: %w", err)
@@ -392,6 +399,7 @@ func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, e
 			Actors: make([]Entity, 0, len(record.Edges.Actors)),
 			Tags:   make([]Tag, 0, len(record.Edges.Tags)), ScrapeStatus: record.ScrapeStatus,
 			FileCount: len(record.Edges.Files), AddedAt: record.CreatedAt,
+			Chinese: slices.ContainsFunc(record.Edges.Files, func(video *ent.File) bool { return hasChineseMark(video.Name) }),
 		}
 		if record.ReleaseDate != nil {
 			item.ReleaseDate = record.ReleaseDate.Format(time.DateOnly)

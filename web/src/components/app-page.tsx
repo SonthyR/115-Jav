@@ -17,9 +17,14 @@ export function AppPage({
   showBackTop = true
 }: AppPageProps) {
   return (
-    <main className={cn('relative flex min-h-dvh flex-col bg-background pt-8 pb-24', className)}>
+    <main
+      className={cn(
+        'relative flex min-h-dvh flex-col bg-background pt-8 pb-24 sm:pt-12',
+        className
+      )}
+    >
       <div
-        className={cn('mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4', contentClassName)}
+        className={cn('mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4', contentClassName)}
       >
         {children}
       </div>

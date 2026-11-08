@@ -1,6 +1,6 @@
 import { Link, useLocation } from '@tanstack/react-router'
-import { CompassIcon, HomeIcon, LibraryIcon, type LucideIcon, UserRoundIcon } from 'lucide-react'
-import type { PropsWithChildren } from 'react'
+import { CompassIcon, HomeIcon, LayoutGridIcon, type LucideIcon, UserRoundIcon } from 'lucide-react'
+import { type PropsWithChildren, useEffect, useState } from 'react'
 
 import { useLite } from '@/api/auth'
 import { isTaskActive, useTasks } from '@/api/tasks'
@@ -26,12 +26,11 @@ type Section = {
 // Four places cover everything: watching, the library, finding new films and
 // the household chores (downloads, sorting, settings).
 const SECTIONS: Section[] = [
-  { label: '首页', icon: HomeIcon, to: '/', paths: ['/', '/movie'] },
+  { label: '首页', icon: HomeIcon, to: '/', paths: ['/'] },
   {
     label: '片库',
-    icon: LibraryIcon,
+    icon: LayoutGridIcon,
     to: '/browse',
-    // Movie pages belong to home first; lite servers have no home.
     paths: ['/browse', '/actors', '/collections', '/movie'],
     tabs: [
       { label: '影片', to: '/browse' },
@@ -76,56 +75,72 @@ function sectionOf(pathname: string, lite = false) {
 }
 
 // One layout for every page: a top bar with search and downloads, section
-// tabs where a section has several pages, and a tab bar on phones.
+// tabs where a section has several pages, and a tab bar on phones. On the
+// home and movie pages the top bar lies clear over the picture until the page
+// scrolls.
 export function AppLayout({ children }: PropsWithChildren) {
   const { pathname } = useLocation()
   const lite = useLite()
   const sections = sectionsFor(lite)
   const current = sectionOf(pathname, lite)
   const busy = useTasks().data?.some(isTaskActive) ?? false
+  const scrolled = useScrolled()
   // Tabs show on the section's own pages, not on a profile or detail below them.
   const tabs = current?.tabs?.some(tab => tab.to === pathname) ? current.tabs : undefined
+  // The home hero and movie covers run up under the bar.
+  const clear = (pathname === '/' || pathname.startsWith('/movie/')) && !scrolled
 
   return (
     <TaskEventsProvider>
-      <div className="relative min-h-dvh pb-[calc(3.75rem+env(safe-area-inset-bottom))] md:pb-0">
-        <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-          <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
-            <Link to={sections[0]!.to} className="mr-2 shrink-0 text-lg font-black tracking-tight">
-              <span className="text-primary">115</span>-JAV
+      <div className="relative min-h-dvh pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
+        <header
+          className={cn(
+            'sticky top-0 z-30 border-b transition-colors duration-300',
+            clear ? 'border-transparent' : 'border-border bg-background/85 backdrop-blur-xl'
+          )}
+        >
+          <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 md:grid md:grid-cols-[1fr_auto_1fr]">
+            <Link
+              to={sections[0]!.to}
+              className="shrink-0 text-[15px] font-semibold tracking-[0.14em]"
+            >
+              115-JAV
             </Link>
-            <nav className="hidden items-center gap-1 md:flex">
+            <nav className="hidden items-center gap-9 text-sm md:flex">
               {sections.map(section => (
                 <Link
                   key={section.to}
                   to={section.to}
                   className={cn(
-                    'relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground',
-                    section === current && 'bg-muted font-medium text-foreground'
+                    'relative py-2 tracking-wide text-muted-foreground transition-colors hover:text-foreground',
+                    section === current && 'text-foreground'
                   )}
                 >
-                  <section.icon className="size-4" />
                   {section.label}
+                  {section === current ? (
+                    <span className="absolute -bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-gold" />
+                  ) : null}
                   {section.to === '/me' && busy ? (
-                    <BusyDot className="absolute top-1 right-1" />
+                    <BusyDot className="absolute top-1 -right-2.5" />
                   ) : null}
                 </Link>
               ))}
             </nav>
-            <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1.5">
+            <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1 md:ml-0">
               <WatchSearchBox />
               <DownloadIndicator />
             </div>
           </div>
           {tabs ? (
-            <nav className="mx-auto flex max-w-6xl [scrollbar-width:none] gap-1 overflow-x-auto px-4 pb-2">
+            <nav className="mx-auto flex max-w-6xl [scrollbar-width:none] gap-7 overflow-x-auto px-4">
               {tabs.map(tab => (
                 <Link
                   key={tab.to}
                   to={tab.to}
                   className={cn(
-                    'shrink-0 rounded-full border border-transparent px-3 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground',
-                    tab.to === pathname && 'border-border bg-card font-medium text-foreground'
+                    'relative shrink-0 pt-1 pb-3 text-sm tracking-wide text-muted-foreground transition-colors hover:text-foreground',
+                    tab.to === pathname &&
+                      'text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-gold'
                   )}
                 >
                   {tab.label}
@@ -135,24 +150,21 @@ export function AppLayout({ children }: PropsWithChildren) {
           ) : null}
         </header>
         {children}
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
           <ul className="flex">
             {sections.map(section => (
               <li key={section.to} className="flex-1">
                 <Link
                   to={section.to}
                   className={cn(
-                    'relative flex h-15 flex-col items-center justify-center gap-1 text-[11px] text-muted-foreground',
-                    section === current && 'font-medium text-foreground'
+                    'relative flex h-16 flex-col items-center justify-center gap-1.5 text-[11px] tracking-wider text-muted-foreground',
+                    section === current && 'text-foreground'
                   )}
                 >
-                  <section.icon
-                    className={cn('size-5', section === current && 'text-primary')}
-                    strokeWidth={section === current ? 2.4 : 2}
-                  />
+                  <section.icon className="size-[22px]" strokeWidth={1.5} />
                   {section.label}
                   {section.to === '/me' && busy ? (
-                    <BusyDot className="absolute top-2 right-[calc(50%-16px)]" />
+                    <BusyDot className="absolute top-2.5 right-[calc(50%-16px)]" />
                   ) : null}
                 </Link>
               </li>
@@ -166,11 +178,22 @@ export function AppLayout({ children }: PropsWithChildren) {
   )
 }
 
+function useScrolled() {
+  const [scrolled, setScrolled] = useState(false)
+  useEffect(() => {
+    const update = () => setScrolled(window.scrollY > 24)
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    return () => window.removeEventListener('scroll', update)
+  }, [])
+  return scrolled
+}
+
 export function BusyDot({ className }: { className?: string }) {
   return (
     <span className={cn('flex size-2', className)} title="有任务在进行">
-      <span className="absolute inline-flex size-2 animate-ping rounded-full bg-sky-500 opacity-60" />
-      <span className="relative inline-flex size-2 rounded-full bg-sky-500" />
+      <span className="absolute inline-flex size-2 animate-ping rounded-full bg-gold opacity-60" />
+      <span className="relative inline-flex size-2 rounded-full bg-gold" />
     </span>
   )
 }

@@ -213,7 +213,7 @@ function MenuOption({
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {detail ? <span className="shrink-0 text-xs text-muted-foreground">{detail}</span> : null}
-      {active ? <CheckIcon className="size-4 shrink-0 text-primary" /> : null}
+      {active ? <CheckIcon className="size-4 shrink-0 text-gold" /> : null}
     </button>
   )
 }
@@ -269,7 +269,7 @@ function SubtitleMenu({
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
-          className={controlButton + (activeTrack ? ' text-primary' : '')}
+          className={controlButton + (activeTrack ? ' text-gold' : '')}
           aria-label="字幕"
         >
           <CaptionsIcon />
@@ -425,7 +425,7 @@ function TrackOption({
       onClick={onSelect}
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      {active ? <span className="text-xs text-primary">使用中</span> : null}
+      {active ? <span className="text-xs text-gold">使用中</span> : null}
     </button>
   )
 }

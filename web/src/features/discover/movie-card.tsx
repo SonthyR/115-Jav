@@ -22,7 +22,7 @@ export function DiscoverMovieCard({ movie }: { movie: DiscoverMovie }) {
     <MovieOfflineButton movie={movie} />
   ) : null
   return (
-    <MovieDetailTrigger movie={{ id: movie.id }} className="block rounded-2xl outline-ring">
+    <MovieDetailTrigger movie={{ id: movie.id }} className="block rounded-lg outline-ring">
       <MovieCard
         movie={movie}
         description={

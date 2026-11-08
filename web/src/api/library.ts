@@ -38,6 +38,8 @@ export type LibraryMovie = {
   scrape_status: 'pending' | 'done' | 'failed'
   // Versions or parts of the movie in the library.
   file_count: number
+  // A video's name marks Chinese subtitles.
+  chinese?: boolean
   // Watched to the end, here or in an Emby client.
   played?: boolean
 }

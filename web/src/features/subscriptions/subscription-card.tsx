@@ -100,7 +100,7 @@ export function SubscriptionCard({
       <MovieDetailTrigger
         movie={{ id: item.target_id }}
         className={cn(
-          'block h-full rounded-2xl outline-ring',
+          'block h-full rounded-lg outline-ring',
           selected && 'ring-2 ring-success',
           selecting && disabled && 'cursor-not-allowed opacity-50'
         )}

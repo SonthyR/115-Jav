@@ -76,7 +76,7 @@ export function OrganizePage() {
       ) : null}
 
       <Tabs defaultValue="failed">
-        <TabsList>
+        <TabsList variant="line">
           <TabsTrigger value="failed">
             失败的片子{failed.data?.length ? ` (${failed.data.length})` : ''}
           </TabsTrigger>

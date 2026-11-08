@@ -68,16 +68,17 @@ function ProfileRoute() {
   return (
     <WatchBrowse
       key={`${kind}:${name}`}
-      page={page ?? 1}
+      pages={page ?? 1}
       filter={{ ...filter, [kind]: name }}
       title={name}
       description={`${facetLabels[kind]}资料页`}
       header={header}
       actions={actions}
       locked={kind}
-      onPageChange={next =>
+      onPagesChange={next =>
         void navigate({
-          search: previous => ({ ...previous, page: next > 1 ? next : undefined }),
+          search: previous => ({ ...previous, page: next }),
+          replace: true,
           resetScroll: false
         })
       }

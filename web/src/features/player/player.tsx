@@ -57,7 +57,7 @@ export function MoviePlayer({ movieId, ...options }: { movieId: number } & Playe
       <div
         className={cn(
           'flex items-center justify-center bg-black',
-          options.variant === 'page' ? 'h-dvh' : 'aspect-video rounded-2xl'
+          options.variant === 'page' ? 'h-dvh' : 'aspect-video rounded-lg'
         )}
       >
         <LoaderCircleIcon className="size-8 animate-spin text-white/70" />
@@ -437,7 +437,7 @@ function Player({
       }}
       className={cn(
         'group/player relative overflow-hidden bg-black',
-        page ? 'h-dvh w-full' : 'aspect-video rounded-2xl',
+        page ? 'h-dvh w-full' : 'aspect-video rounded-lg',
         !shown && 'cursor-none'
       )}
       onPointerMove={event => {

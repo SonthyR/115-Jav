@@ -127,7 +127,7 @@ function LoginContent({
 
   return (
     <div className="flex flex-col items-center gap-5">
-      <div className="flex aspect-square w-full max-w-64 items-center justify-center overflow-hidden rounded-2xl border bg-muted">
+      <div className="flex aspect-square w-full max-w-64 items-center justify-center overflow-hidden rounded-lg border bg-muted">
         {pending ? (
           <LoaderCircleIcon className="size-8 animate-spin text-muted-foreground" />
         ) : showQR ? (

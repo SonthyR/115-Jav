@@ -187,7 +187,7 @@ export function SubscriptionsPage({
 
       <div className="flex min-w-0 flex-1 flex-col gap-6">
         <Tabs value={view} onValueChange={value => handleTabChange(value as SubscriptionsView)}>
-          <TabsList>
+          <TabsList variant="line">
             <TabsTrigger value="movies">影片订阅</TabsTrigger>
             <TabsTrigger value="actors">演员订阅</TabsTrigger>
           </TabsList>

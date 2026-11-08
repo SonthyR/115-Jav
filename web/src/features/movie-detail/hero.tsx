@@ -26,7 +26,7 @@ export function MovieHero({
       className={`grid items-start gap-6 lg:gap-8 ${player ? '' : 'lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]'}`}
     >
       {player ?? (
-        <div className="relative aspect-3/2 overflow-hidden rounded-2xl bg-muted ring-1 ring-foreground/10">
+        <div className="relative aspect-3/2 overflow-hidden rounded-lg bg-muted ring-1 ring-foreground/10">
           <MovieCover source={movie.cover} loading="eager" />
           {onPlay ? (
             <button
@@ -109,7 +109,7 @@ export function MovieStats({
   if (stats.length === 0) return null
 
   return (
-    <dl className="flex flex-wrap divide-x divide-border/60 rounded-2xl bg-muted py-1 ring-1 ring-border dark:bg-card/60 dark:ring-0">
+    <dl className="flex flex-wrap divide-x divide-border/60 rounded-lg bg-muted py-1 ring-1 ring-border dark:bg-card/60 dark:ring-0">
       {stats.map(stat => (
         <div
           key={stat.label}

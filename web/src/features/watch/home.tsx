@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
-import { FolderHeartIcon, InfoIcon, PlayIcon, ShuffleIcon } from 'lucide-react'
-import { useState } from 'react'
+import { BookmarkIcon, PlayIcon, RefreshCwIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 import { imageURL } from '@/api/client'
 import { useCollections } from '@/api/collections'
@@ -15,12 +15,16 @@ import {
 import { EmptyState } from '@/components/empty-state'
 import { MovieCover } from '@/components/movie/movie-cover'
 import { Button } from '@/components/ui/button'
+import { CollectionButton } from '@/features/collections/collection-button'
+import { cn } from 'cn'
 import { ActorTile } from './actor-tile'
 import { ContinueWatching } from './continue-watching'
 import { PosterCard } from './poster-card'
 import { Row } from './row'
 
-const posterClass = 'w-32 shrink-0 snap-start sm:w-40'
+const posterClass = 'w-32 shrink-0 snap-start sm:w-44'
+const heroCount = 5
+const heroInterval = 8000
 
 export function WatchHome() {
   const recent = useLibraryMovies(1, {})
@@ -34,7 +38,7 @@ export function WatchHome() {
   return (
     <main className="pb-24">
       <Hero movies={movies} />
-      <div className="mx-auto max-w-6xl space-y-8 px-4 pt-6">
+      <div className="mx-auto max-w-6xl space-y-14 px-4 pt-6 sm:space-y-16">
         <ContinueWatching />
 
         {movies.length > 0 ? (
@@ -53,7 +57,7 @@ export function WatchHome() {
               <ActorTile
                 key={actor.name}
                 actor={actor}
-                className="w-24 shrink-0 snap-start sm:w-28"
+                className="w-22 shrink-0 snap-start sm:w-26"
               />
             ))}
           </Row>
@@ -74,19 +78,20 @@ export function WatchHome() {
                 key={item.id}
                 to="/collections/$id"
                 params={{ id: String(item.id) }}
-                className="w-48 shrink-0 snap-start space-y-2 outline-ring sm:w-56"
+                className="group w-48 shrink-0 snap-start space-y-3 outline-ring sm:w-60"
               >
-                <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-xl bg-muted">
+                <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-md bg-muted transition group-hover:brightness-110">
                   {item.cover ? (
                     <div className="absolute inset-0">
                       <MovieCover source={item.cover} width={720} />
                     </div>
                   ) : (
-                    <FolderHeartIcon className="size-8 text-muted-foreground" />
+                    <BookmarkIcon className="size-7 text-muted-foreground" strokeWidth={1.5} />
                   )}
                 </div>
-                <p className="truncate text-sm font-medium">
-                  {item.name} <span className="text-muted-foreground">· {item.count}</span>
+                <p className="truncate text-sm">
+                  {item.name}{' '}
+                  <span className="text-xs text-muted-foreground">· {item.count} 部</span>
                 </p>
               </Link>
             ))}
@@ -124,10 +129,14 @@ function RandomRow() {
       title="随便看看"
       link={{ to: '/browse', search: { watched: 'no' } }}
       action={
-        <Button variant="ghost" size="sm" onClick={() => setRoll(Math.random())}>
-          <ShuffleIcon data-icon="inline-start" />
+        <button
+          type="button"
+          className="flex items-center gap-1.5 text-[13px] tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+          onClick={() => setRoll(Math.random())}
+        >
+          <RefreshCwIcon className="size-3.5" strokeWidth={1.5} />
           换一批
-        </Button>
+        </button>
       }
     >
       {movies.map(movie => (
@@ -159,50 +168,117 @@ function shuffle<T>(items: T[], seed: number) {
   return result
 }
 
-// One recent movie fills the top of the page, picked anew on each visit.
+// Five recent movies take turns at the top of the page, a new five each
+// visit. They change by themselves, by the bars or by a swipe.
 function Hero({ movies }: { movies: LibraryMovie[] }) {
-  const [pick] = useState(() => Math.random())
-  const candidates = movies.filter(movie => movie.cover)
-  const movie = candidates[Math.floor(pick * candidates.length)]
-  if (!movie?.cover) return <div className="h-4" />
+  const [seed] = useState(() => Math.random())
+  const picks = shuffle(
+    movies.filter(movie => movie.cover),
+    seed
+  ).slice(0, heroCount)
+  const [index, setIndex] = useState(0)
+  const [touch, setTouch] = useState<number>()
+  useEffect(() => {
+    if (picks.length < 2) return
+    const timer = setTimeout(() => setIndex(value => (value + 1) % picks.length), heroInterval)
+    return () => clearTimeout(timer)
+  }, [index, picks.length])
+
+  const movie = picks[index] ?? picks[0]
+  if (!movie) return <div className="h-4" />
+  const step = (direction: number) =>
+    setIndex(value => (value + direction + picks.length) % picks.length)
   const year = movie.release_date?.slice(0, 4)
   return (
-    <section className="relative isolate h-[56vh] min-h-80 overflow-hidden sm:h-[62vh]">
-      <img
-        src={imageURL(movie.cover)}
-        alt=""
-        className="absolute inset-0 -z-10 size-full object-cover object-right"
-      />
-      <div className="absolute inset-0 -z-10 bg-linear-to-t from-background via-background/40 to-transparent" />
-      <div className="absolute inset-0 -z-10 bg-linear-to-r from-background/85 via-background/30 to-transparent" />
-      <div className="mx-auto flex h-full max-w-6xl flex-col justify-end gap-3 px-4 pb-8">
-        <p className="text-sm font-medium text-muted-foreground">
-          {movie.code}
-          {year ? ` · ${year}` : ''}
-          {movie.actors.length
-            ? ` · ${movie.actors
+    <section
+      className="relative isolate -mt-16 h-[72vh] min-h-[30rem] overflow-hidden sm:h-[82vh]"
+      onTouchStart={event => setTouch(event.touches[0]?.clientX)}
+      onTouchEnd={event => {
+        const moved = (event.changedTouches[0]?.clientX ?? 0) - (touch ?? 0)
+        if (touch !== undefined && Math.abs(moved) > 50) step(moved < 0 ? 1 : -1)
+        setTouch(undefined)
+      }}
+    >
+      {picks.map((pick, i) => (
+        <img
+          key={pick.id}
+          src={imageURL(pick.cover!)}
+          alt=""
+          className={cn(
+            'absolute inset-0 -z-10 size-full object-cover object-right transition-opacity duration-1000',
+            i === index ? 'opacity-100' : 'opacity-0'
+          )}
+        />
+      ))}
+      <div className="absolute inset-x-0 top-0 -z-10 h-40 bg-linear-to-b from-background/80 to-transparent" />
+      <div className="absolute inset-0 -z-10 bg-linear-to-t from-background via-background/30 to-transparent" />
+      <div className="absolute inset-0 -z-10 bg-linear-to-r from-background/90 via-background/40 to-transparent" />
+      <div className="mx-auto flex h-full max-w-6xl flex-wrap content-end items-end justify-between gap-6 px-4 pb-10 sm:pb-16">
+        <div key={movie.id} className="max-w-xl animate-in space-y-5 duration-700 fade-in">
+          <p className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] tracking-wider text-muted-foreground">
+            <span>{movie.code}</span>
+            {year ? <span>{year}</span> : null}
+            {movie.duration > 0 ? <span>{movie.duration} 分钟</span> : null}
+            {movie.chinese ? <span>中字</span> : null}
+            {movie.rating > 0 ? (
+              <span className="text-foreground">★ {movie.rating.toFixed(1)}</span>
+            ) : null}
+          </p>
+          <h1 className="line-clamp-2 font-serif text-3xl leading-tight font-semibold tracking-wide sm:text-5xl lg:text-6xl">
+            {movie.title || movie.code}
+          </h1>
+          {movie.actors.length ? (
+            <p className="truncate text-[15px] tracking-wide text-muted-foreground">
+              {movie.actors
                 .map(actor => actor.name)
                 .slice(0, 3)
-                .join('、')}`
-            : ''}
-        </p>
-        <h1 className="line-clamp-2 max-w-2xl text-2xl leading-tight font-bold sm:text-4xl">
-          {movie.title || movie.code}
-        </h1>
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Button asChild size="lg" className="rounded-full px-6">
-            <Link to="/play/$id" params={{ id: String(movie.id) }}>
-              <PlayIcon data-icon="inline-start" className="fill-current" />
-              播放
-            </Link>
-          </Button>
-          <Button asChild size="lg" variant="secondary" className="rounded-full">
-            <Link to="/movie/$id" params={{ id: String(movie.id) }}>
-              <InfoIcon data-icon="inline-start" />
-              详情
-            </Link>
-          </Button>
+                .join('　')}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-3 pt-2">
+            <Button asChild size="lg" className="h-12 rounded-full px-8 tracking-wide">
+              <Link to="/play/$id" params={{ id: String(movie.id) }}>
+                <PlayIcon data-icon="inline-start" className="fill-current" />
+                播放
+              </Link>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="h-12 rounded-full px-7 tracking-wide"
+            >
+              <Link to="/movie/$id" params={{ id: String(movie.id) }}>
+                详情
+              </Link>
+            </Button>
+            <CollectionButton movieId={movie.id} look="icon" />
+          </div>
         </div>
+        {picks.length > 1 ? (
+          <div className="flex items-center gap-3 text-xs tracking-widest text-muted-foreground tabular-nums">
+            <span className="text-foreground">{String(index + 1).padStart(2, '0')}</span>
+            <div className="flex">
+              {picks.map((pick, i) => (
+                <button
+                  key={pick.id}
+                  type="button"
+                  aria-label={`第 ${i + 1} 部：${pick.code}`}
+                  className="flex h-6 items-center px-0.5"
+                  onClick={() => setIndex(i)}
+                >
+                  <span
+                    className={cn(
+                      'block h-0.5 transition-all duration-500',
+                      i === index ? 'w-9 bg-gold' : 'w-4 bg-foreground/25'
+                    )}
+                  />
+                </button>
+              ))}
+            </div>
+            <span>{String(picks.length).padStart(2, '0')}</span>
+          </div>
+        ) : null}
       </div>
     </section>
   )

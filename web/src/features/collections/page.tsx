@@ -64,7 +64,7 @@ export function CollectionsPage() {
               key={item.id}
               to="/collections/$id"
               params={{ id: String(item.id) }}
-              className="rounded-2xl outline-ring"
+              className="rounded-lg outline-ring"
             >
               <Card size="sm" className="h-full gap-0 overflow-hidden py-0">
                 <div className="relative flex aspect-3/2 items-center justify-center bg-muted">

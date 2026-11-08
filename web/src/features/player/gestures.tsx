@@ -147,7 +147,7 @@ function HintView({ hint }: { hint: Hint }) {
   if (hint.kind === 'swipe') {
     return (
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <p className="rounded-xl bg-black/65 px-4 py-2 text-center text-white tabular-nums">
+        <p className="rounded-md bg-black/65 px-4 py-2 text-center text-white tabular-nums">
           <span className="block text-2xl font-semibold">{formatTime(hint.target)}</span>
           <span className="text-sm text-white/75">
             {hint.delta >= 0 ? '+' : '-'}

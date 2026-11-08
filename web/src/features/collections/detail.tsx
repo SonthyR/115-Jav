@@ -40,7 +40,7 @@ export function CollectionDetail({ id, search }: { id: number; search: LibrarySe
 
   return (
     <WatchBrowse
-      page={page ?? 1}
+      pages={page ?? 1}
       filter={{ ...filter, collection: id }}
       title={collection?.name ?? '收藏夹'}
       description={collection ? `${collection.count} 部影片` : '收藏夹'}
@@ -82,11 +82,12 @@ export function CollectionDetail({ id, search }: { id: number; search: LibrarySe
           </Button>
         </div>
       }
-      onPageChange={next =>
+      onPagesChange={next =>
         void navigate({
           to: '/collections/$id',
           params: { id: String(id) },
-          search: { ...search, page: next > 1 ? next : undefined },
+          search: { ...search, page: next },
+          replace: true,
           resetScroll: false
         })
       }

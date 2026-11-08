@@ -10,7 +10,7 @@ export function ActorTile({ actor, className }: { actor: LibraryFacet; className
       to="/browse/$kind/$name"
       params={{ kind: 'actor', name: actor.name }}
       className={cn(
-        'group flex min-w-0 flex-col items-center gap-2 text-center outline-ring',
+        'group flex min-w-0 flex-col items-center gap-3 text-center outline-ring',
         className
       )}
     >
@@ -18,11 +18,11 @@ export function ActorTile({ actor, className }: { actor: LibraryFacet; className
         name={actor.name}
         alias={actor.alias}
         avatar={actor.avatar}
-        className="aspect-square w-full ring-1 ring-foreground/10 transition-transform duration-300 group-hover:scale-105"
+        className="aspect-square w-full transition duration-500 group-hover:scale-[1.03] group-hover:brightness-110"
       />
       <span className="w-full">
-        <span className="block truncate text-sm font-medium">{actor.name}</span>
-        <span className="block text-xs text-muted-foreground">{actor.count} 部</span>
+        <span className="block truncate text-sm">{actor.name}</span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">{actor.count} 部</span>
       </span>
     </Link>
   )

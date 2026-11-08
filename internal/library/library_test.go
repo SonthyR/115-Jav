@@ -306,4 +306,17 @@ func TestLibrarySearchFiltersAndSorts(t *testing.T) {
 			t.Errorf("%+v = %v, want %v", c.filter, got, c.want)
 		}
 	}
+	page, err := lib.SearchMovies(ctx, MovieFilter{Page: 1, Limit: 20, Sort: "code"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var chinese []string
+	for _, film := range page.Movies {
+		if film.Chinese {
+			chinese = append(chinese, film.Code)
+		}
+	}
+	if !slices.Equal(chinese, []string{"MIDE-003", "SSIS-001"}) {
+		t.Errorf("marked Chinese: %v", chinese)
+	}
 }

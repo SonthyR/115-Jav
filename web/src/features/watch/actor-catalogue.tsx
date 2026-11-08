@@ -83,7 +83,7 @@ export function SourceTabs({
   const keep = query ? { q: query } : {}
   return (
     <Tabs value={source}>
-      <TabsList>
+      <TabsList variant="line">
         <TabsTrigger value="library" asChild>
           <Link to="." search={keep} resetScroll={false}>
             片库

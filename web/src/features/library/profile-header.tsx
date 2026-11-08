@@ -15,7 +15,7 @@ export function ProfileHeader({ kind, name }: { kind: LibraryFacetKind; name: st
   const facet = findFacet(facets.data?.[lists[kind]], name)
   const otherNames = facet?.names?.filter(other => other !== name) ?? []
   return (
-    <section className="flex items-center gap-4 rounded-2xl bg-muted p-4 ring-1 ring-border dark:bg-card/60 dark:ring-0">
+    <section className="flex items-center gap-4 rounded-lg bg-muted p-4 ring-1 ring-border dark:bg-card/60 dark:ring-0">
       {kind === 'actor' ? (
         <ActorPortrait
           key={name}

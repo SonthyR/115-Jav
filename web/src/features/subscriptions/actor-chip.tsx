@@ -32,11 +32,11 @@ export function ActorChip({
   const busy = update.isPending || remove.isPending
 
   return (
-    <div className="flex shrink-0 items-center gap-2 rounded-2xl border p-2">
+    <div className="flex shrink-0 items-center gap-2 rounded-lg border p-2">
       <Button
         type="button"
         variant={selected ? 'secondary' : 'ghost'}
-        className="h-auto rounded-xl px-2 py-1"
+        className="h-auto rounded-md px-2 py-1"
         onClick={onSelect}
       >
         <div className="flex min-w-0 items-center gap-3">

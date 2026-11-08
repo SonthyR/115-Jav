@@ -19,32 +19,30 @@ export function ContinueWatching() {
           params={{ id: String(movie.id) }}
           className="group w-64 shrink-0 snap-start outline-ring sm:w-72"
         >
-          <div className="relative aspect-video overflow-hidden rounded-xl bg-muted ring-1 ring-foreground/5">
+          <div className="relative aspect-video overflow-hidden rounded-md bg-muted">
             {movie.cover ? (
               <img
                 src={imageURL(movie.cover, 720)}
                 alt={movie.code}
                 loading="lazy"
-                className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
+                className="size-full object-cover transition duration-500 group-hover:scale-[1.03] group-hover:brightness-110"
               />
             ) : null}
-            <span className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity group-hover:opacity-100">
-              <span className="flex size-12 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur">
-                <PlayIcon className="size-5 translate-x-px fill-current" />
-              </span>
-            </span>
-            <span className="absolute inset-x-0 bottom-0 h-1 bg-black/40">
-              <span
-                className="block h-full bg-primary"
-                style={{
-                  width: `${Math.min(100, (progress.position / progress.duration) * 100)}%`
-                }}
-              />
+            <span className="absolute bottom-3 left-3 flex size-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur transition-colors group-hover:bg-white group-hover:text-black">
+              <PlayIcon className="size-3.5 translate-x-px fill-current" />
             </span>
           </div>
-          <p className="mt-2 truncate text-sm font-medium">{movie.title || movie.code}</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {movie.code} · 看到 {formatTime(progress.position)} / {formatTime(progress.duration)}
+          <span className="mt-3 block h-0.5 bg-foreground/12">
+            <span
+              className="block h-full bg-gold"
+              style={{ width: `${Math.min(100, (progress.position / progress.duration) * 100)}%` }}
+            />
+          </span>
+          <p className="mt-3 flex items-baseline justify-between gap-3 text-sm">
+            <span className="truncate">{movie.title || movie.code}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">
+              剩 {formatTime(Math.max(0, progress.duration - progress.position))}
+            </span>
           </p>
         </Link>
       ))}

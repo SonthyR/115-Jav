@@ -37,7 +37,7 @@ export function PanStorageUsage({ space }: { space: PanAccount['space'] }) {
         <Progress
           value={fill}
           variant="info"
-          className="h-10 rounded-2xl bg-muted/60 ring-1 ring-border/60"
+          className="h-10 rounded-lg bg-muted/60 ring-1 ring-border/60"
         />
         <div
           className="@container pointer-events-none absolute inset-y-0 right-0 flex items-center justify-center overflow-hidden transition-[width]"

@@ -7,9 +7,9 @@ import {
   type LibraryFilter,
   useLibraryFacets
 } from '@/api/library'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { cn } from 'cn'
 
 // Long lists show this many matches; typing narrows them.
 const shownFacets = 200
@@ -30,6 +30,18 @@ const facetLists = {
   year: 'years'
 } as const
 
+// Filter chips: thin outlines, white when switched on, a bright outline when
+// a value is picked.
+export function chipClass(state: 'off' | 'on' | 'picked' = 'off') {
+  return cn(
+    'inline-flex h-8 max-w-60 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-[13px] tracking-wide whitespace-nowrap outline-ring transition-colors',
+    state === 'on' && 'border-foreground bg-foreground text-background',
+    state === 'picked' && 'border-foreground text-foreground',
+    state === 'off' &&
+      'border-foreground/15 text-foreground/80 hover:border-foreground/40 hover:text-foreground data-[state=open]:border-foreground/40'
+  )
+}
+
 export function FacetFilters({
   filter,
   locked,
@@ -41,7 +53,7 @@ export function FacetFilters({
 }) {
   const facets = useLibraryFacets()
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <>
       {(Object.keys(facetLabels) as LibraryFacetKind[])
         .filter(kind => kind !== locked)
         .map(kind => (
@@ -59,7 +71,7 @@ export function FacetFilters({
             }
           />
         ))}
-    </div>
+    </>
   )
 }
 
@@ -85,40 +97,47 @@ function FacetPicker({
 
   if (value !== undefined) {
     return (
-      <Button variant="secondary" size="sm" className="max-w-60" onClick={() => onChange()}>
-        <span className="truncate">
-          {facetLabels[kind]}：{value}
-        </span>
-        <XIcon data-icon="inline-end" />
-      </Button>
+      <button
+        type="button"
+        className={chipClass('picked')}
+        title={`去掉${facetLabels[kind]}条件`}
+        onClick={() => onChange()}
+      >
+        <span className="text-muted-foreground">{facetLabels[kind]}</span>
+        <span className="truncate">{value}</span>
+        <XIcon className="size-3.5 shrink-0" strokeWidth={1.75} />
+      </button>
     )
   }
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm">
+        <button type="button" className={chipClass()}>
           {facetLabels[kind]}
-          <ChevronDownIcon data-icon="inline-end" />
-        </Button>
+          <ChevronDownIcon className="size-3.5" strokeWidth={1.75} />
+        </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[min(18rem,calc(100vw-2rem))] space-y-2 p-2">
+      <PopoverContent align="start" className="w-[min(17rem,calc(100vw-2rem))] space-y-1 p-2">
         {kind !== 'year' ? (
           <Input
             value={text}
             autoFocus
             placeholder={`搜索${facetLabels[kind]}`}
+            className="border-0 border-b bg-transparent dark:bg-transparent"
             onChange={event => setText(event.target.value)}
           />
         ) : null}
         <div className="max-h-72 overflow-y-auto">
           {matches.length === 0 ? (
-            <p className="p-2 text-muted-foreground">{loading ? '加载中…' : '没有可选的项'}</p>
+            <p className="p-2 text-sm text-muted-foreground">
+              {loading ? '加载中…' : '没有可选的项'}
+            </p>
           ) : (
             matches.map(item => (
               <button
                 key={item.name}
                 type="button"
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-muted"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
                 onClick={() => {
                   setOpen(false)
                   setText('')
@@ -131,6 +150,58 @@ function FacetPicker({
             ))
           )}
         </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// A chip that picks one of a few choices, such as watched or not.
+export function ChoiceChip<T extends string>({
+  value,
+  choices,
+  plain = false,
+  onChange
+}: {
+  value: T
+  choices: Record<T, string>
+  // Plain chips are bare text, for the sort order at the end of the row.
+  plain?: boolean
+  onChange: (value: T) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const first = Object.keys(choices)[0] as T
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={
+            plain
+              ? 'inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 text-[13px] tracking-wide text-foreground/80 outline-ring hover:text-foreground'
+              : chipClass(value === first ? 'off' : 'picked')
+          }
+        >
+          {choices[value]}
+          <ChevronDownIcon className="size-3.5" strokeWidth={1.75} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align={plain ? 'end' : 'start'} className="w-40 p-1.5">
+        {(Object.entries(choices) as Array<[T, string]>).map(([choice, label]) => (
+          <button
+            key={choice}
+            type="button"
+            className={cn(
+              'flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-muted',
+              choice === value && 'text-gold'
+            )}
+            onClick={() => {
+              setOpen(false)
+              onChange(choice)
+            }}
+          >
+            {label}
+          </button>
+        ))}
       </PopoverContent>
     </Popover>
   )

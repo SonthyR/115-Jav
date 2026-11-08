@@ -47,7 +47,7 @@ function BrowseRoute() {
   }
   return (
     <WatchBrowse
-      page={page ?? 1}
+      pages={page ?? 1}
       filter={filter}
       title={filter.q ? `搜索「${filter.q}」` : '片库'}
       description={
@@ -56,7 +56,13 @@ function BrowseRoute() {
           : '按演员、厂牌、系列、标签和年份挑片'
       }
       actions={tabs}
-      onPageChange={setPage}
+      onPagesChange={next =>
+        void navigate({
+          search: previous => ({ ...previous, page: next }),
+          replace: true,
+          resetScroll: false
+        })
+      }
       onFilterChange={(next: LibraryFilter) => void navigate({ search: next, resetScroll: false })}
     />
   )

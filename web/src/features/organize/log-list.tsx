@@ -19,7 +19,7 @@ export function OrganizeLogList({ entries }: { entries: OrganizeEntry[] }) {
   return (
     <ul className="min-w-0 space-y-3">
       {entries.map((entry, index) => (
-        <li key={`${entry.time}-${index}`} className="min-w-0 space-y-1 rounded-xl border p-3">
+        <li key={`${entry.time}-${index}`} className="min-w-0 space-y-1 rounded-md border p-3">
           <div className="flex items-center gap-2 text-sm">
             <Badge variant={statusVariants[entry.status]}>{statusLabels[entry.status]}</Badge>
             <span className="font-medium">{entry.code || '—'}</span>

@@ -49,7 +49,7 @@ export function ActorSubscriptions({
     return (
       <div className="flex gap-3 overflow-hidden">
         {Array.from({ length: 3 }, (_, index) => (
-          <Skeleton key={index} className="h-16 w-64 shrink-0 rounded-2xl" />
+          <Skeleton key={index} className="h-16 w-64 shrink-0 rounded-lg" />
         ))}
       </div>
     )
@@ -80,7 +80,7 @@ export function ActorSubscriptions({
         <Button
           type="button"
           variant={selectedID === null ? 'secondary' : 'outline'}
-          className="h-auto shrink-0 rounded-2xl px-4 py-3"
+          className="h-auto shrink-0 rounded-lg px-4 py-3"
           onClick={() => onSelectID(null)}
         >
           全部新作

@@ -142,7 +142,7 @@ function MergePlanner({ data, onDone }: { data: ActorFolders; onDone: () => void
         ) : (
           <>
             {catalogued > 0 ? (
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted p-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted p-3 text-sm">
                 <span className="text-muted-foreground">
                   {catalogued} 组能认出 JavDB 的日文名，保留它和 NFO 里的演员名一致
                 </span>
@@ -155,7 +155,7 @@ function MergePlanner({ data, onDone }: { data: ActorFolders; onDone: () => void
               {plans.map((plan, index) => (
                 <li
                   key={plan.folders.map(f => f.name).join('|')}
-                  className="flex min-w-0 gap-3 rounded-xl border p-3"
+                  className="flex min-w-0 gap-3 rounded-md border p-3"
                 >
                   <Checkbox
                     className="mt-1"
@@ -189,7 +189,7 @@ function MergePlanner({ data, onDone }: { data: ActorFolders; onDone: () => void
           </>
         )}
 
-        <div className="space-y-2 rounded-xl border p-3">
+        <div className="space-y-2 rounded-md border p-3">
           <div className="text-sm font-medium">手动合并</div>
           <p className="text-xs text-muted-foreground">
             没找出来的（比如完全不同的译名），搜索后勾选两个以上目录，再加入合并列表。

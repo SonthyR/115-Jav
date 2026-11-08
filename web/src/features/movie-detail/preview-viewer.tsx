@@ -121,7 +121,7 @@ export function MoviePreviewViewer({
                 data-active={itemIndex === activeIndex ? 'true' : undefined}
                 onClick={() => onIndexChange(itemIndex)}
                 className={cn(
-                  'group shrink-0 cursor-pointer rounded-xl p-1 transition-colors',
+                  'group shrink-0 cursor-pointer rounded-md p-1 transition-colors',
                   itemIndex === activeIndex ? 'bg-foreground/15' : 'hover:bg-foreground/10'
                 )}
               >
@@ -286,7 +286,7 @@ function PreviewStage({
       >
         <div
           data-preview-image
-          className="overflow-hidden rounded-2xl bg-muted will-change-transform"
+          className="overflow-hidden rounded-lg bg-muted will-change-transform"
           style={{
             width: base.width,
             height: base.height,

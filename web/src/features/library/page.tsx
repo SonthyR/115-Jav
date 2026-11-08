@@ -57,7 +57,7 @@ export function LibraryPage({
       </PageHeader>
 
       {onFilterChange && source ? (
-        <LibraryFilters filter={filter} onChange={onFilterChange} />
+        <LibraryFilters filter={filter} total={library.data?.total} onChange={onFilterChange} />
       ) : null}
 
       {tasks.isError ? (

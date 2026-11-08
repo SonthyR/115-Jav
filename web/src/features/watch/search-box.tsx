@@ -48,12 +48,32 @@ export function WatchSearchBox() {
 
   useEffect(() => {
     if (!open) return
+    // The field only shows once open, so it takes focus after rendering.
+    input.current?.focus()
     const close = (event: PointerEvent) => {
       if (!box.current?.contains(event.target as Node)) setOpen(false)
     }
     document.addEventListener('pointerdown', close)
     return () => document.removeEventListener('pointerdown', close)
   }, [open])
+
+  // "/" jumps to the search box from anywhere but a text field.
+  useEffect(() => {
+    const jump = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement
+      if (
+        event.key !== '/' ||
+        target.isContentEditable ||
+        /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)
+      ) {
+        return
+      }
+      event.preventDefault()
+      setOpen(true)
+    }
+    document.addEventListener('keydown', jump)
+    return () => document.removeEventListener('keydown', jump)
+  }, [])
 
   const finish = () => {
     setOpen(false)
@@ -66,8 +86,10 @@ export function WatchSearchBox() {
       ref={box}
       role="search"
       className={cn(
-        'relative flex min-w-0 items-center rounded-full bg-muted px-3 transition-[width]',
-        open ? 'flex-1 sm:w-72 sm:flex-none' : 'w-9 sm:w-56'
+        'relative flex min-w-0 items-center rounded-full border px-3 transition-[width,border-color] duration-300',
+        open
+          ? 'flex-1 border-foreground/20 bg-background/70 sm:w-72 sm:flex-none'
+          : 'w-9 border-transparent'
       )}
       onSubmit={event => {
         event.preventDefault()
@@ -83,12 +105,9 @@ export function WatchSearchBox() {
         type="button"
         aria-label="搜索"
         className="-ml-0.5 shrink-0 py-2"
-        onClick={() => {
-          setOpen(true)
-          input.current?.focus()
-        }}
+        onClick={() => setOpen(true)}
       >
-        <SearchIcon className="size-4 text-muted-foreground" />
+        <SearchIcon className="size-[18px]" strokeWidth={1.5} />
       </button>
       <input
         ref={input}
@@ -98,7 +117,7 @@ export function WatchSearchBox() {
         placeholder="番号、标题、演员"
         className={cn(
           'h-9 min-w-0 flex-1 bg-transparent pl-2 text-sm outline-none [&::-webkit-search-cancel-button]:hidden',
-          open ? 'block' : 'hidden sm:block'
+          open ? 'block' : 'hidden'
         )}
         onFocus={() => setOpen(true)}
         onChange={event => {
@@ -118,7 +137,7 @@ export function WatchSearchBox() {
       ) : null}
 
       {showing ? (
-        <div className="absolute top-full right-0 left-0 z-50 mt-2 min-w-72 overflow-hidden rounded-2xl border border-border bg-popover p-1.5 text-popover-foreground shadow-xl">
+        <div className="absolute top-full right-0 left-0 z-50 mt-2 min-w-72 overflow-hidden rounded-lg border border-border bg-popover p-1.5 text-popover-foreground shadow-xl">
           {actors.length ? (
             <div className="flex gap-1 overflow-x-auto p-1">
               {actors.map(actor => (

@@ -6,7 +6,7 @@ export function MovieDetailSkeleton() {
   return (
     <div className="space-y-10">
       <section className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-8">
-        <Skeleton className="aspect-3/2 w-full rounded-2xl" />
+        <Skeleton className="aspect-3/2 w-full rounded-lg" />
         <div className="min-w-0 space-y-5 py-1">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -18,7 +18,7 @@ export function MovieDetailSkeleton() {
               <Skeleton className="h-7 w-4/5 sm:h-8" />
             </div>
           </div>
-          <div className="flex flex-wrap divide-x divide-border/60 rounded-2xl bg-muted py-1 ring-1 ring-border dark:bg-card/60 dark:ring-0">
+          <div className="flex flex-wrap divide-x divide-border/60 rounded-lg bg-muted py-1 ring-1 ring-border dark:bg-card/60 dark:ring-0">
             {Array.from({ length: 3 }, (_, index) => (
               <div
                 key={index}
@@ -57,7 +57,7 @@ export function MovieDetailSkeleton() {
         <Skeleton className="h-7 w-20" />
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
           {Array.from({ length: 8 }, (_, index) => (
-            <Skeleton key={index} className="aspect-video rounded-xl" />
+            <Skeleton key={index} className="aspect-video rounded-md" />
           ))}
         </div>
       </div>

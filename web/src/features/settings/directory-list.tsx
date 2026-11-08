@@ -12,7 +12,7 @@ type DirectoryListProps = {
 
 export function DirectoryList({ files, disabled = false, onNavigate }: DirectoryListProps) {
   return (
-    <div className="h-64 min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain rounded-2xl border p-1">
+    <div className="h-64 min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg border p-1">
       {files.isPending ? (
         <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
           <LoaderCircleIcon className="size-4 animate-spin" />
@@ -39,7 +39,7 @@ export function DirectoryList({ files, disabled = false, onNavigate }: Directory
                 <Button
                   type="button"
                   variant="ghost"
-                  className="w-full max-w-full min-w-0 justify-start rounded-xl"
+                  className="w-full max-w-full min-w-0 justify-start rounded-md"
                   disabled={!file.is_directory || disabled}
                   onClick={() => onNavigate(file.id)}
                 >

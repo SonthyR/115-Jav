@@ -1,4 +1,3 @@
-import { UserIcon } from 'lucide-react'
 import { useState } from 'react'
 
 import { imageURL } from '@/api/client'
@@ -26,7 +25,12 @@ export function ActorPortrait({
   const [index, setIndex] = useState(0)
   const source = sources[index]
   return (
-    <span className={cn('relative block overflow-hidden rounded-full bg-muted', className)}>
+    <span
+      className={cn(
+        '@container relative block overflow-hidden rounded-full bg-linear-to-br from-muted to-card',
+        className
+      )}
+    >
       {source ? (
         <img
           key={source}
@@ -38,8 +42,8 @@ export function ActorPortrait({
           onError={() => setIndex(value => value + 1)}
         />
       ) : (
-        <span className="flex size-full items-center justify-center text-muted-foreground">
-          <UserIcon className="size-1/3" />
+        <span className="flex size-full items-center justify-center font-serif text-[36cqw] text-muted-foreground">
+          {name.slice(0, 1)}
         </span>
       )}
     </span>

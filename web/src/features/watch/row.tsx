@@ -44,18 +44,17 @@ export function Row({
   }
 
   return (
-    <section className="group/row space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="truncate text-lg font-semibold">{title}</h2>
-        <div className="flex shrink-0 items-center gap-2">
+    <section className="group/row space-y-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="truncate text-lg font-medium tracking-wide">{title}</h2>
+        <div className="flex shrink-0 items-center gap-5">
           {action}
           {link ? (
             <Link
               {...link}
-              className="flex items-center text-sm text-muted-foreground hover:text-foreground"
+              className="text-[13px] tracking-wide text-muted-foreground transition-colors hover:text-foreground"
             >
-              全部
-              <ChevronRightIcon className="size-4" />
+              查看全部
             </Link>
           ) : null}
         </div>
@@ -64,7 +63,7 @@ export function Row({
         <div
           ref={scroller}
           onScroll={measure}
-          className="-mx-4 flex snap-x scroll-px-4 [scrollbar-width:none] gap-3 overflow-x-auto px-4 pb-2"
+          className="-mx-4 flex snap-x scroll-px-4 [scrollbar-width:none] gap-3 overflow-x-auto px-4 pb-2 sm:gap-5"
         >
           {children}
         </div>
@@ -93,12 +92,16 @@ function PageButton({
       tabIndex={-1}
       onClick={onClick}
       className={cn(
-        'absolute top-0 bottom-2 z-10 hidden w-10 items-center justify-center bg-background/70 text-foreground opacity-0 backdrop-blur-sm transition-opacity group-hover/row:opacity-100 [@media(hover:hover)]:flex',
-        side === 'left' ? '-left-4 rounded-r-xl' : '-right-4 rounded-l-xl',
+        'absolute top-0 bottom-2 z-10 hidden w-16 items-center opacity-0 transition-opacity group-hover/row:opacity-100 [@media(hover:hover)]:flex',
+        side === 'left'
+          ? '-left-4 justify-start bg-linear-to-r from-background to-transparent pl-2'
+          : '-right-4 justify-end bg-linear-to-l from-background to-transparent pr-2',
         hidden && 'pointer-events-none group-hover/row:opacity-0'
       )}
     >
-      <Icon className="size-6" />
+      <span className="flex size-10 items-center justify-center rounded-full border border-foreground/20 bg-background/70 backdrop-blur transition-colors hover:border-foreground/50">
+        <Icon className="size-5" strokeWidth={1.5} />
+      </span>
     </button>
   )
 }

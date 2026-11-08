@@ -59,7 +59,7 @@ export function DiscoverPage() {
       ) : (
         <div className="min-w-0 space-y-6">
           <Tabs value={view} onValueChange={value => setView(value as DiscoverView)}>
-            <TabsList>
+            <TabsList variant="line">
               <TabsTrigger value="released">最新发行</TabsTrigger>
               <TabsTrigger value="upcoming">即将发行</TabsTrigger>
               <TabsTrigger value="category">分类浏览</TabsTrigger>

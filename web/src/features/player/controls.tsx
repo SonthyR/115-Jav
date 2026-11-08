@@ -255,7 +255,7 @@ function Timeline({
           className="absolute inset-y-0 left-0 bg-white/40"
           style={{ width: percent(state.buffered) }}
         />
-        <div className="absolute inset-y-0 left-0 bg-primary" style={{ width: percent(shown) }} />
+        <div className="absolute inset-y-0 left-0 bg-gold" style={{ width: percent(shown) }} />
       </div>
       {resumeAt && duration ? (
         <span
@@ -266,7 +266,7 @@ function Timeline({
       ) : null}
       <span
         className={cn(
-          'pointer-events-none absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary shadow transition-transform',
+          'pointer-events-none absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold shadow transition-transform',
           drag === undefined && 'scale-0 group-hover/timeline:scale-100'
         )}
         style={{ left: percent(shown) }}

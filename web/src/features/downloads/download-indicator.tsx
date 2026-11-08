@@ -19,7 +19,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Progress } from '@/components/ui/progress'
 import { MovieDetailDialogContext } from '@/features/movie-detail/dialog-context'
 import { downloadStatus } from '@/features/tasks/download-status'
-import { cn } from 'cn'
 
 // How many recent downloads the panel lists.
 const shown = 12
@@ -41,9 +40,9 @@ export function DownloadIndicator() {
           className="relative shrink-0 rounded-full"
           title="离线下载"
         >
-          <ArrowDownToLineIcon className={cn(active > 0 && 'text-sky-500')} />
+          <ArrowDownToLineIcon className="size-[18px]" strokeWidth={1.5} />
           {active > 0 ? (
-            <span className="absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full bg-sky-500 px-1 text-[10px] leading-4 font-semibold text-white">
+            <span className="absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[10px] leading-4 font-semibold text-background">
               {active}
             </span>
           ) : failed ? (

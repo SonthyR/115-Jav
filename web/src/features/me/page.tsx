@@ -72,7 +72,7 @@ function Stats() {
         <Link
           key={item.label}
           {...item.link}
-          className="rounded-2xl bg-card p-4 ring-1 ring-border transition-colors hover:bg-muted/60"
+          className="rounded-lg bg-card p-4 ring-1 ring-border transition-colors hover:bg-muted/60"
         >
           <p className="text-sm text-muted-foreground">{item.label}</p>
           <p className="mt-1 text-3xl font-bold tabular-nums">{item.value ?? '–'}</p>
@@ -216,7 +216,7 @@ function Shortcuts() {
           <Link
             key={item.label}
             {...item.link}
-            className="flex items-center gap-3 rounded-xl bg-card px-4 py-3 text-sm ring-1 ring-border transition-colors hover:bg-muted/60"
+            className="flex items-center gap-3 rounded-md bg-card px-4 py-3 text-sm ring-1 ring-border transition-colors hover:bg-muted/60"
           >
             <item.icon className="size-4 text-muted-foreground" />
             {item.label}

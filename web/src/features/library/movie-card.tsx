@@ -10,7 +10,7 @@ export function LibraryMovieCard({ movie, busy = false }: { movie: LibraryMovie;
     <div className="relative h-full min-w-0">
       <MovieDetailTrigger
         movie={{ libraryId: movie.id }}
-        className="block h-full min-w-0 rounded-2xl outline-ring"
+        className="block h-full min-w-0 rounded-lg outline-ring"
       >
         <MovieCard movie={movie} titleTooltip={false}>
           <div className="flex min-h-7 items-center gap-1.5 pr-9">

@@ -115,7 +115,7 @@ function UpNext({
   }, [left, onPlay])
   const cover = movie.data?.cover
   return (
-    <div className="dark absolute right-4 bottom-28 z-10 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl bg-neutral-900/95 text-foreground shadow-2xl ring-1 ring-white/10 backdrop-blur">
+    <div className="dark absolute right-4 bottom-28 z-10 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg bg-neutral-900/95 text-foreground shadow-2xl ring-1 ring-white/10 backdrop-blur">
       <div className="relative aspect-video bg-black">
         {cover ? (
           <img src={imageURL(cover, 720)} alt="" className="size-full object-cover" />
