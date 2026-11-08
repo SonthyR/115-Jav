@@ -20,7 +20,7 @@ import { WatchBrowse } from '@/features/watch/browse'
 
 const kinds: LibraryFacetKind[] = ['actor', 'maker', 'series', 'tag']
 
-export const Route = createFileRoute('/_watch/browse_/$kind/$name')({
+export const Route = createFileRoute('/_app/browse_/$kind/$name')({
   validateSearch: (search: Record<string, unknown>): LibrarySearch & { source?: ProfileSource } =>
     search.source === 'javdb'
       ? { ...parseLibrarySearch(search), source: 'javdb' }

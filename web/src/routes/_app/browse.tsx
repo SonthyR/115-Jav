@@ -9,7 +9,7 @@ import { SearchResults } from '@/features/search/page'
 import { type ProfileSource, SourceTabs } from '@/features/watch/actor-catalogue'
 import { WatchBrowse } from '@/features/watch/browse'
 
-export const Route = createFileRoute('/_watch/browse')({
+export const Route = createFileRoute('/_app/browse')({
   // A keyword can also be searched on JavDB, for movies not in the library.
   validateSearch: (search: Record<string, unknown>): LibrarySearch & { source?: ProfileSource } => {
     const parsed = parseLibrarySearch(search)

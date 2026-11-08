@@ -1,6 +1,7 @@
 package api
 
 import (
+	"compress/gzip"
 	"io"
 	"log/slog"
 	"net/http"
@@ -136,5 +137,40 @@ func TestFrontendConditionalAndRangeRequests(t *testing.T) {
 	response = request("/discover", "If-Modified-Since", modified.Add(24*time.Hour).Format(http.TimeFormat))
 	if response.Code != http.StatusOK || response.Body.String() != string(frontend["index.html"].Data) || response.Header().Get("Cache-Control") != "no-cache" || response.Header().Get("Content-Length") != strconv.Itoa(len(frontend["index.html"].Data)) {
 		t.Fatalf("entry revalidation retained an old page: status=%d headers=%v body=%q", response.Code, response.Header(), response.Body.String())
+	}
+}
+
+func TestFrontendSendsScriptsGzipped(t *testing.T) {
+	script := strings.Repeat("console.log('application');", 100)
+	router := NewRouter(Dependencies{
+		Access: NewAccessGateService("", ""), Frontend: fstest.MapFS{
+			"index.html":                 {Data: []byte("<html></html>")},
+			"assets/index-DAb_c-12.js":   {Data: []byte(script)},
+			"assets/font-ABC_def-.woff2": {Data: []byte("font data")},
+		},
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	for range 2 {
+		request := httptest.NewRequest(http.MethodGet, "/assets/index-DAb_c-12.js", nil)
+		request.Header.Set("Accept-Encoding", "gzip, deflate, br")
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		if response.Header().Get("Content-Encoding") != "gzip" || !strings.HasPrefix(response.Header().Get("Content-Type"), "text/javascript") {
+			t.Fatalf("headers: %v", response.Header())
+		}
+		reader, err := gzip.NewReader(response.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if body, _ := io.ReadAll(reader); string(body) != script || response.Body.Len() > 0 {
+			t.Fatalf("body: %d bytes", len(body))
+		}
+	}
+	request := httptest.NewRequest(http.MethodGet, "/assets/font-ABC_def-.woff2", nil)
+	request.Header.Set("Accept-Encoding", "gzip")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Header().Get("Content-Encoding") != "" || response.Body.String() != "font data" {
+		t.Fatalf("font: %v %q", response.Header(), response.Body.String())
 	}
 }

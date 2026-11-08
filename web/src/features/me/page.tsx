@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 
+import { useLite } from '@/api/auth'
 import { useDataInfo } from '@/api/data'
 import { type LibraryFilter, useLibraryMovies } from '@/api/library'
 import { isOfflineTaskActive, useOfflineActivity } from '@/api/offline'
@@ -53,18 +54,20 @@ function useTotal(filter: LibraryFilter) {
 }
 
 function Stats() {
+  const lite = useLite()
   const total = useTotal({})
   const watched = useTotal({ watched: 'yes' })
   const chinese = useTotal({ chinese: true })
   const downloading = useOfflineActivity().data?.tasks.filter(isOfflineTaskActive).length
-  const items: Array<{ label: string; value?: number; link: LinkProps }> = [
+  const all: Array<{ label: string; value?: number; link: LinkProps }> = [
     { label: '影片', value: total, link: { to: '/browse' } },
     { label: '看过', value: watched, link: { to: '/browse', search: { watched: 'yes' } } },
     { label: '中文字幕', value: chinese, link: { to: '/browse', search: { chinese: true } } },
     { label: '正在下载', value: downloading, link: { to: '/organize' } }
   ]
+  const items = lite ? all.filter(item => item.label !== '看过') : all
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className={cn('grid grid-cols-2 gap-3', lite ? 'sm:grid-cols-3' : 'sm:grid-cols-4')}>
       {items.map(item => (
         <Link
           key={item.label}

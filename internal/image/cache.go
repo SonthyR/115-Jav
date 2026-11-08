@@ -180,6 +180,38 @@ func (cache *Cache) Read(key string) ([]byte, error) {
 	return os.ReadFile(name)
 }
 
+// ReadSized reads a copy of cached artwork scaled down to width, made on
+// first request and kept beside the original, which pruning removes with it.
+func (cache *Cache) ReadSized(key string, width int) ([]byte, error) {
+	name, err := cache.filePath(key)
+	if err != nil {
+		return nil, err
+	}
+	sized := strings.TrimSuffix(name, ".jpg") + fmt.Sprintf("-%d.jpg", width)
+	if body, err := os.ReadFile(sized); err == nil {
+		return body, nil
+	}
+	original, err := os.ReadFile(name)
+	if err != nil {
+		return nil, err
+	}
+	source, err := imaging.Decode(bytes.NewReader(original))
+	if err != nil {
+		return nil, fmt.Errorf("decode cached image: %w", err)
+	}
+	if source.Bounds().Dx() <= width {
+		return original, nil
+	}
+	var buffer bytes.Buffer
+	if err := imaging.Encode(&buffer, imaging.Resize(source, width, 0, imaging.CatmullRom), imaging.JPEG, imaging.JPEGQuality(82)); err != nil {
+		return nil, fmt.Errorf("encode sized image: %w", err)
+	}
+	if _, err, _ := imageWrites.Do(sized, func() (any, error) { return nil, cache.write(sized, buffer.Bytes()) }); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
 func (cache *Cache) filePath(key string) (string, error) {
 	if len(key) != 64 {
 		return "", fmt.Errorf("invalid artwork key")

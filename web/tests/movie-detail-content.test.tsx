@@ -18,6 +18,7 @@ vi.mock('@/api/discover', () => ({
   useResolveDiscoverMovie: vi.fn()
 }))
 vi.mock('@/api/browse-history', () => ({ useRecordMovieView: vi.fn() }))
+vi.mock('@/api/auth', () => ({ useLite: () => false }))
 vi.mock('@/api/library', () => ({ useLibraryMovie: vi.fn() }))
 vi.mock('@/api/collections', () => ({
   useCollections: () => ({ data: [] }),

@@ -113,6 +113,8 @@ type Service struct {
 	scanner  Scanner
 	wake     func()
 	sync     func(context.Context) error
+	// changed announces new log entries to open pages.
+	changed func()
 	// aliases pairs translated actor names with the catalogue's, so a
 	// folder named either way is found.
 	aliases *actoralias.Index
@@ -193,6 +195,8 @@ func (s *Service) record(ctx context.Context, entry Entry) {
 	}
 	if err != nil {
 		slog.WarnContext(ctx, "failed to save organize log", "error", err)
+	} else if s.changed != nil {
+		s.changed()
 	}
 }
 

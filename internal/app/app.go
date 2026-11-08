@@ -190,6 +190,7 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 	pools := newTaskPools(taskSvc, logger)
 	organizer := organize.New(store.Client, driveSvc, metadataSvc, libSvc, taskSvc.WakePool)
 	offlineSvc.SetPlacer(organizer)
+	organizer.SetNotify(taskSvc.NotifyOrganizeChanged)
 	organizer.SetSync(func(ctx context.Context) error {
 		_, err := libSvc.StartScan(ctx)
 		return err
@@ -211,6 +212,10 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 		return err
 	})
 	subtitlePlayer := subtitle.NewPlayer(store.Client, subtitleFinder, exportMgr)
+	var embyLibrary api.EmbyLibrary = libSvc
+	if cfg.Lite {
+		embyLibrary = nil
+	}
 	router := api.NewRouter(api.Dependencies{
 		Logger:         logger,
 		Access:         api.NewAccessGateService(cfg.AccessPassword, cfg.JWTSecret),
@@ -231,13 +236,14 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 		Playback:       libSvc,
 		Collections:    libSvc,
 		Subtitles:      subtitlePlayer,
-		EmbyLibrary:    libSvc,
+		EmbyLibrary:    embyLibrary,
 		EmbySubtitles:  subtitlePlayer,
 		Transcoder:     relay,
 		Avatars:        gfriendsClient,
 		Frontend:       miyabi.Frontend(),
 		STRMToken:      cfg.STRMToken,
 		TrustedProxies: cfg.TrustedProxies,
+		Lite:           cfg.Lite,
 	})
 
 	server := &http.Server{

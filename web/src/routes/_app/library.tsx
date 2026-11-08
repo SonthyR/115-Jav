@@ -7,7 +7,7 @@ import { ErrorState } from '@/components/error-state'
 import { LibraryPage } from '@/features/library/page'
 import { parseLibrarySearch } from '@/features/library/search'
 
-export const Route = createFileRoute('/_manage/library')({
+export const Route = createFileRoute('/_app/library')({
   validateSearch: parseLibrarySearch,
   component: LibraryRoute,
   errorComponent: () => (

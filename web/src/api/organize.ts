@@ -34,8 +34,10 @@ export type OrganizeEntry = {
 }
 
 export const organizeKeys = {
+  all: ['organize'] as const,
   config: ['settings', 'organize'] as const,
-  log: ['organize', 'log'] as const
+  log: ['organize', 'log'] as const,
+  failed: ['organize', 'failed'] as const
 }
 
 export function useOrganizeConfig() {
@@ -59,8 +61,8 @@ export function useOrganizeLog(enabled: boolean) {
   return useQuery({
     queryKey: organizeKeys.log,
     queryFn: ({ signal }) => apiGet<OrganizeEntry[]>('/api/organize/log', undefined, signal),
-    enabled,
-    refetchInterval: enabled ? 5_000 : false
+    // New entries arrive with the task event stream.
+    enabled
   })
 }
 
@@ -162,7 +164,7 @@ export type FailedItem = {
 
 export function useFailedItems() {
   return useQuery({
-    queryKey: ['organize', 'failed'] as const,
+    queryKey: organizeKeys.failed,
     queryFn: ({ signal }) => apiGet<FailedItem[]>('/api/organize/failed', undefined, signal),
     staleTime: 0
   })
@@ -175,7 +177,7 @@ export function useRetryOrganize() {
       apiPost<OrganizeEntry>('/api/organize/retry', request),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: organizeKeys.log })
-      void queryClient.invalidateQueries({ queryKey: ['organize', 'failed'] })
+      void queryClient.invalidateQueries({ queryKey: organizeKeys.failed })
     }
   })
 }

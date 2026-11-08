@@ -1,6 +1,7 @@
 import { Link, useRouter } from '@tanstack/react-router'
 import { ArrowLeftIcon, CheckIcon, PlayIcon, RotateCcwIcon, WrenchIcon } from 'lucide-react'
 
+import { useLite } from '@/api/auth'
 import { imageURL } from '@/api/client'
 import { useLibraryMovie } from '@/api/library'
 import { useMarkPlayed, usePlayInfo } from '@/api/playback'
@@ -19,6 +20,7 @@ import { formatSize } from '@/lib/format'
 // parts sit right below it instead of in a menu.
 export function WatchMoviePage({ id }: { id: number }) {
   const router = useRouter()
+  const lite = useLite()
   const detail = useLibraryMovie(id)
   const play = usePlayInfo(id)
   const mark = useMarkPlayed(id)
@@ -51,7 +53,7 @@ export function WatchMoviePage({ id }: { id: number }) {
       <section className="relative isolate overflow-hidden">
         {movie.cover ? (
           <img
-            src={imageURL(movie.cover)}
+            src={imageURL(movie.cover, 360)}
             alt=""
             className="absolute inset-0 -z-10 size-full scale-110 object-cover opacity-40 blur-2xl"
           />
@@ -70,35 +72,47 @@ export function WatchMoviePage({ id }: { id: number }) {
             返回
           </Button>
           <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:gap-10">
-            <Link
-              to="/play/$id"
-              params={{ id: String(id) }}
-              className="group relative block aspect-3/2 overflow-hidden rounded-2xl bg-muted shadow-2xl ring-1 ring-foreground/10"
-              aria-label="播放"
-            >
-              {movie.cover ? (
-                <img
-                  src={imageURL(movie.cover)}
-                  alt={movie.code}
-                  className="size-full object-cover"
-                />
-              ) : null}
-              <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/25">
-                <span className="flex size-16 items-center justify-center rounded-full bg-black/55 text-white shadow-lg backdrop-blur transition-transform group-hover:scale-110">
-                  <PlayIcon className="size-8 translate-x-0.5 fill-current" />
-                </span>
-              </span>
-              {resumable ? (
-                <span className="absolute inset-x-0 bottom-0 h-1 bg-black/40">
-                  <span
-                    className="block h-full bg-primary"
-                    style={{
-                      width: `${Math.min(100, (progress.position / progress.duration) * 100)}%`
-                    }}
+            {lite ? (
+              <div className="aspect-3/2 overflow-hidden rounded-2xl bg-muted shadow-2xl ring-1 ring-foreground/10">
+                {movie.cover ? (
+                  <img
+                    src={imageURL(movie.cover)}
+                    alt={movie.code}
+                    className="size-full object-cover"
                   />
+                ) : null}
+              </div>
+            ) : (
+              <Link
+                to="/play/$id"
+                params={{ id: String(id) }}
+                className="group relative block aspect-3/2 overflow-hidden rounded-2xl bg-muted shadow-2xl ring-1 ring-foreground/10"
+                aria-label="播放"
+              >
+                {movie.cover ? (
+                  <img
+                    src={imageURL(movie.cover)}
+                    alt={movie.code}
+                    className="size-full object-cover"
+                  />
+                ) : null}
+                <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/25">
+                  <span className="flex size-16 items-center justify-center rounded-full bg-black/55 text-white shadow-lg backdrop-blur transition-transform group-hover:scale-110">
+                    <PlayIcon className="size-8 translate-x-0.5 fill-current" />
+                  </span>
                 </span>
-              ) : null}
-            </Link>
+                {resumable ? (
+                  <span className="absolute inset-x-0 bottom-0 h-1 bg-black/40">
+                    <span
+                      className="block h-full bg-primary"
+                      style={{
+                        width: `${Math.min(100, (progress.position / progress.duration) * 100)}%`
+                      }}
+                    />
+                  </span>
+                ) : null}
+              </Link>
+            )}
 
             <div className="min-w-0 space-y-5">
               <div className="space-y-2">
@@ -114,39 +128,43 @@ export function WatchMoviePage({ id }: { id: number }) {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button
-                  asChild
-                  size="lg"
-                  className="rounded-full px-6"
-                  disabled={files.length === 0}
-                >
-                  <Link to="/play/$id" params={{ id: String(id) }}>
-                    <PlayIcon data-icon="inline-start" className="fill-current" />
-                    {resumable ? `继续播放 ${formatTime(progress.position)}` : '播放'}
-                  </Link>
-                </Button>
-                {resumable ? (
-                  <Button asChild size="lg" variant="secondary" className="rounded-full">
-                    <Link
-                      to="/play/$id"
-                      params={{ id: String(id) }}
-                      search={{ file: files[0]?.file_id, restart: true }}
+                {lite ? null : (
+                  <>
+                    <Button
+                      asChild
+                      size="lg"
+                      className="rounded-full px-6"
+                      disabled={files.length === 0}
                     >
-                      <RotateCcwIcon data-icon="inline-start" />
-                      从头播放
-                    </Link>
-                  </Button>
-                ) : null}
-                <Button
-                  size="lg"
-                  variant={progress?.played ? 'default' : 'secondary'}
-                  className="rounded-full"
-                  disabled={mark.isPending || files.length === 0}
-                  onClick={() => mark.mutate(!progress?.played)}
-                >
-                  <CheckIcon data-icon="inline-start" />
-                  {progress?.played ? '看过' : '标为看过'}
-                </Button>
+                      <Link to="/play/$id" params={{ id: String(id) }}>
+                        <PlayIcon data-icon="inline-start" className="fill-current" />
+                        {resumable ? `继续播放 ${formatTime(progress.position)}` : '播放'}
+                      </Link>
+                    </Button>
+                    {resumable ? (
+                      <Button asChild size="lg" variant="secondary" className="rounded-full">
+                        <Link
+                          to="/play/$id"
+                          params={{ id: String(id) }}
+                          search={{ file: files[0]?.file_id, restart: true }}
+                        >
+                          <RotateCcwIcon data-icon="inline-start" />
+                          从头播放
+                        </Link>
+                      </Button>
+                    ) : null}
+                    <Button
+                      size="lg"
+                      variant={progress?.played ? 'default' : 'secondary'}
+                      className="rounded-full"
+                      disabled={mark.isPending || files.length === 0}
+                      onClick={() => mark.mutate(!progress?.played)}
+                    >
+                      <CheckIcon data-icon="inline-start" />
+                      {progress?.played ? '看过' : '标为看过'}
+                    </Button>
+                  </>
+                )}
                 <CollectionButton movieId={id} />
                 <LibraryMovieActions
                   movie={{ id, code: movie.code }}
@@ -168,7 +186,7 @@ export function WatchMoviePage({ id }: { id: number }) {
       </section>
 
       <div className="mx-auto max-w-6xl space-y-10 px-4">
-        {files.length > 1 ? (
+        {files.length > 1 && !lite ? (
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">版本和分卷</h2>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -197,7 +215,7 @@ export function WatchMoviePage({ id }: { id: number }) {
             </div>
           </section>
         ) : null}
-        {play.data && files.length === 0 ? (
+        {play.data && files.length === 0 && !lite ? (
           <p className="text-sm text-muted-foreground">这部影片没有可播放的 115 视频。</p>
         ) : null}
         <MoviePreviews images={movie.preview_images} />

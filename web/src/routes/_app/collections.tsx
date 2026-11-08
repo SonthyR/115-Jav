@@ -2,6 +2,6 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { CollectionsPage } from '@/features/collections/page'
 
-export const Route = createFileRoute('/_watch/collections')({
+export const Route = createFileRoute('/_app/collections')({
   component: CollectionsPage
 })

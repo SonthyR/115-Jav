@@ -84,6 +84,7 @@ func libraryPreviewHandler(library LibraryManager, metadata MetadataManager) gin
 
 type ArtworkReader interface {
 	Artwork(string) ([]byte, error)
+	SizedArtwork(string, int) ([]byte, error)
 }
 
 func libraryArtworkHandler(artwork ArtworkReader) gin.HandlerFunc {
@@ -94,7 +95,20 @@ func libraryArtworkHandler(artwork ArtworkReader) gin.HandlerFunc {
 		if !ok {
 			return
 		}
-		body, err := artwork.Artwork(uri.Key)
+		// Posters and tiles ask for a small copy; w is one of a few widths.
+		query, ok := bindQuery[struct {
+			Width int `form:"w" binding:"omitempty,oneof=360 720"`
+		}](c)
+		if !ok {
+			return
+		}
+		var body []byte
+		var err error
+		if query.Width > 0 {
+			body, err = artwork.SizedArtwork(uri.Key, query.Width)
+		} else {
+			body, err = artwork.Artwork(uri.Key)
+		}
 		if err != nil {
 			c.Error(err)
 			return

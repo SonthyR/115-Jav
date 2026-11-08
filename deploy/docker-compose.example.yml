@@ -30,6 +30,8 @@ services:
       - MIYABI_EMBY_ENABLED=true
       - MIYABI_EMBY_SERVER_URL=http://emby:8096
       - MIYABI_EMBY_MEDIA_PATH=/media
+      # 简洁版：去掉网页播放和给 Infuse 等播放器用的 Emby 接口，只用真 Emby 看片时打开
+      # - MIYABI_LITE=true
 
   emby:
     image: amilys/embyserver:latest

@@ -151,6 +151,8 @@ type embyArtworkStub struct{}
 
 func (embyArtworkStub) Artwork(string) ([]byte, error) { return []byte("\xff\xd8\xff\xe0poster"), nil }
 
+func (stub embyArtworkStub) SizedArtwork(key string, _ int) ([]byte, error) { return stub.Artwork(key) }
+
 type embyTestServer struct {
 	router  *gin.Engine
 	library *embyLibraryStub
@@ -410,5 +412,22 @@ func TestEmbyOpenAccessNeedsNoToken(t *testing.T) {
 	response := server.do(t, http.MethodPost, "/Users/AuthenticateByName", `{"Username":"x","Pw":""}`)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"AccessToken":"115jav"`) {
 		t.Fatalf("open login: %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestLiteServersReportLiteAndServeNoEmbyAPI(t *testing.T) {
+	router := NewRouter(Dependencies{
+		Access: NewAccessGateService("", ""), Lite: true,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/auth/config", nil))
+	if !strings.Contains(response.Body.String(), `"lite":true`) {
+		t.Fatalf("config: %s", response.Body.String())
+	}
+	response = httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/emby/System/Info/Public", nil))
+	if strings.Contains(response.Body.String(), "Emby Server") {
+		t.Fatalf("emby answered: %d %s", response.Code, response.Body.String())
 	}
 }

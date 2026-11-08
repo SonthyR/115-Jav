@@ -2,6 +2,7 @@ import { Link, useLocation } from '@tanstack/react-router'
 import { CompassIcon, HomeIcon, LibraryIcon, type LucideIcon, UserRoundIcon } from 'lucide-react'
 import type { PropsWithChildren } from 'react'
 
+import { useLite } from '@/api/auth'
 import { isTaskActive, useTasks } from '@/api/tasks'
 import { Toaster } from '@/components/ui/sonner'
 import { DownloadIndicator } from '@/features/downloads/download-indicator'
@@ -30,7 +31,8 @@ const SECTIONS: Section[] = [
     label: '片库',
     icon: LibraryIcon,
     to: '/browse',
-    paths: ['/browse', '/actors', '/collections'],
+    // Movie pages belong to home first; lite servers have no home.
+    paths: ['/browse', '/actors', '/collections', '/movie'],
     tabs: [
       { label: '影片', to: '/browse' },
       { label: '演员', to: '/actors' },
@@ -65,15 +67,21 @@ function within(pathname: string, path: string) {
   return path === '/' ? pathname === '/' : pathname === path || pathname.startsWith(`${path}/`)
 }
 
-export function sectionOf(pathname: string) {
-  return SECTIONS.find(section => section.paths.some(path => within(pathname, path)))
+function sectionsFor(lite: boolean) {
+  return lite ? SECTIONS.filter(section => section.to !== '/') : SECTIONS
+}
+
+function sectionOf(pathname: string, lite = false) {
+  return sectionsFor(lite).find(section => section.paths.some(path => within(pathname, path)))
 }
 
 // One layout for every page: a top bar with search and downloads, section
 // tabs where a section has several pages, and a tab bar on phones.
 export function AppLayout({ children }: PropsWithChildren) {
   const { pathname } = useLocation()
-  const current = sectionOf(pathname)
+  const lite = useLite()
+  const sections = sectionsFor(lite)
+  const current = sectionOf(pathname, lite)
   const busy = useTasks().data?.some(isTaskActive) ?? false
   // Tabs show on the section's own pages, not on a profile or detail below them.
   const tabs = current?.tabs?.some(tab => tab.to === pathname) ? current.tabs : undefined
@@ -83,11 +91,11 @@ export function AppLayout({ children }: PropsWithChildren) {
       <div className="relative min-h-dvh pb-[calc(3.75rem+env(safe-area-inset-bottom))] md:pb-0">
         <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-xl">
           <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
-            <Link to="/" className="mr-2 shrink-0 text-lg font-black tracking-tight">
+            <Link to={sections[0]!.to} className="mr-2 shrink-0 text-lg font-black tracking-tight">
               <span className="text-primary">115</span>-JAV
             </Link>
             <nav className="hidden items-center gap-1 md:flex">
-              {SECTIONS.map(section => (
+              {sections.map(section => (
                 <Link
                   key={section.to}
                   to={section.to}
@@ -129,7 +137,7 @@ export function AppLayout({ children }: PropsWithChildren) {
         {children}
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
           <ul className="flex">
-            {SECTIONS.map(section => (
+            {sections.map(section => (
               <li key={section.to} className="flex-1">
                 <Link
                   to={section.to}

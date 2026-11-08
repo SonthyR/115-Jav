@@ -75,6 +75,10 @@ func (cache *Cache) files(ctx context.Context) ([]cachedFile, error) {
 		}
 		name := entry.Name()
 		key, found := strings.CutSuffix(name, ".jpg")
+		// A scaled copy, key-width.jpg, belongs to its original.
+		if base, width, sized := strings.Cut(key, "-"); sized && width != "" && strings.Trim(width, "0123456789") == "" {
+			key = base
+		}
 		if !found || len(key) != 64 || entry.Type()&os.ModeType != 0 {
 			continue
 		}

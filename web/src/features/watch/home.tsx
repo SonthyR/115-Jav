@@ -79,7 +79,7 @@ export function WatchHome() {
                 <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-xl bg-muted">
                   {item.cover ? (
                     <div className="absolute inset-0">
-                      <MovieCover source={item.cover} />
+                      <MovieCover source={item.cover} width={720} />
                     </div>
                   ) : (
                     <FolderHeartIcon className="size-8 text-muted-foreground" />

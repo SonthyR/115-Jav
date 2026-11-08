@@ -15,6 +15,7 @@ import { movieStateKeys } from '@/api/movie-states'
 import { cancelQueryRefresh, refreshQueries } from '@/api/query-refresh'
 import { libraryKeys } from '@/api/library'
 import { offlineKeys } from '@/api/offline'
+import { organizeKeys } from '@/api/organize'
 import { subscriptionKeys } from '@/api/subscriptions'
 import { taskKeys, type Task, type TaskRevisions } from '@/api/tasks'
 
@@ -127,6 +128,7 @@ export function TaskEventsProvider({ children }: PropsWithChildren) {
         keys.push(movieStateKeys.all, offlineKeys.all)
       }
       if (revisions?.monitor !== next.monitor) keys.push(subscriptionKeys.all)
+      if (revisions?.organize !== next.organize) keys.push(organizeKeys.all)
       revisions = next
       void refreshQueries(queryClient, ...keys)
     })

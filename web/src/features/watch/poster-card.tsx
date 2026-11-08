@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { CheckIcon, PlayIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 
+import { useLite } from '@/api/auth'
 import { imageURL } from '@/api/client'
 import type { LibraryMovie } from '@/api/library'
 import { cn } from 'cn'
@@ -14,6 +15,7 @@ export function PosterGrid({ children }: { children: ReactNode }) {
 
 // A tall poster opens the movie page; its play button starts playback directly.
 export function PosterCard({ movie, className }: { movie: LibraryMovie; className?: string }) {
+  const lite = useLite()
   const source = movie.poster ?? movie.cover
   const year = movie.release_date?.slice(0, 4)
   return (
@@ -26,7 +28,7 @@ export function PosterCard({ movie, className }: { movie: LibraryMovie; classNam
         >
           {source ? (
             <img
-              src={imageURL(source)}
+              src={imageURL(source, 360)}
               alt={movie.code}
               loading="lazy"
               decoding="async"
@@ -52,14 +54,16 @@ export function PosterCard({ movie, className }: { movie: LibraryMovie; classNam
             {movie.file_count} 个文件
           </span>
         ) : null}
-        <Link
-          to="/play/$id"
-          params={{ id: String(movie.id) }}
-          aria-label={`播放 ${movie.code}`}
-          className="absolute top-1/2 left-1/2 hidden size-12 -translate-1/2 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur transition-opacity group-hover:opacity-100 focus-visible:opacity-100 sm:flex"
-        >
-          <PlayIcon className="size-5 translate-x-px fill-current" />
-        </Link>
+        {lite ? null : (
+          <Link
+            to="/play/$id"
+            params={{ id: String(movie.id) }}
+            aria-label={`播放 ${movie.code}`}
+            className="absolute top-1/2 left-1/2 hidden size-12 -translate-1/2 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur transition-opacity group-hover:opacity-100 focus-visible:opacity-100 sm:flex"
+          >
+            <PlayIcon className="size-5 translate-x-px fill-current" />
+          </Link>
+        )}
       </div>
       <div className="mt-2 space-y-0.5">
         <p className="line-clamp-2 text-sm leading-5 font-medium">{movie.title || movie.code}</p>

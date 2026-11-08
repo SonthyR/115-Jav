@@ -3,7 +3,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { parseSearchPage } from '@/lib/search-schema'
 
 // Search moved into the discover page; old links and bookmarks land there.
-export const Route = createFileRoute('/_manage/search')({
+export const Route = createFileRoute('/_app/search')({
   beforeLoad: ({ search }) => {
     const { q, page } = search as Record<string, unknown>
     const keyword = typeof q === 'string' || typeof q === 'number' ? String(q).trim() : ''

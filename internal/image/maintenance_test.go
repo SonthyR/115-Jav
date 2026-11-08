@@ -1,12 +1,16 @@
 package image
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"image/color"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/disintegration/imaging"
 )
 
 func TestCachePruneOnlyRemovesUnreferencedManagedImages(t *testing.T) {
@@ -98,5 +102,43 @@ func TestCachePruneDoesNotFollowSymbolicLinks(t *testing.T) {
 	}
 	if body, err := os.ReadFile(target); err != nil || string(body) != "outside" {
 		t.Fatalf("cache cleanup changed a file outside the cache: %q %v", body, err)
+	}
+}
+
+func TestSizedCopiesAreMadeOnceAndPrunedWithTheirOriginal(t *testing.T) {
+	cache, err := NewCache(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	url, err := cache.save(imaging.New(1200, 800, color.NRGBA{R: 200, A: 255}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := strings.TrimPrefix(url, URLPrefix)
+	for range 2 {
+		body, err := cache.ReadSized(key, 360)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sized, err := imaging.Decode(bytes.NewReader(body))
+		if err != nil || sized.Bounds().Dx() != 360 || sized.Bounds().Dy() != 240 {
+			t.Fatalf("sized = %v, %v", sized.Bounds(), err)
+		}
+	}
+	// A width at or above the original's sends the original.
+	if body, err := cache.ReadSized(key, 1600); err != nil || len(body) == 0 {
+		t.Fatalf("large width: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(cache.directory, key+"-1600.jpg")); !os.IsNotExist(err) {
+		t.Fatalf("stored a copy as large as the original: %v", err)
+	}
+	if stats, _ := cache.Stats(t.Context(), map[string]bool{url: true}); stats.EntryCount != 2 || stats.UnusedEntryCount != 0 {
+		t.Fatalf("stats = %+v", stats)
+	}
+	if err := cache.Prune(t.Context(), map[string]bool{}); err != nil {
+		t.Fatal(err)
+	}
+	if entries, _ := os.ReadDir(cache.directory); len(entries) != 0 {
+		t.Fatalf("left %v", entries)
 	}
 }

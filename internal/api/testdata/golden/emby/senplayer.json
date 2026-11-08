@@ -1,0 +1,630 @@
+[
+  {
+    "request": "GET /System/Info/Public",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": {
+      "Id": "1150e5b1a7c94d6e8f2b3c4d5e6f7a80",
+      "LocalAddress": "http://example.com",
+      "OperatingSystem": "Linux",
+      "ProductName": "Emby Server",
+      "ServerName": "115-JAV",
+      "StartupWizardCompleted": true,
+      "Version": "4.8.11.0"
+    }
+  },
+  {
+    "request": "POST /Users/AuthenticateByName",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": {
+      "AccessToken": "{token}",
+      "ServerId": "1150e5b1a7c94d6e8f2b3c4d5e6f7a80",
+      "SessionInfo": {
+        "ApplicationVersion": "4.8.11.0",
+        "Client": "SenPlayer",
+        "DeviceId": "sen-1",
+        "DeviceName": "iPhone",
+        "Id": "sen-1",
+        "PlayableMediaTypes": [
+          "Video"
+        ],
+        "ServerId": "1150e5b1a7c94d6e8f2b3c4d5e6f7a80",
+        "SupportedCommands": [],
+        "UserId": "1150e5b1a7c94d6e8f2b3c4d5e6f7a81",
+        "UserName": "115-JAV"
+      },
+      "User": {
+        "Configuration": {
+          "AudioLanguagePreference": "",
+          "DisplayMissingEpisodes": false,
+          "EnableNextEpisodeAutoPlay": true,
+          "HidePlayedInLatest": false,
+          "LatestItemsExcludes": [],
+          "MyMediaExcludes": [],
+          "OrderedViews": [],
+          "PlayDefaultAudioTrack": true,
+          "RememberAudioSelections": true,
+          "RememberSubtitleSelections": true,
+          "SubtitleLanguagePreference": "",
+          "SubtitleMode": "Default"
+        },
+        "EnableAutoLogin": false,
+        "HasConfiguredEasyPassword": false,
+        "HasConfiguredPassword": true,
+        "HasPassword": true,
+        "Id": "1150e5b1a7c94d6e8f2b3c4d5e6f7a81",
+        "Name": "115-JAV",
+        "Policy": {
+          "AccessSchedules": [],
+          "AuthenticationProviderId": "Emby.Server.Implementations.Library.DefaultAuthenticationProvider",
+          "BlockUnratedItems": [],
+          "BlockedTags": [],
+          "EnableAllChannels": true,
+          "EnableAllDevices": true,
+          "EnableAllFolders": true,
+          "EnableAudioPlaybackTranscoding": false,
+          "EnableContentDeletion": false,
+          "EnableContentDownloading": true,
+          "EnableLiveTvAccess": false,
+          "EnableLiveTvManagement": false,
+          "EnableMediaPlayback": true,
+          "EnablePlaybackRemuxing": false,
+          "EnableRemoteAccess": true,
+          "EnableRemoteControlOfOtherUsers": false,
+          "EnableSharedDeviceControl": true,
+          "EnableUserPreferenceAccess": true,
+          "EnableVideoPlaybackTranscoding": false,
+          "EnabledFolders": [],
+          "InvalidLoginAttemptCount": 0,
+          "IsAdministrator": false,
+          "IsDisabled": false,
+          "IsHidden": false,
+          "RemoteClientBitrateLimit": 0,
+          "SimultaneousStreamLimit": 0
+        },
+        "ServerId": "1150e5b1a7c94d6e8f2b3c4d5e6f7a80"
+      }
+    }
+  },
+  {
+    "request": "GET /Users/{uid}/Views?X-Emby-Token={token}",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": {
+      "Items": [
+        {
+          "Name": "全部影片",
+          "ServerId": "1150e5b1a7c94d6e8f2b3c4d5e6f7a80",
+          "Id": "2000000001",
+          "Type": "CollectionFolder",
+          "CollectionType": "movies",
+          "IsFolder": true,
+          "ParentId": "2000000000",
+          "ChildCount": 3,
+          "RecursiveItemCount": 3,
+          "ProviderIds": {},
+          "ImageTags": {
+            "Primary": "9be310614796c609"
+          },
+          "BackdropImageTags": [],
+          "PrimaryImageAspectRatio": 1.4925,
+          "UserData": {
+            "PlaybackPositionTicks": 0,
+            "PlayCount": 0,
+            "IsFavorite": false,
+            "Played": false,
+            "Key": "2000000001"
+          }
+        },
+        {
+          "Name": "中文字幕",
+          "ServerId": "1150e5b1a7c94d6e8f2b3c4d5e6f7a80",
+          "Id": "2000000002",
+          "Type": "CollectionFolder",
+          "CollectionType": "movies",
+          "IsFolder": true,
+          "ParentId": "2000000000",
+          "ChildCount": 3,
+          "RecursiveItemCount": 3,
+          "ProviderIds": {},
+          "ImageTags": {
+            "Primary": "9be310614796c609"
+          },
+          "BackdropImageTags": [],
+          "PrimaryImageAspectRatio": 1.4925,
+          "UserData": {
+            "PlaybackPositionTicks": 0,
+            "PlayCount": 0,
+            "IsFavorite": false,
+            "Played": false,
+            "Key": "2000000002"
+          }
+        }
+      ],
+      "StartIndex": 0,
+      "TotalRecordCount": 2
+    }
+  },
+  {
+    "request": "GET /Library/VirtualFolders",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": [
+      {
+        "CollectionType": "movies",
+        "Id": "2000000001",
+        "ItemId": "2000000001",
+        "Locations": [],
+        "Name": "全部影片"
+      },
+      {
+        "CollectionType": "movies",
+        "Id": "2000000002",
+        "ItemId": "2000000002",
+        "Locations": [],
+        "Name": "中文字幕"
+      }
+    ]
+  },
+  {
+    "request": "GET /Users/{uid}/Items?parentId={view}\u0026recursive=true\u0026includeItemTypes=Movie\u0026startIndex=0\u0026limit=30\u0026sortBy=DateCreated,SortName\u0026sortOrder=Descending\u0026fields=overview,genres,people,studios,mediasources,providerids,datecreated,userdata",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": {
+      "Items": [
+        {
+          "Name": "ABP-001 First",
+          "SortName": "ABP-001",
+          "ServerId": "1150e5b1a7c94d6e8f2b3c4d5e6f7a80",
+          "Id": "1",
+          "Type": "Movie",
+          "MediaType": "Video",
+          "IsFolder": false,
+          "ParentId": "2000000001",
+          "Overview": "番号：ABP-001",
+          "DateCreated": "0001-01-01T00:00:00.0000000Z",
+          "PremiereDate": "2024-05-01T00:00:00.0000000Z",
+          "ProductionYear": 2024,
+          "CommunityRating": 9,
+          "RunTimeTicks": 60000000000,
+          "LocationType": "FileSystem",
+          "VideoType": "VideoFile",
+          "PlayAccess": "Full",
+          "CanDownload": true,
+          "Genres": [
+            "Drama"
+          ],
+          "GenreItems": [
+            {
+              "Name": "Drama",
+              "Id": "21996958144"
+            }
+          ],
+          "People": [
+            {
+              "Name": "Actor A",
+              "Id": "10995227741",
+              "Role": "",
+              "Type": "Actor",
+              "PrimaryImageTag": "70d3d37ba530b032"
+            }
+          ],
+          "ProviderIds": {},
+          "ImageTags": {
+            "Primary": "f500d0329b22959b",
+            "Thumb": "9be310614796c609"
+          },
+          "BackdropImageTags": [
+            "9be310614796c609"
+          ],
+          "PrimaryImageAspectRatio": 0.7083,
+          "UserData": {
+            "PlaybackPositionTicks": 0,
+            "PlayCount": 0,
+            "IsFavorite": false,
+            "Played": false,
+            "Key": "1"
+          }
+        },
+        {
+          "Name": "ABP-002 Second",
+          "SortName": "ABP-002",
+          "ServerId": "1150e5b1a7c94d6e8f2b3c4d5e6f7a80",
+          "Id": "2",
+          "Type": "Movie",
+          "MediaType": "Video",
+          "IsFolder": false,
+          "ParentId": "2000000001",
+          "Overview": "番号：ABP-002",
+          "DateCreated": "0001-01-01T00:00:00.0000000Z",
+          "RunTimeTicks": 72000000000,
+          "LocationType": "FileSystem",
+          "VideoType": "VideoFile",
+          "PlayAccess": "Full",
+          "CanDownload": true,
+          "People": [
+            {
+              "Name": "Actor A",
+              "Id": "10995227741",
+              "Role": "",
+              "Type": "Actor",
+              "PrimaryImageTag": "70d3d37ba530b032"
+            }
+          ],
+          "ProviderIds": {},
+          "ImageTags": {},
+          "BackdropImageTags": [],
+          "UserData": {
+            "PlaybackPositionTicks": 0,
+            "PlayCount": 0,
+            "IsFavorite": false,
+            "Played": false,
+            "Key": "2"
+          }
+        },
+        {
+          "Name": "ABP-003 Third",
+          "SortName": "ABP-003",
+          "ServerId": "1150e5b1a7c94d6e8f2b3c4d5e6f7a80",
+          "Id": "3",
+          "Type": "Movie",
+          "MediaType": "Video",
+          "IsFolder": false,
+          "ParentId": "2000000001",
+          "Overview": "番号：ABP-003",
+          "DateCreated": "0001-01-01T00:00:00.0000000Z",
+          "RunTimeTicks": 54000000000,
+          "LocationType": "FileSystem",
+          "VideoType": "VideoFile",
+          "PlayAccess": "Full",
+          "CanDownload": true,
+          "ProviderIds": {},
+          "ImageTags": {},
+          "BackdropImageTags": [],
+          "UserData": {
+            "PlaybackPositionTicks": 0,
+            "PlayCount": 0,
+            "IsFavorite": false,
+            "Played": false,
+            "Key": "3"
+          }
+        }
+      ],
+      "StartIndex": 0,
+      "TotalRecordCount": 3
+    }
+  },
+  {
+    "request": "GET /Items/Counts?UserId={uid}",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": {
+      "AlbumCount": 0,
+      "ArtistCount": 0,
+      "BoxSetCount": 0,
+      "EpisodeCount": 0,
+      "GameCount": 0,
+      "GameSystemCount": 0,
+      "ItemCount": 3,
+      "MovieCount": 3,
+      "MusicVideoCount": 0,
+      "ProgramCount": 0,
+      "SeriesCount": 0,
+      "SongCount": 0,
+      "TrailerCount": 0
+    }
+  },
+  {
+    "request": "GET /Items/Filters?UserId={uid}\u0026ParentId={view}",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": {
+      "Genres": [
+        "Drama"
+      ],
+      "OfficialRatings": [],
+      "Tags": [],
+      "Years": []
+    }
+  },
+  {
+    "request": "GET /Users/{uid}/Items/2",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": {
+      "Name": "ABP-002 Second",
+      "SortName": "ABP-002",
+      "ServerId": "1150e5b1a7c94d6e8f2b3c4d5e6f7a80",
+      "Id": "2",
+      "Type": "Movie",
+      "MediaType": "Video",
+      "IsFolder": false,
+      "ParentId": "2000000001",
+      "Overview": "番号：ABP-002",
+      "DateCreated": "0001-01-01T00:00:00.0000000Z",
+      "RunTimeTicks": 72000000000,
+      "Container": "mp4",
+      "Path": "ABP-002.mp4",
+      "LocationType": "FileSystem",
+      "VideoType": "VideoFile",
+      "PlayAccess": "Full",
+      "CanDownload": true,
+      "People": [
+        {
+          "Name": "Actor A",
+          "Id": "10995227741",
+          "Role": "",
+          "Type": "Actor",
+          "PrimaryImageTag": "70d3d37ba530b032"
+        }
+      ],
+      "ProviderIds": {},
+      "ImageTags": {},
+      "BackdropImageTags": [],
+      "UserData": {
+        "PlaybackPositionTicks": 0,
+        "PlayCount": 0,
+        "IsFavorite": false,
+        "Played": false,
+        "Key": "2"
+      },
+      "MediaSources": [
+        {
+          "Protocol": "File",
+          "Id": "f2",
+          "ItemId": "2",
+          "Path": "ABP-002.mp4",
+          "Type": "Default",
+          "Container": "mp4",
+          "Name": "ABP-002",
+          "IsRemote": false,
+          "RunTimeTicks": 72000000000,
+          "SupportsTranscoding": false,
+          "SupportsDirectStream": true,
+          "SupportsDirectPlay": true,
+          "IsInfiniteStream": false,
+          "RequiresOpening": false,
+          "RequiresClosing": false,
+          "RequiresLooping": false,
+          "SupportsProbing": false,
+          "ReadAtNativeFramerate": false,
+          "MediaStreams": [
+            {
+              "Type": "Video",
+              "Index": 0,
+              "DisplayTitle": "MP4",
+              "IsDefault": true,
+              "IsForced": false,
+              "IsExternal": false,
+              "IsTextSubtitleStream": false,
+              "SupportsExternalStream": false
+            }
+          ],
+          "Formats": [],
+          "RequiredHttpHeaders": {},
+          "DirectStreamUrl": "/Videos/2/stream.mp4?MediaSourceId=f2\u0026Static=true\u0026api_key={token}",
+          "AddApiKeyToDirectStreamUrl": false
+        }
+      ],
+      "MediaStreams": [
+        {
+          "Type": "Video",
+          "Index": 0,
+          "DisplayTitle": "MP4",
+          "IsDefault": true,
+          "IsForced": false,
+          "IsExternal": false,
+          "IsTextSubtitleStream": false,
+          "SupportsExternalStream": false
+        }
+      ]
+    }
+  },
+  {
+    "request": "GET /Items/2/PlaybackInfo?UserId={uid}",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": {
+      "MediaSources": [
+        {
+          "Protocol": "File",
+          "Id": "f2",
+          "ItemId": "2",
+          "Path": "ABP-002.mp4",
+          "Type": "Default",
+          "Container": "mp4",
+          "Name": "ABP-002",
+          "IsRemote": false,
+          "RunTimeTicks": 72000000000,
+          "SupportsTranscoding": false,
+          "SupportsDirectStream": true,
+          "SupportsDirectPlay": true,
+          "IsInfiniteStream": false,
+          "RequiresOpening": false,
+          "RequiresClosing": false,
+          "RequiresLooping": false,
+          "SupportsProbing": false,
+          "ReadAtNativeFramerate": false,
+          "MediaStreams": [
+            {
+              "Type": "Video",
+              "Index": 0,
+              "DisplayTitle": "MP4",
+              "IsDefault": true,
+              "IsForced": false,
+              "IsExternal": false,
+              "IsTextSubtitleStream": false,
+              "SupportsExternalStream": false
+            }
+          ],
+          "Formats": [],
+          "RequiredHttpHeaders": {},
+          "DirectStreamUrl": "/Videos/2/stream.mp4?MediaSourceId=f2\u0026Static=true\u0026api_key={token}",
+          "AddApiKeyToDirectStreamUrl": false
+        }
+      ],
+      "PlaySessionId": "2-1"
+    }
+  },
+  {
+    "request": "HEAD /Videos/2/stream?static=true\u0026mediaSourceId=f2\u0026api_key={token}",
+    "status": 200,
+    "content_type": "video/mp4"
+  },
+  {
+    "request": "POST /Users/{uid}/PlayingItems/2/Progress?PositionTicks=600000000\u0026MediaSourceId=f2",
+    "status": 204
+  },
+  {
+    "request": "POST /Users/{uid}/PlayedItems/2",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": {
+      "PlaybackPositionTicks": 0,
+      "PlayCount": 1,
+      "IsFavorite": false,
+      "Played": true,
+      "LastPlayedDate": "0001-01-01T00:00:00.0000000Z",
+      "Key": "2"
+    }
+  },
+  {
+    "request": "GET /Users/{uid}/Items?Recursive=true\u0026IncludeItemTypes=Movie\u0026Filters=IsPlayed",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": {
+      "Items": [
+        {
+          "Name": "ABP-002 Second",
+          "SortName": "ABP-002",
+          "ServerId": "1150e5b1a7c94d6e8f2b3c4d5e6f7a80",
+          "Id": "2",
+          "Type": "Movie",
+          "MediaType": "Video",
+          "IsFolder": false,
+          "ParentId": "2000000001",
+          "Overview": "番号：ABP-002",
+          "DateCreated": "0001-01-01T00:00:00.0000000Z",
+          "RunTimeTicks": 72000000000,
+          "LocationType": "FileSystem",
+          "VideoType": "VideoFile",
+          "PlayAccess": "Full",
+          "CanDownload": true,
+          "People": [
+            {
+              "Name": "Actor A",
+              "Id": "10995227741",
+              "Role": "",
+              "Type": "Actor",
+              "PrimaryImageTag": "70d3d37ba530b032"
+            }
+          ],
+          "ProviderIds": {},
+          "ImageTags": {},
+          "BackdropImageTags": [],
+          "UserData": {
+            "PlaybackPositionTicks": 0,
+            "PlayCount": 1,
+            "IsFavorite": false,
+            "Played": true,
+            "LastPlayedDate": "0001-01-01T00:00:00.0000000Z",
+            "Key": "2"
+          }
+        }
+      ],
+      "StartIndex": 0,
+      "TotalRecordCount": 1
+    }
+  },
+  {
+    "request": "DELETE /Users/{uid}/PlayedItems/2",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": {
+      "PlaybackPositionTicks": 0,
+      "PlayCount": 0,
+      "IsFavorite": false,
+      "Played": false,
+      "Key": "2"
+    }
+  },
+  {
+    "request": "GET /Items/1/Similar?UserId={uid}\u0026Limit=12",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": {
+      "Items": [
+        {
+          "Name": "ABP-002 Second",
+          "SortName": "ABP-002",
+          "ServerId": "1150e5b1a7c94d6e8f2b3c4d5e6f7a80",
+          "Id": "2",
+          "Type": "Movie",
+          "MediaType": "Video",
+          "IsFolder": false,
+          "ParentId": "2000000001",
+          "Overview": "番号：ABP-002",
+          "DateCreated": "0001-01-01T00:00:00.0000000Z",
+          "RunTimeTicks": 72000000000,
+          "LocationType": "FileSystem",
+          "VideoType": "VideoFile",
+          "PlayAccess": "Full",
+          "CanDownload": true,
+          "People": [
+            {
+              "Name": "Actor A",
+              "Id": "10995227741",
+              "Role": "",
+              "Type": "Actor",
+              "PrimaryImageTag": "70d3d37ba530b032"
+            }
+          ],
+          "ProviderIds": {},
+          "ImageTags": {},
+          "BackdropImageTags": [],
+          "UserData": {
+            "PlaybackPositionTicks": 0,
+            "PlayCount": 0,
+            "IsFavorite": false,
+            "Played": false,
+            "Key": "2"
+          }
+        }
+      ],
+      "StartIndex": 0,
+      "TotalRecordCount": 1
+    }
+  },
+  {
+    "request": "GET /Persons/Actor%20A?UserId={uid}",
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "body": {
+      "Name": "Actor A",
+      "ServerId": "1150e5b1a7c94d6e8f2b3c4d5e6f7a80",
+      "Id": "10995227741",
+      "Type": "Person",
+      "IsFolder": false,
+      "ChildCount": 2,
+      "MovieCount": 2,
+      "ProviderIds": {},
+      "ImageTags": {
+        "Primary": "70d3d37ba530b032"
+      },
+      "BackdropImageTags": [],
+      "PrimaryImageAspectRatio": 0.6667,
+      "UserData": {
+        "PlaybackPositionTicks": 0,
+        "PlayCount": 0,
+        "IsFavorite": false,
+        "Played": false,
+        "Key": "10995227741"
+      }
+    }
+  },
+  {
+    "request": "POST /Sessions/Capabilities/Full",
+    "status": 204
+  }
+]

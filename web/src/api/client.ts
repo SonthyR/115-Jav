@@ -58,8 +58,9 @@ export function notifyUnauthorized(): void {
 }
 
 // JavDB CDN hosts are not reachable from every browser network, so images go through the backend.
-export function imageURL(source: string) {
-  if (source.startsWith('/api/library/artwork/')) return source
+// width asks for a scaled-down copy of library artwork, for posters and tiles.
+export function imageURL(source: string, width?: 360 | 720) {
+  if (source.startsWith('/api/library/artwork/')) return width ? `${source}?w=${width}` : source
   if (/^\/api\/library\/movies\/\d+\/previews\/\d+(?:\?v=\d+)?$/.test(source)) return source
   // Invalidate the encoded image responses cached before the backend decoded them.
   return `/api/image?v=3&url=${encodeURIComponent(source)}`

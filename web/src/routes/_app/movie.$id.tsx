@@ -2,7 +2,7 @@ import { createFileRoute, notFound } from '@tanstack/react-router'
 
 import { WatchMoviePage } from '@/features/watch/movie-page'
 
-export const Route = createFileRoute('/_watch/movie/$id')({
+export const Route = createFileRoute('/_app/movie/$id')({
   beforeLoad: ({ params }) => {
     if (!/^[1-9]\d*$/.test(params.id)) throw notFound()
   },

@@ -2,6 +2,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { PencilIcon, PlayIcon, Trash2Icon } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { useLite } from '@/api/auth'
 import { apiGet, describeApiError } from '@/api/client'
 import { useCollections, useDeleteCollection, useRenameCollection } from '@/api/collections'
 import type { LibraryFilter, LibraryMovie } from '@/api/library'
@@ -12,6 +13,7 @@ import { usePlaylist } from '@/features/player/playlist'
 
 export function CollectionDetail({ id, search }: { id: number; search: LibrarySearch }) {
   const navigate = useNavigate()
+  const lite = useLite()
   const collections = useCollections()
   const rename = useRenameCollection()
   const remove = useDeleteCollection()
@@ -44,10 +46,12 @@ export function CollectionDetail({ id, search }: { id: number; search: LibrarySe
       description={collection ? `${collection.count} 部影片` : '收藏夹'}
       header={
         <div className="flex flex-wrap gap-2">
-          <Button disabled={!collection?.count} onClick={() => void playAll()}>
-            <PlayIcon data-icon="inline-start" />
-            顺序播放
-          </Button>
+          {lite ? null : (
+            <Button disabled={!collection?.count} onClick={() => void playAll()}>
+              <PlayIcon data-icon="inline-start" />
+              顺序播放
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => {

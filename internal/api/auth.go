@@ -30,10 +30,10 @@ type accessLoginResponse struct {
 	ExpiresAt int64 `json:"expires_at,omitempty"`
 }
 
-func accessConfigHandler(gate AccessGate) gin.HandlerFunc {
+func accessConfigHandler(gate AccessGate, lite bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !gate.Enabled() {
-			respond(c, gin.H{"enabled": false, "authenticated": true}, nil)
+			respond(c, gin.H{"enabled": false, "authenticated": true, "lite": lite}, nil)
 			return
 		}
 
@@ -48,6 +48,7 @@ func accessConfigHandler(gate AccessGate) gin.HandlerFunc {
 		respond(c, gin.H{
 			"enabled":       true,
 			"authenticated": authenticated,
+			"lite":          lite,
 		}, nil)
 	}
 }

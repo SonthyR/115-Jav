@@ -11,7 +11,12 @@ export type LibrarySource = {
   directory: PanDirectory
 }
 
-export type TaskRevisions = { library: number; offline: number; monitor: number }
+export type TaskRevisions = {
+  library: number
+  offline: number
+  monitor: number
+  organize?: number
+}
 
 type TaskBase = {
   id: number

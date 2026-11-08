@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/ppxb/miyabi/internal/ent"
 	"github.com/ppxb/miyabi/internal/ent/actor"
@@ -35,9 +37,42 @@ type Facets struct {
 	Years  []Facet `json:"years"`
 }
 
+// facetsTTL matches how long actor name pairs are kept, as facets use them.
+const facetsTTL = 10 * time.Minute
+
+// facetsCache keeps the last count until the library changes; counting reads
+// every movie with its actors and tags.
+type facetsCache struct {
+	mu    sync.Mutex
+	key   string
+	at    time.Time
+	value Facets
+}
+
 // Facets counts the actors, makers, series, tags and release years of the
 // current library, most common first; years are newest first.
 func (s *Service) Facets(ctx context.Context) (Facets, error) {
+	if s.tasks == nil {
+		return s.countFacets(ctx)
+	}
+	key := fmt.Sprint(s.tasks.Revisions().Library)
+	if source := s.Source(); source != nil {
+		key += ":" + source.AccountID + ":" + source.Directory.ID
+	}
+	cache := &s.facets
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	if cache.key == key && time.Since(cache.at) < facetsTTL {
+		return cache.value, nil
+	}
+	value, err := s.countFacets(ctx)
+	if err == nil {
+		cache.key, cache.at, cache.value = key, time.Now(), value
+	}
+	return value, err
+}
+
+func (s *Service) countFacets(ctx context.Context) (Facets, error) {
 	records, err := s.database.Movie.Query().Where(movie.HasFilesWith(libraryScope(s.Source()))).
 		Select(movie.FieldID, movie.FieldMakerName, movie.FieldSeriesName, movie.FieldReleaseDate).
 		WithActors(func(query *ent.ActorQuery) {

@@ -70,7 +70,7 @@ export function CollectionsPage() {
                 <div className="relative flex aspect-3/2 items-center justify-center bg-muted">
                   {item.cover ? (
                     <div className="absolute inset-0">
-                      <MovieCover source={item.cover} />
+                      <MovieCover source={item.cover} width={720} />
                     </div>
                   ) : (
                     <FolderHeartIcon className="size-10 text-muted-foreground" />

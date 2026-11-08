@@ -13,7 +13,7 @@ import { CategoryContent } from './category-content'
 import { DISCOVER_PAGE_SIZE as PAGE_SIZE } from './constants'
 import { SearchForm, SearchResults } from '@/features/search/page'
 
-const route = getRouteApi('/_manage/discover')
+const route = getRouteApi('/_app/discover')
 
 export function DiscoverPage() {
   const search = route.useSearch()

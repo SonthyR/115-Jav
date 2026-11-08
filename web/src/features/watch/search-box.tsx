@@ -151,7 +151,7 @@ export function WatchSearchBox() {
               <span className="block aspect-2/3 w-9 shrink-0 overflow-hidden rounded-md bg-muted">
                 {movie.poster || movie.cover ? (
                   <img
-                    src={imageURL((movie.poster ?? movie.cover)!)}
+                    src={imageURL((movie.poster ?? movie.cover)!, 360)}
                     alt=""
                     loading="lazy"
                     className="size-full object-cover"

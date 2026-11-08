@@ -2,7 +2,7 @@ import { createFileRoute, Outlet } from '@tanstack/react-router'
 
 import { AppLayout } from '@/components/app-layout'
 
-export const Route = createFileRoute('/_watch')({
+export const Route = createFileRoute('/_app')({
   component: () => (
     <AppLayout>
       <Outlet />

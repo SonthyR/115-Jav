@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"compress/gzip"
 	"io/fs"
 	"log/slog"
 	"mime"
@@ -9,6 +10,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -42,6 +44,8 @@ type Dependencies struct {
 	Frontend       fs.FS
 	STRMToken      string
 	TrustedProxies []string
+	// Lite tells the web app to hide playback; the Emby API is off then too.
+	Lite bool
 }
 
 // NewRouter requires an Access gate, including when password protection is disabled.
@@ -74,7 +78,7 @@ func NewRouter(deps Dependencies) *gin.Engine {
 	api := router.Group("/api", sameOriginMiddleware())
 
 	authAPI := api.Group("/auth", noStore())
-	authAPI.GET("/config", accessConfigHandler(deps.Access))
+	authAPI.GET("/config", accessConfigHandler(deps.Access, deps.Lite))
 	authAPI.POST("/login", accessLoginHandler(deps.Access, loginLimiter))
 
 	// Exported .strm files keep this path; it must stay stable across releases.
@@ -198,6 +202,7 @@ func installFrontend(router *gin.Engine, frontend fs.FS) {
 	// The home-screen app manifest; Go has no type for it built in.
 	_ = mime.AddExtensionType(".webmanifest", "application/manifest+json")
 	fileServer := http.FileServer(http.FS(frontend))
+	compressed := &sync.Map{}
 	indexHTML, indexErr := fs.ReadFile(frontend, "index.html")
 	serveIndex := func(c *gin.Context) {
 		if indexErr != nil {
@@ -234,6 +239,9 @@ func installFrontend(router *gin.Engine, frontend fs.FS) {
 			}
 			if hashedFrontendAsset.MatchString(requestedPath) {
 				c.Header("Cache-Control", "public, max-age=31536000, immutable")
+				if serveCompressed(c, frontend, requestedPath, compressed) {
+					return
+				}
 			}
 			fileServer.ServeHTTP(c.Writer, c.Request)
 			return
@@ -246,6 +254,34 @@ func installFrontend(router *gin.Engine, frontend fs.FS) {
 
 		serveIndex(c)
 	})
+}
+
+// compressible are the built asset types worth sending gzipped; fonts and
+// images are compressed already.
+var compressible = map[string]bool{".js": true, ".css": true, ".svg": true, ".json": true}
+
+// serveCompressed sends a gzipped copy of a built script or stylesheet,
+// compressed once on first request, to clients that accept it.
+func serveCompressed(c *gin.Context, frontend fs.FS, name string, cache *sync.Map) bool {
+	if !compressible[path.Ext(name)] || !strings.Contains(c.GetHeader("Accept-Encoding"), "gzip") {
+		return false
+	}
+	body, ok := cache.Load(name)
+	if !ok {
+		raw, err := fs.ReadFile(frontend, name)
+		if err != nil {
+			return false
+		}
+		var buffer bytes.Buffer
+		writer, _ := gzip.NewWriterLevel(&buffer, gzip.BestCompression)
+		_, _ = writer.Write(raw)
+		_ = writer.Close()
+		body, _ = cache.LoadOrStore(name, buffer.Bytes())
+	}
+	c.Header("Content-Encoding", "gzip")
+	c.Header("Vary", "Accept-Encoding")
+	c.Data(http.StatusOK, mime.TypeByExtension(path.Ext(name)), body.([]byte))
+	return true
 }
 
 func securityHeadersMiddleware() gin.HandlerFunc {

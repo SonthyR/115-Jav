@@ -5,9 +5,10 @@ import "sync"
 // Revisions are monotonic change counters broadcast to SSE clients so the
 // frontend can decide which queries to refetch.
 type TaskRevisions struct {
-	Library uint64 `json:"library"`
-	Offline uint64 `json:"offline"`
-	Monitor uint64 `json:"monitor"`
+	Library  uint64 `json:"library"`
+	Offline  uint64 `json:"offline"`
+	Monitor  uint64 `json:"monitor"`
+	Organize uint64 `json:"organize"`
 }
 
 // Change is a bitmask naming which revision counters an event bumps.
@@ -17,6 +18,7 @@ const (
 	ChangeLibrary Change = 1 << iota
 	ChangeOffline
 	ChangeMonitor
+	ChangeOrganize
 )
 
 // Bus separates queued-work wakeups from task and business updates for SSE.
@@ -68,6 +70,9 @@ func (b *Bus) NotifyLibraryChanged() { b.publish(ChangeLibrary) }
 func (b *Bus) NotifyOfflineChanged() { b.publish(ChangeOffline) }
 func (b *Bus) NotifyMonitorChanged() { b.publish(ChangeMonitor) }
 
+// NotifyOrganizeChanged announces a new organize log entry.
+func (b *Bus) NotifyOrganizeChanged() { b.publish(ChangeOrganize) }
+
 func (b *Bus) Revisions() TaskRevisions {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -93,6 +98,9 @@ func (b *Bus) publish(change Change) {
 	}
 	if change&ChangeMonitor != 0 {
 		b.revisions.Monitor++
+	}
+	if change&ChangeOrganize != 0 {
+		b.revisions.Organize++
 	}
 	signal(b.subscribers)
 }

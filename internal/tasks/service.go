@@ -26,3 +26,4 @@ func (s *Service) WakePool()                                { s.bus.WakePool() }
 func (s *Service) NotifyLibraryChanged()                    { s.bus.NotifyLibraryChanged() }
 func (s *Service) NotifyOfflineChanged()                    { s.bus.NotifyOfflineChanged() }
 func (s *Service) NotifyMonitorChanged()                    { s.bus.NotifyMonitorChanged() }
+func (s *Service) NotifyOrganizeChanged()                   { s.bus.NotifyOrganizeChanged() }

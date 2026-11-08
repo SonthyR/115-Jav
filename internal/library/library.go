@@ -83,6 +83,7 @@ type Service struct {
 	exportMgr    *export.Manager
 	scanLock     syncx.ContextLock
 	aliases      *actoralias.Index
+	facets       facetsCache
 }
 
 type Options struct {

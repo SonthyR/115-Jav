@@ -45,7 +45,7 @@ const tabs = [
 
 type SettingsTab = (typeof tabs)[number]['id']
 
-export const Route = createFileRoute('/_manage/settings')({
+export const Route = createFileRoute('/_app/settings')({
   validateSearch: (search: Record<string, unknown>): { tab?: SettingsTab } =>
     tabs.some(tab => tab.id === search.tab) ? { tab: search.tab as SettingsTab } : {},
   component: SettingsPage

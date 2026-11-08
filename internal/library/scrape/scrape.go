@@ -157,6 +157,11 @@ func (service *Service) Artwork(key string) ([]byte, error) {
 	return service.images.Read(key)
 }
 
+// SizedArtwork reads cached artwork scaled down to width.
+func (service *Service) SizedArtwork(key string, width int) ([]byte, error) {
+	return service.images.ReadSized(key, width)
+}
+
 func (service *Service) begin(ctx context.Context, input MetadataPayload) (drive.Session, error) {
 	if service.drive == nil {
 		return nil, domain.E(domain.KindInvalid, "网盘服务未初始化", nil)

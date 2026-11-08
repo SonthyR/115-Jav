@@ -8,6 +8,8 @@ import { useSettingsStore } from '@/stores/settings'
 type MediaImageProps = {
   source: string
   original?: string
+  // Library artwork is sent scaled down to this width.
+  width?: 360 | 720
   loading?: 'eager' | 'lazy'
   blurredBackground?: boolean
   onReady?: () => void
@@ -29,6 +31,7 @@ export function MediaImage(props: MediaImageProps) {
 function MediaImageContent({
   source,
   original,
+  width,
   loading = 'lazy',
   blurredBackground = false,
   onReady,
@@ -45,8 +48,8 @@ function MediaImageContent({
   }, [ready, onReady])
 
   const imageProps = {
-    src: imageURL(source),
-    srcSet: original ? `${imageURL(source)} 1x, ${imageURL(original)} 2x` : undefined,
+    src: imageURL(source, width),
+    srcSet: original ? `${imageURL(source, width)} 1x, ${imageURL(original)} 2x` : undefined,
     loading,
     decoding: 'async',
     referrerPolicy: 'no-referrer'

@@ -1,6 +1,7 @@
 import { SearchIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { useLite } from '@/api/auth'
 import type { LibraryFacetKind, LibraryFilter, LibraryProblem, LibrarySort } from '@/api/library'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,6 +42,7 @@ export function LibraryFilters({
   locked?: LibraryFacetKind
   onChange: (filter: LibraryFilter) => void
 }) {
+  const lite = useLite()
   const [text, setText] = useState(filter.q ?? '')
 
   useEffect(() => {
@@ -71,23 +73,28 @@ export function LibraryFilters({
           />
           只看中字
         </label>
-        <Select
-          value={filter.watched ?? 'all'}
-          onValueChange={value =>
-            onChange({ ...filter, watched: value === 'all' ? undefined : (value as 'yes' | 'no') })
-          }
-        >
-          <SelectTrigger className="w-28">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(watchedLabels).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {lite ? null : (
+          <Select
+            value={filter.watched ?? 'all'}
+            onValueChange={value =>
+              onChange({
+                ...filter,
+                watched: value === 'all' ? undefined : (value as 'yes' | 'no')
+              })
+            }
+          >
+            <SelectTrigger className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(watchedLabels).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Select
           value={filter.sort ?? 'added'}
           onValueChange={value =>

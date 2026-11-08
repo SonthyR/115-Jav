@@ -201,6 +201,8 @@ func TestRunOrganizesAReleaseIntoActorAndCodeFolders(t *testing.T) {
 	h.files.add(release, "广告.mp4", 10<<20)
 	h.files.add(release, "最新地址.url", 1)
 	h.files.dir("lib", "三上悠亚")
+	announced := 0
+	h.service.SetNotify(func() { announced++ })
 
 	if err := h.service.Run(t.Context()); err != nil {
 		t.Fatal(err)
@@ -223,8 +225,8 @@ func TestRunOrganizesAReleaseIntoActorAndCodeFolders(t *testing.T) {
 	if len(h.scanner.targets) != 1 || !strings.HasSuffix(h.scanner.targets[0], ":PRED-709") || h.woken != 1 {
 		t.Fatalf("scan = %v, woken %d", h.scanner.targets, h.woken)
 	}
-	if entries := h.log(t); len(entries) != 1 || entries[0].Status != "done" {
-		t.Fatalf("log = %+v", entries)
+	if entries := h.log(t); len(entries) != 1 || entries[0].Status != "done" || announced != 1 {
+		t.Fatalf("log = %+v, announced %d", entries, announced)
 	}
 }
 

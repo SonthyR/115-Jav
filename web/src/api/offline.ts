@@ -5,6 +5,7 @@ import { movieStateKeys } from '@/api/movie-states'
 import { refreshQueries } from '@/api/query-refresh'
 import { panKeys, type PanAccountStatus } from '@/api/pan'
 import type { LibrarySource } from '@/api/tasks'
+import { useTaskConnection } from '@/features/tasks/task-events'
 import { sameSource } from '@/lib/source'
 
 export function isOfflineTaskActive(task: OfflineSubmission) {
@@ -54,10 +55,13 @@ const activityOptions = queryOptions({
   refetchOnMount: 'always'
 })
 
+// Progress arrives with the task event stream; polling covers an outage.
 export function useOfflineActivity() {
+  const live = useTaskConnection().status === 'connected'
   return useQuery({
     ...activityOptions,
-    refetchInterval: query => (query.state.data?.tasks.some(isOfflineTaskActive) ? 5000 : false)
+    refetchInterval: query =>
+      !live && query.state.data?.tasks.some(isOfflineTaskActive) ? 5000 : false
   })
 }
 

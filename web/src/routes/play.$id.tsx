@@ -1,7 +1,8 @@
-import { createFileRoute, notFound, useNavigate, useRouter } from '@tanstack/react-router'
+import { createFileRoute, Navigate, notFound, useNavigate, useRouter } from '@tanstack/react-router'
 import { ArrowLeftIcon, PlayIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { useLite } from '@/api/auth'
 import { imageURL } from '@/api/client'
 import { useLibraryMovie } from '@/api/library'
 import { Button } from '@/components/ui/button'
@@ -20,8 +21,14 @@ export const Route = createFileRoute('/play/$id')({
   beforeLoad: ({ params }) => {
     if (!/^[1-9]\d*$/.test(params.id)) throw notFound()
   },
-  component: PlayRoute
+  component: PlayGate
 })
+
+// Lite servers do not play in the browser; the movie page stands in.
+function PlayGate() {
+  const params = Route.useParams()
+  return useLite() ? <Navigate to="/movie/$id" params={params} replace /> : <PlayRoute />
+}
 
 // Playback fills the whole window; everything else sits on the overlay.
 function PlayRoute() {
@@ -110,7 +117,9 @@ function UpNext({
   return (
     <div className="dark absolute right-4 bottom-28 z-10 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl bg-neutral-900/95 text-foreground shadow-2xl ring-1 ring-white/10 backdrop-blur">
       <div className="relative aspect-video bg-black">
-        {cover ? <img src={imageURL(cover)} alt="" className="size-full object-cover" /> : null}
+        {cover ? (
+          <img src={imageURL(cover, 720)} alt="" className="size-full object-cover" />
+        ) : null}
         <span className="absolute top-2 left-2 rounded-full bg-black/70 px-2.5 py-1 text-xs text-white">
           {left} 秒后播放下一部
         </span>

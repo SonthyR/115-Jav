@@ -27,6 +27,9 @@ type Config struct {
 	EmbyMediaPath  string
 	EmbySyncActors bool
 	TrustedProxies []string
+	// Lite leaves out web playback and the Emby server API, for libraries
+	// watched through a real Emby server.
+	Lite bool
 }
 
 func Load() (Config, error) {
@@ -59,6 +62,8 @@ func Load() (Config, error) {
 	embySyncActorsStr := strings.ToLower(strings.TrimSpace(os.Getenv("MIYABI_EMBY_SYNC_ACTORS")))
 	embySyncActors := embySyncActorsStr != "false" && embySyncActorsStr != "0"
 
+	liteStr := strings.ToLower(strings.TrimSpace(os.Getenv("MIYABI_LITE")))
+
 	var trustedProxies []string
 	if rawProxies := strings.TrimSpace(os.Getenv("MIYABI_TRUSTED_PROXIES")); rawProxies != "" {
 		for _, p := range strings.Split(rawProxies, ",") {
@@ -83,6 +88,7 @@ func Load() (Config, error) {
 		EmbyMediaPath:  embyMediaPath,
 		EmbySyncActors: embySyncActors,
 		TrustedProxies: trustedProxies,
+		Lite:           liteStr == "true" || liteStr == "1",
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err

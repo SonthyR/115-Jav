@@ -60,6 +60,9 @@ func (s *Service) LoadAliases(ctx context.Context) error {
 // export and Emby follow the new folders.
 func (s *Service) SetSync(sync func(context.Context) error) { s.sync = sync }
 
+// SetNotify sets what announces new log entries.
+func (s *Service) SetNotify(changed func()) { s.changed = changed }
+
 // actorLinks joins actor names that belong to one person: kanji forms of a
 // name, a source's Japanese and Chinese names, a folder and the actor its
 // movies credit, and merges done earlier.

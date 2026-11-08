@@ -86,6 +86,10 @@ func sqliteDSN(databasePath string) string {
 	query.Add("_pragma", "busy_timeout(5000)")
 	query.Add("_pragma", "foreign_keys(1)")
 	query.Add("_pragma", "journal_mode(WAL)")
+	// With WAL, NORMAL keeps the database consistent and only risks the last
+	// commits on power loss; a larger page cache keeps listings in memory.
+	query.Add("_pragma", "synchronous(NORMAL)")
+	query.Add("_pragma", "cache_size(-32000)")
 	// Reserve the writer before a transaction reads. Scan transactions and
 	// offline task updates must not race while upgrading a WAL read snapshot.
 	query.Set("_txlock", "immediate")

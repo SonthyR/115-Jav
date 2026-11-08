@@ -22,7 +22,7 @@ export function ContinueWatching() {
           <div className="relative aspect-video overflow-hidden rounded-xl bg-muted ring-1 ring-foreground/5">
             {movie.cover ? (
               <img
-                src={imageURL(movie.cover)}
+                src={imageURL(movie.cover, 720)}
                 alt={movie.code}
                 loading="lazy"
                 className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
