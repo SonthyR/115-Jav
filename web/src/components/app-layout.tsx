@@ -118,7 +118,7 @@ export function AppLayout({ children }: PropsWithChildren) {
             </div>
           </div>
           {tabs ? (
-            <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 pb-2 [scrollbar-width:none]">
+            <nav className="mx-auto flex max-w-6xl [scrollbar-width:none] gap-1 overflow-x-auto px-4 pb-2">
               {tabs.map(tab => (
                 <Link
                   key={tab.to}
