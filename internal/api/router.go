@@ -31,7 +31,6 @@ type Dependencies struct {
 	Emby           EmbyManager
 	Organize       OrganizeManager
 	ActorLinks     ActorLinker
-	Recommend      Recommender
 	Playback       PlaybackManager
 	Subtitles      SubtitlePlayer
 	Transcoder     TranscodeRelay
@@ -164,9 +163,6 @@ func NewRouter(deps Dependencies) *gin.Engine {
 	subscriptionsAPI.GET("/actors/:id/feed", subscriptionActorFeedHandler(deps.Monitor))
 
 	protected.GET("/discover/movies", discoverBrowseHandler(deps.Catalogue))
-	if deps.Recommend != nil {
-		protected.GET("/recommendations", noStore(), recommendationsHandler(deps.Recommend))
-	}
 	protected.POST("/discover/movie-states", noStore(), discoverMovieStatesHandler(deps.Catalogue))
 	protected.GET("/discover/viewed", noStore(), discoverViewedHandler(deps.Library))
 	protected.POST("/discover/viewed", discoverAddViewedHandler(deps.Library))
