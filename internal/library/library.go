@@ -2,6 +2,8 @@ package library
 
 import (
 	"context"
+
+	"entgo.io/ent/dialect/sql"
 	"fmt"
 	"slices"
 	"strings"
@@ -16,6 +18,7 @@ import (
 	"github.com/ppxb/miyabi/internal/ent/collectionitem"
 	"github.com/ppxb/miyabi/internal/ent/file"
 	"github.com/ppxb/miyabi/internal/ent/movie"
+	"github.com/ppxb/miyabi/internal/ent/playbackprogress"
 	"github.com/ppxb/miyabi/internal/ent/predicate"
 	"github.com/ppxb/miyabi/internal/ent/tag"
 	"github.com/ppxb/miyabi/internal/ent/task"
@@ -57,8 +60,10 @@ type Movie struct {
 	Tags         []Tag              `json:"tags"`
 	ScrapeStatus movie.ScrapeStatus `json:"scrape_status"`
 	// FileCount is how many videos of the movie, versions or parts, the library holds.
-	FileCount int       `json:"file_count"`
-	AddedAt   time.Time `json:"-"`
+	FileCount int `json:"file_count"`
+	// Played marks a movie watched to the end, here or in an Emby client.
+	Played  bool      `json:"played,omitempty"`
+	AddedAt time.Time `json:"-"`
 }
 
 type Page struct {
@@ -255,6 +260,11 @@ type MovieFilter struct {
 	Offset int
 	// Reverse flips the usual direction of the sort.
 	Reverse bool
+	// Watched is "yes" for movies watched to the end, "no" for the rest.
+	Watched string
+	// Problem keeps movies needing attention: "failed" scrapes, "nocover"
+	// movies without artwork, or "versions" with more than one video.
+	Problem string
 }
 
 // chineseMarks are the name fragments that mark Chinese subtitles, as
@@ -304,6 +314,26 @@ func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, e
 	}
 	if len(filter.ExcludeIDs) > 0 {
 		where = append(where, movie.IDNotIn(filter.ExcludeIDs...))
+	}
+	switch filter.Watched {
+	case "yes":
+		where = append(where, movie.HasProgressWith(playbackprogress.Played(true)))
+	case "no":
+		where = append(where, movie.Not(movie.HasProgressWith(playbackprogress.Played(true))))
+	}
+	switch filter.Problem {
+	case "failed":
+		where = append(where, movie.ScrapeStatusEQ(movie.ScrapeStatusFailed))
+	case "nocover":
+		where = append(where, movie.Or(movie.CoverIsNil(), movie.CoverEQ("")), movie.ScrapeStatusNEQ(movie.ScrapeStatusPending))
+	case "versions":
+		where = append(where, func(selector *sql.Selector) {
+			files := sql.Table(file.Table)
+			several := sql.Select(files.C(file.FieldMovieID)).From(files)
+			scope(several)
+			several.GroupBy(files.C(file.FieldMovieID)).Having(sql.GT(sql.Count("*"), 1))
+			selector.Where(sql.In(selector.C(movie.FieldID), several))
+		})
 	}
 	field, ascending := movie.FieldCreatedAt, false
 	switch filter.Sort {
@@ -373,6 +403,19 @@ func (s *Service) SearchMovies(ctx context.Context, filter MovieFilter) (Page, e
 			item.Tags = append(item.Tags, Tag{ID: label.ID, Provider: label.Provider, SourceID: label.SourceID, Name: label.Name})
 		}
 		result.Movies = append(result.Movies, item)
+	}
+	ids := make([]int, len(result.Movies))
+	for i, item := range result.Movies {
+		ids[i] = item.ID
+	}
+	played, err := s.database.PlaybackProgress.Query().
+		Where(playbackprogress.MovieIDIn(ids...), playbackprogress.Played(true)).
+		Select(playbackprogress.FieldMovieID).Ints(ctx)
+	if err != nil {
+		return result, fmt.Errorf("read watched movies: %w", err)
+	}
+	for i := range result.Movies {
+		result.Movies[i].Played = slices.Contains(played, result.Movies[i].ID)
 	}
 	result.HasMore = offset+len(result.Movies) < result.Total
 	return result, nil

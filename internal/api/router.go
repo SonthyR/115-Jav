@@ -111,6 +111,7 @@ func NewRouter(deps Dependencies) *gin.Engine {
 	protected.GET("/library/movies/:id/play", noStore(), playInfoHandler(deps.Playback))
 	protected.PUT("/library/movies/:id/progress", saveProgressHandler(deps.Playback))
 	protected.DELETE("/library/movies/:id/progress", clearProgressHandler(deps.Playback))
+	protected.PUT("/library/movies/:id/played", markPlayedHandler(deps.Playback))
 	protected.GET("/library/continue", noStore(), continueWatchingHandler(deps.Playback))
 	protected.GET("/library/movies/:id/subtitles/:subtitleID", noStore(), subtitleTrackHandler(deps.Subtitles))
 	protected.GET("/library/movies/:id/subtitle-search", noStore(), subtitleSearchHandler(deps.Subtitles))

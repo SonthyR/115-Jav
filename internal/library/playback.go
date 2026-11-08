@@ -90,8 +90,15 @@ func (s *Service) PlayInfo(ctx context.Context, id int) (PlayInfo, error) {
 	return info, nil
 }
 
+// playedShare is how far into a movie counts as watched, as Emby clients do.
+const playedShare = 0.9
+
 // SaveProgress keeps one position per movie, replacing the previous one.
+// Reaching the last tenth marks the movie watched instead.
 func (s *Service) SaveProgress(ctx context.Context, id int, progress Progress) error {
+	if progress.Duration > 0 && progress.Position >= playedShare*progress.Duration {
+		return s.MarkPlayed(ctx, id, true)
+	}
 	if _, err := s.detailRecord(ctx, id); err != nil {
 		return err
 	}

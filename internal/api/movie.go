@@ -116,6 +116,8 @@ type libraryPageQuery struct {
 	Tag        string `form:"tag" binding:"max=200"`
 	Year       int    `form:"year" binding:"omitempty,min=1900,max=2200"`
 	Collection int    `form:"collection" binding:"omitempty,min=1"`
+	Watched    string `form:"watched" binding:"omitempty,oneof=yes no"`
+	Problem    string `form:"problem" binding:"omitempty,oneof=failed nocover versions"`
 }
 
 func libraryMoviesHandler(library LibraryManager) gin.HandlerFunc {
@@ -127,7 +129,7 @@ func libraryMoviesHandler(library LibraryManager) gin.HandlerFunc {
 		movies, err := library.SearchMovies(c.Request.Context(), lib.MovieFilter{
 			Page: query.Page, Limit: query.Limit, Query: query.Query, Chinese: query.Chinese, Sort: query.Sort,
 			Actor: query.Actor, Maker: query.Maker, Series: query.Series, Tag: query.Tag,
-			Year: query.Year, Collection: query.Collection,
+			Year: query.Year, Collection: query.Collection, Watched: query.Watched, Problem: query.Problem,
 		})
 		respond(c, movies, err)
 	}

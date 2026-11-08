@@ -1,12 +1,15 @@
 package library
 
 import (
+	"fmt"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/ppxb/miyabi/internal/domain"
 	"github.com/ppxb/miyabi/internal/ent"
+	"github.com/ppxb/miyabi/internal/ent/movie"
 )
 
 func TestPlaybackListsPartsAndKeepsOneProgressPerMovie(t *testing.T) {
@@ -241,5 +244,60 @@ func TestPlayedMoviesLeaveContinueWatchingAndKeepTheirState(t *testing.T) {
 	page, err = lib.SearchMovies(ctx, MovieFilter{Page: 1, Limit: 10, IDs: []int{ids[2]}})
 	if err != nil || page.Total != 1 || page.Movies[0].ID != ids[2] || page.Movies[0].AddedAt.IsZero() {
 		t.Fatalf("SearchMovies(IDs) = %+v, %v", page, err)
+	}
+}
+
+func TestLibraryFiltersWatchedAndProblemMovies(t *testing.T) {
+	lib, _, payload := libraryFixture(t)
+	ctx := t.Context()
+	add := func(code string, files int, cover string, status movie.ScrapeStatus) int {
+		builder := lib.database.Movie.Create().SetCode(code).SetScrapeStatus(status)
+		if cover != "" {
+			builder.SetCover(cover)
+		}
+		film := builder.SaveX(ctx)
+		for i := range files {
+			name := fmt.Sprintf("%s-%d", code, i)
+			lib.database.File.Create().SetFileID(name).SetName(name + ".mp4").SetSize(1024).
+				SetAccountID(payload.Source.AccountID).SetRootID(payload.Source.Directory.ID).SetMovieID(film.ID).SaveX(ctx)
+		}
+		return film.ID
+	}
+	watched := add("ABP-001", 1, "/c1", movie.ScrapeStatusDone)
+	twoFiles := add("ABP-002", 2, "/c2", movie.ScrapeStatusDone)
+	failed := add("ABP-003", 1, "", movie.ScrapeStatusFailed)
+	noCover := add("ABP-004", 1, "", movie.ScrapeStatusDone)
+	if err := lib.SaveProgress(ctx, watched, Progress{FileID: "ABP-001-0", Position: 950, Duration: 1000}); err != nil {
+		t.Fatal(err)
+	}
+	ids := func(filter MovieFilter) []int {
+		filter.Limit, filter.Sort = 10, "code"
+		page, err := lib.SearchMovies(ctx, filter)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var result []int
+		for _, item := range page.Movies {
+			result = append(result, item.ID)
+			if item.Played != (item.ID == watched) {
+				t.Errorf("movie %d played = %v", item.ID, item.Played)
+			}
+		}
+		slices.Sort(result)
+		return result
+	}
+	for _, check := range []struct {
+		filter MovieFilter
+		want   []int
+	}{
+		{MovieFilter{Watched: "yes"}, []int{watched}},
+		{MovieFilter{Watched: "no"}, []int{twoFiles, failed, noCover}},
+		{MovieFilter{Problem: "failed"}, []int{failed}},
+		{MovieFilter{Problem: "nocover"}, []int{failed, noCover}},
+		{MovieFilter{Problem: "versions"}, []int{twoFiles}},
+	} {
+		if got := ids(check.filter); !slices.Equal(got, check.want) {
+			t.Errorf("%+v = %v, want %v", check.filter, got, check.want)
+		}
 	}
 }

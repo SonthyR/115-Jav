@@ -26,6 +26,23 @@ type PlaybackManager interface {
 	SaveProgress(context.Context, int, lib.Progress) error
 	ClearProgress(context.Context, int) error
 	ContinueWatching(context.Context) ([]lib.ContinueItem, error)
+	MarkPlayed(context.Context, int, bool) error
+}
+
+func markPlayedHandler(playback PlaybackManager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		uri, ok := bindURI[libraryMovieURI](c)
+		if !ok {
+			return
+		}
+		input, ok := bindJSON[struct {
+			Played bool `json:"played"`
+		}](c)
+		if !ok {
+			return
+		}
+		respond(c, nil, playback.MarkPlayed(c.Request.Context(), uri.ID, input.Played))
+	}
 }
 
 type SubtitlePlayer interface {
