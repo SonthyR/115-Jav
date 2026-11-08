@@ -19,10 +19,13 @@ import (
 )
 
 const (
-	actionCancel   = "cancel"
-	actionSwitch   = "switch"
-	actionSubmit   = "submit"
-	observationGap = 90 * time.Second
+	actionCancel = "cancel"
+	actionSwitch = "switch"
+	actionSubmit = "submit"
+	// actionDuplicate cancels a stalled download of a movie the library has.
+	actionDuplicate = "duplicate"
+	reasonInLibrary = "影片已入库，已取消卡住的下载"
+	observationGap  = 90 * time.Second
 )
 
 // Recovery thresholds are internal policy, independent of user preferences.
@@ -107,13 +110,23 @@ func (s *Service) Recover(ctx context.Context) error {
 			_, err := s.advance(ctx, record.ID, "")
 			return err
 		}
-		if state.Exhausted {
-			continue
-		}
 		failed := record.Status == offlinedownload.StatusFailed && state.RemoteStatus == -1
 		stalled := record.Status == offlinedownload.StatusRunning && state.RemoteStatus == 1 &&
 			!state.ProgressAt.IsZero() && s.now().Sub(state.ObservedAt) <= observationGap &&
 			s.now().Sub(state.ProgressAt) >= s.policy.timeout(state.Progress)
+		if state.Exhausted {
+			// Out of sources: a stuck copy of a movie already in the library
+			// would otherwise wait forever.
+			if stalled && !state.Manual {
+				if present, err := s.inLibrary(ctx, record); err != nil || present {
+					if err == nil {
+						_, err = s.advance(ctx, record.ID, actionDuplicate)
+					}
+					return err
+				}
+			}
+			continue
+		}
 		if !failed && !stalled {
 			continue
 		}

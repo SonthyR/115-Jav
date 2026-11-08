@@ -51,8 +51,11 @@ func (s *Service) advance(ctx context.Context, id int, requested string) (domain
 	if requested == actionSwitch && !cfg.AutoSwitch {
 		return s.submission(ctx, record, source)
 	}
-	if requested == actionCancel {
+	if requested == actionCancel || requested == actionDuplicate {
 		state.Action, state.NextHash = actionCancel, ""
+		if requested == actionDuplicate {
+			state.Reason = reasonInLibrary
+		}
 	} else if (requested == actionSwitch || requested == "next") && state.Action == "" {
 		next, err := s.nextCandidate(ctx, record, state)
 		if err != nil {
@@ -97,9 +100,10 @@ func (s *Service) advance(ctx context.Context, id int, requested string) (domain
 	if current.Status == offlinedownload.StatusDone || current.Status == offlinedownload.StatusCancelled {
 		return s.submission(ctx, current, source)
 	}
-	if requested == actionCancel {
+	if requested == actionCancel || requested == actionDuplicate {
+		reason := state.Reason
 		state = recovery(current, prefs)
-		state.Action, state.NextHash = actionCancel, ""
+		state.Action, state.NextHash, state.Reason = actionCancel, "", reason
 	} else if record.Recovery != nil && record.Recovery.Action == actionSubmit && current.Recovery != nil && current.Recovery.Action == "" {
 		return s.submission(ctx, current, source)
 	}
@@ -164,15 +168,20 @@ func (s *Service) removeCurrent(ctx context.Context, sess drive.Session, record 
 				return tx.OfflineDownload.UpdateOneID(record.ID).SetRecovery(state).SetProgress(remote.Progress).ClearError().Exec(ctx)
 			})
 		}
-		present, err := s.database.Movie.Query().Where(movie.JavdbIDEQ(record.JavdbID), movie.HasFilesWith(
-			file.AccountIDEQ(record.AccountID), file.RootIDEQ(record.DirectoryID))).Exist(ctx)
+		present, err := s.inLibrary(ctx, record)
 		if err != nil {
 			return err
 		}
-		if present {
+		switch {
+		case present && state.Manual:
 			state.Action, state.NextHash, state.Reason, state.Exhausted = "", "", "影片已入库，停止换源", true
 			return sess.Commit(ctx, func(tx *ent.Tx) error { return tx.OfflineDownload.UpdateOneID(record.ID).SetRecovery(state).Exec(ctx) })
+		case present:
+			// Another source would only fetch a second copy; drop the stuck one.
+			state.Action, state.NextHash, state.Reason = actionCancel, "", reasonInLibrary
 		}
+	}
+	if state.Action == actionSwitch && !state.RemovalStarted {
 		occupied, err := s.database.OfflineDownload.Query().Where(offlinedownload.AccountIDEQ(record.AccountID),
 			candidateHash(state.NextHash), offlinedownload.StatusEQ(offlinedownload.StatusRunning), offlinedownload.IDNEQ(record.ID)).Exist(ctx)
 		if err != nil {
@@ -194,7 +203,10 @@ func (s *Service) removeCurrent(ctx context.Context, sess drive.Session, record 
 	return sess.Commit(ctx, func(tx *ent.Tx) error {
 		update := tx.OfflineDownload.UpdateOneID(record.ID).ClearError()
 		if state.Action == actionCancel {
-			state.Action, state.NextHash, state.Reason = "", "", "已取消下载"
+			if state.Reason != reasonInLibrary {
+				state.Reason = "已取消下载"
+			}
+			state.Action, state.NextHash = "", ""
 			state.RetryAt = time.Time{}
 			return update.SetStatus(offlinedownload.StatusCancelled).SetRecovery(state).Exec(ctx)
 		}
@@ -209,6 +221,12 @@ func (s *Service) removeCurrent(ctx context.Context, sess drive.Session, record 
 		return update.SetStatus(offlinedownload.StatusRunning).SetInfoHash(next).SetProgress(0).
 			SetFileID("").SetFileIds(nil).SetAwaitingLocation(false).SetRecovery(state).Exec(ctx)
 	})
+}
+
+// inLibrary reports whether the library already has the movie a download is for.
+func (s *Service) inLibrary(ctx context.Context, record *ent.OfflineDownload) (bool, error) {
+	return s.database.Movie.Query().Where(movie.JavdbIDEQ(record.JavdbID), movie.HasFilesWith(
+		file.AccountIDEQ(record.AccountID), file.RootIDEQ(record.DirectoryID))).Exist(ctx)
 }
 
 func (s *Service) resumeSubmission(ctx context.Context, sess drive.Session, record *ent.OfflineDownload, state *download.Recovery) error {

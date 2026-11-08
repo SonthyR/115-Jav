@@ -3,11 +3,17 @@ import {
   ArrowDownToLineIcon,
   CircleAlertIcon,
   CircleCheckIcon,
-  LoaderCircleIcon
+  LoaderCircleIcon,
+  XIcon
 } from 'lucide-react'
 import { useContext } from 'react'
 
-import { isOfflineTaskActive, type OfflineSubmission, useOfflineActivity } from '@/api/offline'
+import {
+  isOfflineTaskActive,
+  type OfflineSubmission,
+  useOfflineActivity,
+  useOfflineControl
+} from '@/api/offline'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Progress } from '@/components/ui/progress'
@@ -70,6 +76,7 @@ export function DownloadIndicator() {
 
 function DownloadRow({ task }: { task: OfflineSubmission }) {
   const openMovie = useContext(MovieDetailDialogContext)
+  const cancel = useOfflineControl('cancel')
   const active = isOfflineTaskActive(task)
   const body = (
     <>
@@ -86,9 +93,10 @@ function DownloadRow({ task }: { task: OfflineSubmission }) {
       ) : null}
     </>
   )
-  const rowClass = 'block w-full px-4 py-3 text-left text-sm transition-colors hover:bg-muted/60'
+  const rowClass =
+    'block min-w-0 flex-1 px-4 py-3 text-left text-sm transition-colors hover:bg-muted/60'
   return (
-    <li>
+    <li className="flex items-stretch">
       {task.library_id ? (
         <Link to="/movie/$id" params={{ id: String(task.library_id) }} className={rowClass}>
           {body}
@@ -106,6 +114,20 @@ function DownloadRow({ task }: { task: OfflineSubmission }) {
           {body}
         </div>
       )}
+      {active && task.can_cancel ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="my-auto mr-2 shrink-0 rounded-full"
+          title="取消下载"
+          disabled={cancel.isPending}
+          onClick={() => {
+            if (window.confirm(`取消 ${task.code} 的离线下载？`)) cancel.mutate(task.task_id)
+          }}
+        >
+          <XIcon />
+        </Button>
+      ) : null}
     </li>
   )
 }

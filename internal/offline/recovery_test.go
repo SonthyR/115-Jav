@@ -408,7 +408,7 @@ func TestRecoveryUsesRemoteHashToExcludeDuplicateCandidates(t *testing.T) {
 	}
 }
 
-func TestRecoveryStopsSwitchingWhenMovieWasIndexed(t *testing.T) {
+func TestRecoveryCancelsAStalledCopyOfAnIndexedMovie(t *testing.T) {
 	r := newRecoveryRig(t)
 	record := r.add(offlineHashA)
 	film := r.s.database.Movie.Create().SetCode(record.Code).SetJavdbID(record.JavdbID).SaveX(t.Context())
@@ -416,8 +416,28 @@ func TestRecoveryStopsSwitchingWhenMovieWasIndexed(t *testing.T) {
 		SetAccountID(record.AccountID).SetRootID(record.DirectoryID).SetMovie(film).SaveX(t.Context())
 	r.poll(30 * time.Second)
 	r.poll(30 * time.Second)
-	if got := r.s.database.OfflineDownload.GetX(t.Context(), record.ID); !got.Recovery.Exhausted || len(r.events) != 1 {
-		t.Fatalf("indexed movie triggered replacement: %+v", got)
+	got := r.s.database.OfflineDownload.GetX(t.Context(), record.ID)
+	if got.Status != offlinedownload.StatusCancelled || got.Recovery.Reason != reasonInLibrary ||
+		!slices.Equal(r.events, []string{"add:" + offlineHashA, "remove:" + offlineHashA}) {
+		t.Fatalf("stalled copy of an indexed movie: %+v, events %v", got, r.events)
+	}
+}
+
+// Downloads stopped by the earlier rule, which kept them waiting, are
+// cancelled once they stall.
+func TestRecoveryCancelsAnExhaustedCopyOfAnIndexedMovie(t *testing.T) {
+	r := newRecoveryRig(t)
+	record := r.add(offlineHashA)
+	state := *r.s.database.OfflineDownload.GetX(t.Context(), record.ID).Recovery
+	state.Exhausted, state.Reason = true, "影片已入库，停止换源"
+	r.s.database.OfflineDownload.UpdateOneID(record.ID).SetRecovery(&state).ExecX(t.Context())
+	film := r.s.database.Movie.Create().SetCode(record.Code).SetJavdbID(record.JavdbID).SaveX(t.Context())
+	r.s.database.File.Create().SetFileID("existing-video").SetName("existing.mp4").SetSize(1).
+		SetAccountID(record.AccountID).SetRootID(record.DirectoryID).SetMovie(film).SaveX(t.Context())
+	r.poll(30 * time.Second)
+	r.poll(30 * time.Second)
+	if got := r.s.database.OfflineDownload.GetX(t.Context(), record.ID); got.Status != offlinedownload.StatusCancelled {
+		t.Fatalf("exhausted copy kept waiting: %+v, events %v", got, r.events)
 	}
 }
 
