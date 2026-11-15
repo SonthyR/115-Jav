@@ -26,11 +26,16 @@ export function DiscoverPage() {
     })
   const setView = (view: DiscoverView) =>
     void navigate({
-      search: previous => ({ ...previous, view: view === 'released' ? undefined : view })
+      search: previous => ({ ...previous, view: view === 'released' ? undefined : view }),
+      replace: true,
+      resetScroll: false
     })
 
   return (
-    <AppPage>
+    <AppPage
+      className="pb-[calc(86px+env(safe-area-inset-bottom))] md:pb-20"
+      contentClassName="gap-7"
+    >
       <PageHeader
         title="发现"
         description="浏览最新发行、即将发行和分类内容，或搜索 JavDB 的所有影片"
@@ -59,10 +64,28 @@ export function DiscoverPage() {
       ) : (
         <div className="min-w-0 space-y-6">
           <Tabs value={view} onValueChange={value => setView(value as DiscoverView)}>
-            <TabsList variant="line">
-              <TabsTrigger value="released">最新发行</TabsTrigger>
-              <TabsTrigger value="upcoming">即将发行</TabsTrigger>
-              <TabsTrigger value="category">分类浏览</TabsTrigger>
+            <TabsList
+              variant="line"
+              className="h-auto w-full [scrollbar-width:none] justify-start gap-6 overflow-x-auto border-b border-border pb-0 sm:gap-8"
+            >
+              <TabsTrigger
+                value="released"
+                className="h-11 flex-none px-0 text-[12px] tracking-[0.04em] after:bottom-0"
+              >
+                最新发行
+              </TabsTrigger>
+              <TabsTrigger
+                value="upcoming"
+                className="h-11 flex-none px-0 text-[12px] tracking-[0.04em] after:bottom-0"
+              >
+                即将发行
+              </TabsTrigger>
+              <TabsTrigger
+                value="category"
+                className="h-11 flex-none px-0 text-[12px] tracking-[0.04em] after:bottom-0"
+              >
+                分类浏览
+              </TabsTrigger>
             </TabsList>
           </Tabs>
 
@@ -88,6 +111,7 @@ export function DiscoverPage() {
                 order: 'desc',
                 ...(view === 'released' ? { main: ['m'], sort: 'update' } : { sort: 'release' })
               }}
+              featured={view === 'released' && page === 1}
               onPageChange={next => setPage(view, next)}
             />
           )}

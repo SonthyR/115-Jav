@@ -44,15 +44,15 @@ export function Row({
   }
 
   return (
-    <section className="group/row space-y-5">
+    <section className="group/row space-y-3.5">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="truncate text-lg font-medium tracking-wide">{title}</h2>
-        <div className="flex shrink-0 items-center gap-5">
+        <h2 className="truncate text-[15px] font-semibold tracking-[0.05em]">{title}</h2>
+        <div className="flex shrink-0 items-center gap-4">
           {action}
           {link ? (
             <Link
               {...link}
-              className="text-[13px] tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+              className="text-xs tracking-[0.03em] text-muted-foreground transition-colors hover:text-gold"
             >
               查看全部
             </Link>
@@ -63,7 +63,7 @@ export function Row({
         <div
           ref={scroller}
           onScroll={measure}
-          className="-mx-4 flex snap-x scroll-px-4 [scrollbar-width:none] gap-3 overflow-x-auto px-4 pb-2 sm:gap-5"
+          className="-mx-5 flex snap-x scroll-px-5 [scrollbar-width:none] gap-3.5 overflow-x-auto px-5 pb-1 md:-mx-12 md:scroll-px-12 md:px-12 [&::-webkit-scrollbar]:hidden"
         >
           {children}
         </div>
@@ -92,15 +92,15 @@ function PageButton({
       tabIndex={-1}
       onClick={onClick}
       className={cn(
-        'absolute top-0 bottom-2 z-10 hidden w-16 items-center opacity-0 transition-opacity group-hover/row:opacity-100 [@media(hover:hover)]:flex',
+        'absolute top-0 bottom-1 z-10 hidden w-16 items-center opacity-0 transition-opacity duration-200 group-hover/row:opacity-100 motion-reduce:transition-none [@media(hover:hover)]:flex',
         side === 'left'
-          ? '-left-4 justify-start bg-linear-to-r from-background to-transparent pl-2'
-          : '-right-4 justify-end bg-linear-to-l from-background to-transparent pr-2',
+          ? '-left-5 justify-start bg-linear-to-r from-background via-background/90 to-transparent pl-1 md:-left-12'
+          : '-right-5 justify-end bg-linear-to-l from-background via-background/90 to-transparent pr-1 md:-right-12',
         hidden && 'pointer-events-none group-hover/row:opacity-0'
       )}
     >
-      <span className="flex size-10 items-center justify-center rounded-full border border-foreground/20 bg-background/70 backdrop-blur transition-colors hover:border-foreground/50">
-        <Icon className="size-5" strokeWidth={1.5} />
+      <span className="flex size-10 items-center justify-center rounded-full border border-border bg-background/85 text-foreground backdrop-blur-md transition-colors hover:border-foreground/40">
+        <Icon className="size-[18px]" strokeWidth={1.5} />
       </span>
     </button>
   )

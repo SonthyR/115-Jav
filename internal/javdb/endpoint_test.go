@@ -22,11 +22,13 @@ type fixtureTransport struct {
 	calls     []fixtureCall
 }
 
-func (transport *fixtureTransport) getJSON(
+func (transport *fixtureTransport) request(
 	_ context.Context,
+	_ string,
 	path string,
 	params url.Values,
 	destination any,
+	_ string,
 ) error {
 	transport.calls = append(transport.calls, fixtureCall{path: path, params: params})
 	body, ok := transport.responses[path]
@@ -462,11 +464,13 @@ type queryFixtureTransport struct {
 	calls     []fixtureCall
 }
 
-func (transport *queryFixtureTransport) getJSON(
+func (transport *queryFixtureTransport) request(
 	_ context.Context,
+	_ string,
 	path string,
 	params url.Values,
 	destination any,
+	_ string,
 ) error {
 	transport.calls = append(transport.calls, fixtureCall{path: path, params: params})
 	q := params.Get("q")

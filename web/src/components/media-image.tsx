@@ -1,4 +1,4 @@
-import { ImageIcon } from 'lucide-react'
+import { EyeOffIcon, ImageOffIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { imageURL } from '@/api/client'
@@ -14,6 +14,7 @@ type MediaImageProps = {
   blurredBackground?: boolean
   onReady?: () => void
   onImageLoad?: (image: HTMLImageElement) => void
+  alt?: string
   className?: string
 }
 
@@ -36,11 +37,13 @@ function MediaImageContent({
   blurredBackground = false,
   onReady,
   onImageLoad,
+  alt = '',
   concealed,
   className
 }: MediaImageProps & { concealed: boolean }) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
-  const showImage = !concealed && source.length > 0 && status !== 'error'
+  const hasSource = source.length > 0
+  const showImage = !concealed && hasSource && status !== 'error'
   const ready = !showImage || status === 'ready'
 
   useEffect(() => {
@@ -52,17 +55,28 @@ function MediaImageContent({
     srcSet: original ? `${imageURL(source, width)} 1x, ${imageURL(original)} 2x` : undefined,
     loading,
     decoding: 'async',
-    referrerPolicy: 'no-referrer'
+    referrerPolicy: 'no-referrer',
+    alt
   } as const
 
   return (
     <div className="relative size-full overflow-hidden bg-muted">
-      <ImagePlaceholder />
+      {concealed ? (
+        <CoverState icon={EyeOffIcon} label="封面已隐藏" />
+      ) : !hasSource ? (
+        <CoverState icon={ImageOffIcon} label="暂无封面" />
+      ) : status === 'error' ? (
+        <CoverState icon={ImageOffIcon} label="封面加载失败" />
+      ) : status === 'loading' ? (
+        <div className="absolute inset-0 animate-pulse bg-muted" aria-hidden="true" />
+      ) : null}
       {showImage ? (
         <div className={cn('absolute inset-0', !ready && 'opacity-0')}>
           {blurredBackground ? (
             <img
               {...imageProps}
+              alt=""
+              aria-hidden="true"
               className="pointer-events-none absolute inset-0 size-full scale-125 object-cover blur-xl brightness-75"
             />
           ) : null}
@@ -87,10 +101,11 @@ function MediaImageContent({
   )
 }
 
-function ImagePlaceholder() {
+function CoverState({ icon: Icon, label }: { icon: typeof EyeOffIcon; label: string }) {
   return (
-    <div className="flex size-full items-center justify-center bg-muted text-muted-foreground">
-      <ImageIcon className="size-6" />
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 overflow-hidden bg-muted px-1 text-muted-foreground">
+      <Icon className="size-6 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+      <span className="max-w-full truncate text-[11px] leading-none">{label}</span>
     </div>
   )
 }

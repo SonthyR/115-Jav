@@ -11,13 +11,13 @@ const badgeVariants = cva(
         default: 'bg-primary text-primary-foreground [a]:hover:bg-primary/80',
         secondary: 'bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80',
         success:
-          'bg-success text-success-foreground focus-visible:ring-success/20 dark:focus-visible:ring-success/40 [a]:hover:bg-success/80',
+          'border-success/30 bg-success/10 text-emerald-700 focus-visible:ring-success/20 dark:text-emerald-300 dark:focus-visible:ring-success/40 [a]:hover:bg-success/20',
         destructive:
           'bg-destructive text-destructive-foreground focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/80',
         library:
-          'bg-library text-library-foreground focus-visible:ring-library-accent/20 [a]:hover:bg-library-accent/80',
+          'border-library/30 bg-library/10 text-violet-700 focus-visible:ring-library-accent/20 dark:text-violet-300 [a]:hover:bg-library/20',
         downloading:
-          'bg-downloading text-downloading-foreground focus-visible:ring-downloading/40 [a]:hover:bg-downloading/80',
+          'border-downloading/30 bg-downloading/10 text-cyan-700 focus-visible:ring-downloading/40 dark:text-cyan-300 [a]:hover:bg-downloading/20',
         frosted:
           'border-border/80 bg-background/85 text-foreground backdrop-blur [a]:hover:bg-muted [a]:hover:text-muted-foreground',
         outline:

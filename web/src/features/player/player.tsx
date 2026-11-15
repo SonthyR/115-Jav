@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import Hls from 'hls.js'
-import { LoaderCircleIcon, PlayIcon, RotateCcwIcon } from 'lucide-react'
+import { LoaderCircleIcon, PlayIcon, RotateCcwIcon, TriangleAlertIcon } from 'lucide-react'
 import { cn } from 'cn'
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -25,7 +25,7 @@ import { usePlayerVolume } from '@/stores/player-volume'
 import { useSubtitleStyle } from '@/stores/subtitle-style'
 import { ControlBar, togglePlay, useVideoState, type VideoApi } from './controls'
 import { PlayerSurface } from './gestures'
-import { PlayerToolbar, type PlayerTrack } from './toolbar'
+import { PlayerMoreMenu, PlayerToolbar, type PlayerTrack } from './toolbar'
 
 // Progress is saved this often while playing, and on pause and exit.
 const saveInterval = 10_000
@@ -44,6 +44,7 @@ type PlayerOptions = {
   // Ignore the saved position and start from the beginning.
   restart?: boolean
   topLeft?: ReactNode
+  onBack?: () => void
   // Runs when the last video ends, as when a collection plays in order.
   onFinished?: () => void
   // Skips to the next movie of a collection playing in order.
@@ -56,10 +57,13 @@ export function MoviePlayer({ movieId, ...options }: { movieId: number } & Playe
     return (
       <div
         className={cn(
-          'flex items-center justify-center bg-black',
+          'dark relative flex items-center justify-center bg-[#08080a] text-foreground',
           options.variant === 'page' ? 'h-dvh' : 'aspect-video rounded-lg'
         )}
       >
+        {options.variant === 'page' && options.topLeft ? (
+          <div className="absolute top-4 left-4 z-10">{options.topLeft}</div>
+        ) : null}
         <LoaderCircleIcon className="size-8 animate-spin text-white/70" />
       </div>
     )
@@ -79,9 +83,13 @@ export function MoviePlayer({ movieId, ...options }: { movieId: number } & Playe
     )
     if (options.variant !== 'page') return state
     return (
-      <div className="dark relative flex h-dvh items-center justify-center bg-black p-4 text-foreground">
-        <div className="absolute top-3 left-3">{options.topLeft}</div>
-        {state}
+      <div className="dark relative flex h-dvh flex-col bg-[#08080a] text-foreground">
+        <div className="absolute top-4 left-4 z-20">{options.topLeft}</div>
+        <div className="flex flex-1 items-center justify-center px-5 pt-20 pb-8">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.035] px-6 py-8">
+            {state}
+          </div>
+        </div>
       </div>
     )
   }
@@ -98,6 +106,7 @@ function Player({
   startFile,
   restart = false,
   topLeft,
+  onBack,
   onFinished,
   onNext
 }: { movieId: number; info: PlayInfo } & PlayerOptions) {
@@ -424,7 +433,7 @@ function Player({
   }
 
   const page = variant === 'page'
-  const shown = !idle || state.paused
+  const shown = !idle || state.paused || failure !== undefined
   const resumeAt =
     info.progress?.file_id === file.file_id && info.progress.position > resumeMargin
       ? info.progress.position
@@ -436,7 +445,7 @@ function Player({
         setContainer(element)
       }}
       className={cn(
-        'group/player relative overflow-hidden bg-black',
+        'dark group/player relative overflow-hidden bg-black',
         page ? 'h-dvh w-full' : 'aspect-video rounded-lg',
         !shown && 'cursor-none'
       )}
@@ -551,18 +560,25 @@ function Player({
       <div
         data-controls
         className={cn(
-          'absolute inset-x-0 top-0 flex items-center gap-2 bg-linear-to-b from-black/75 to-transparent p-2 pb-10 text-white transition-opacity duration-300 sm:p-3 sm:pb-12',
+          'absolute inset-x-0 top-0 z-30 flex items-center gap-2 bg-linear-to-b from-black/75 via-black/30 to-transparent p-3 pb-12 text-white transition-opacity duration-300 sm:gap-3 sm:p-4 sm:pb-14',
           !shown && 'pointer-events-none opacity-0'
         )}
       >
         {topLeft}
-        {title ? <PlayerTitle title={title} /> : null}
+        {title ? <PlayerTitle title={title} /> : <div className="min-w-0 flex-1" />}
+        <PlayerMoreMenu
+          container={container}
+          fullscreen={fullscreen}
+          pictureInPicture={typeof document !== 'undefined' && document.pictureInPictureEnabled}
+          onPictureInPicture={api.togglePictureInPicture}
+          onFullscreen={toggleFullscreen}
+        />
       </div>
 
       <div
         data-controls
         className={cn(
-          'absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 via-black/40 to-transparent pt-12 transition-opacity duration-300',
+          'absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-black/80 via-black/40 to-transparent pt-12 transition-opacity duration-300',
           !shown && 'pointer-events-none opacity-0'
         )}
       >
@@ -600,12 +616,37 @@ function Player({
       </div>
 
       {failure ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/80 p-6 text-center text-sm text-white">
-          <p>{failure}</p>
-          <Button variant="secondary" size="sm" className="rounded-full" onClick={retry}>
-            <RotateCcwIcon data-icon="inline-start" />
-            重试
-          </Button>
+        <div className="absolute inset-x-0 top-[6.25rem] bottom-0 z-10 flex items-start justify-center overflow-y-auto bg-black/55 px-4 pt-4 pb-24 backdrop-blur-sm sm:top-[7.25rem] sm:items-center sm:pb-8">
+          <div
+            role="alert"
+            className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0d0d11]/95 p-6 text-center text-white shadow-[0_24px_70px_rgba(0,0,0,0.55)]"
+          >
+            <TriangleAlertIcon className="mx-auto mb-4 size-6 text-gold" strokeWidth={1.5} />
+            <p className="mb-2 font-mono text-[10px] tracking-[0.16em] text-white/45 uppercase">
+              playback interrupted
+            </p>
+            <p className="mx-auto max-w-sm text-sm leading-6 text-white/75">{failure}</p>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-8 bg-white px-4 text-black hover:bg-white/90"
+                onClick={retry}
+              >
+                <RotateCcwIcon data-icon="inline-start" />
+                重试
+              </Button>
+              {onBack ? (
+                <button
+                  type="button"
+                  className="inline-flex h-8 items-center justify-center rounded-full border border-white/25 bg-white/5 px-4 text-xs font-medium text-white transition-colors hover:border-white/40 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:outline-none"
+                  onClick={onBack}
+                >
+                  返回
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
       ) : null}
     </div>
@@ -635,13 +676,13 @@ export function formatTime(seconds: number) {
 // Long titles keep the code and are cut short rather than covering the picture.
 function PlayerTitle({ title }: { title: string }) {
   const [code, ...rest] = title.split(' ')
+  const heading = rest.join(' ') || code
   return (
-    <p
-      className="min-w-0 flex-1 truncate text-sm sm:max-w-[60%] sm:flex-none sm:text-base"
-      title={title}
-    >
-      <span className="font-semibold">{code}</span>
-      {rest.length ? <span className="text-white/80"> {rest.join(' ')}</span> : null}
-    </p>
+    <div className="min-w-0 flex-1" title={title}>
+      <p className="truncate text-sm leading-5 font-medium text-white sm:text-sm">{heading}</p>
+      <p className="mt-0.5 truncate font-mono text-[10px] tracking-[0.08em] text-white/45">
+        {code}
+      </p>
+    </div>
   )
 }

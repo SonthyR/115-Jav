@@ -26,6 +26,10 @@ type Config struct {
 	EmbyAPIKey     string
 	EmbyMediaPath  string
 	EmbySyncActors bool
+	// JavDBUsername and JavDBPassword seed the JavDB login; the settings page
+	// can override them at runtime.
+	JavDBUsername  string
+	JavDBPassword  string
 	TrustedProxies []string
 	// Lite leaves out web playback and the Emby server API, for libraries
 	// watched through a real Emby server.
@@ -87,6 +91,8 @@ func Load() (Config, error) {
 		EmbyAPIKey:     embyAPIKey,
 		EmbyMediaPath:  embyMediaPath,
 		EmbySyncActors: embySyncActors,
+		JavDBUsername:  strings.TrimSpace(os.Getenv("MIYABI_JAVDB_USERNAME")),
+		JavDBPassword:  os.Getenv("MIYABI_JAVDB_PASSWORD"),
 		TrustedProxies: trustedProxies,
 		Lite:           liteStr == "true" || liteStr == "1",
 	}
@@ -109,6 +115,9 @@ func (cfg *Config) validate() error {
 	}
 	if cfg.DataDir == "" {
 		return errors.New("MIYABI_DATA_DIR must not be empty")
+	}
+	if (cfg.JavDBUsername == "") != (cfg.JavDBPassword == "") {
+		return errors.New("MIYABI_JAVDB_USERNAME and MIYABI_JAVDB_PASSWORD must be set together")
 	}
 	return nil
 }

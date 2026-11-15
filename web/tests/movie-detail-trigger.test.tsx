@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ComponentProps, KeyboardEvent, MouseEvent } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { test, vi } from 'vitest'
 
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { MovieDetailTrigger } from '@/features/movie-detail/detail-trigger'
 import { MovieDetailDialogContext } from '@/features/movie-detail/dialog-context'
 import { LibraryMovieCard } from '@/features/library/movie-card'
@@ -19,10 +21,15 @@ function renderTrigger(overrides: Partial<ComponentProps<typeof MovieDetailTrigg
     props = element.props
     return element
   }
+  const queryClient = new QueryClient()
   const html = renderToStaticMarkup(
-    <MovieDetailDialogContext value={openMovie}>
-      <CaptureTrigger />
-    </MovieDetailDialogContext>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <MovieDetailDialogContext value={openMovie}>
+          <CaptureTrigger />
+        </MovieDetailDialogContext>
+      </TooltipProvider>
+    </QueryClientProvider>
   )
   return { openMovie, props, html }
 }
@@ -129,7 +136,8 @@ test('library cards always use an explicit local detail target', () => {
         tags: [],
         scrape_status: 'done',
         file_count: 1
-      }
+      },
+      lite: true
     })
     const trigger = card.props.children[0]
     assert.equal(trigger.type, MovieDetailTrigger)

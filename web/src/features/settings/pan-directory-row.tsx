@@ -30,6 +30,9 @@ export function PanDirectoryRow({
                   type="button"
                   variant="outline"
                   size="icon"
+                  aria-label={action}
+                  title={action}
+                  className="size-10 sm:size-9"
                   disabled={disabled || clear.isPending}
                 >
                   <FolderOpenIcon className="size-4" />
@@ -45,6 +48,9 @@ export function PanDirectoryRow({
                   type="button"
                   variant="outline"
                   size="icon"
+                  aria-label="取消挂载"
+                  title="取消挂载"
+                  className="size-10 sm:size-9"
                   disabled={disabled || clear.isPending}
                   onClick={() => clear.mutate()}
                 >

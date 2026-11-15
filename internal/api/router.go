@@ -34,6 +34,7 @@ type Dependencies struct {
 	Emby           EmbyManager
 	Organize       OrganizeManager
 	ActorLinks     ActorLinker
+	JavDB          JavDBAccountManager
 	Playback       PlaybackManager
 	Subtitles      SubtitlePlayer
 	Transcoder     TranscodeRelay
@@ -105,6 +106,8 @@ func NewRouter(deps Dependencies) *gin.Engine {
 	settingsAPI.PUT("/organize", organizeUpdateHandler(deps.Organize))
 	settingsAPI.GET("/subscription", subscriptionSettingsGetHandler(deps.Monitor))
 	settingsAPI.PUT("/subscription", subscriptionSettingsUpdateHandler(deps.Monitor))
+	settingsAPI.GET("/javdb", javdbAccountHandler(deps.JavDB))
+	settingsAPI.POST("/javdb", javdbAccountUpdateHandler(deps.JavDB))
 
 	protected.GET("/library/movies", libraryMoviesHandler(deps.Library))
 	protected.GET("/library/movies/:id", libraryMovieHandler(deps.Library))

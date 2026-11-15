@@ -4,6 +4,7 @@ import { type PropsWithChildren, useEffect, useState } from 'react'
 
 import { useLite } from '@/api/auth'
 import { isTaskActive, useTasks } from '@/api/tasks'
+import { ManageRail } from '@/components/manage-rail'
 import { Toaster } from '@/components/ui/sonner'
 import { DownloadIndicator } from '@/features/downloads/download-indicator'
 import { TaskEventsProvider } from '@/features/tasks/task-events'
@@ -26,7 +27,7 @@ type Section = {
 // Four places cover everything: watching, the library, finding new films and
 // the household chores (downloads, sorting, settings).
 const SECTIONS: Section[] = [
-  { label: '首页', icon: HomeIcon, to: '/', paths: ['/'] },
+  { label: '观看', icon: HomeIcon, to: '/', paths: ['/'] },
   {
     label: '片库',
     icon: LayoutGridIcon,
@@ -39,7 +40,7 @@ const SECTIONS: Section[] = [
     ]
   },
   {
-    label: '找片',
+    label: '发现',
     icon: CompassIcon,
     to: '/discover',
     paths: ['/discover', '/search', '/subscriptions'],
@@ -49,7 +50,7 @@ const SECTIONS: Section[] = [
     ]
   },
   {
-    label: '我的',
+    label: '管理',
     icon: UserRoundIcon,
     to: '/me',
     paths: ['/me', '/organize', '/library', '/settings'],
@@ -87,6 +88,7 @@ export function AppLayout({ children }: PropsWithChildren) {
   const scrolled = useScrolled()
   // Tabs show on the section's own pages, not on a profile or detail below them.
   const tabs = current?.tabs?.some(tab => tab.to === pathname) ? current.tabs : undefined
+  const management = current?.to === '/me'
   // The home hero and movie covers run up under the bar.
   const clear = (pathname === '/' || pathname.startsWith('/movie/')) && !scrolled
 
@@ -99,7 +101,7 @@ export function AppLayout({ children }: PropsWithChildren) {
             clear ? 'border-transparent' : 'border-border bg-background/85 backdrop-blur-xl'
           )}
         >
-          <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 md:grid md:grid-cols-[1fr_auto_1fr]">
+          <div className="mx-auto flex h-[60px] max-w-6xl items-center gap-3 px-4 md:grid md:grid-cols-[1fr_auto_1fr]">
             <Link
               to={sections[0]!.to}
               className="shrink-0 text-[15px] font-semibold tracking-[0.14em]"
@@ -132,7 +134,12 @@ export function AppLayout({ children }: PropsWithChildren) {
             </div>
           </div>
           {tabs ? (
-            <nav className="mx-auto flex max-w-6xl [scrollbar-width:none] gap-7 overflow-x-auto px-4">
+            <nav
+              className={cn(
+                'mx-auto flex max-w-6xl [scrollbar-width:none] gap-7 overflow-x-auto px-4',
+                management && 'md:hidden'
+              )}
+            >
               {tabs.map(tab => (
                 <Link
                   key={tab.to}
@@ -149,18 +156,29 @@ export function AppLayout({ children }: PropsWithChildren) {
             </nav>
           ) : null}
         </header>
-        {children}
+        {management ? (
+          <div className="mx-auto grid w-full max-w-6xl md:grid-cols-[188px_minmax(0,1fr)]">
+            <ManageRail />
+            <div className="min-w-0">{children}</div>
+          </div>
+        ) : (
+          children
+        )}
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
           <ul className="flex">
             {sections.map(section => (
               <li key={section.to} className="flex-1">
                 <Link
                   to={section.to}
+                  aria-current={section === current ? 'page' : undefined}
                   className={cn(
-                    'relative flex h-16 flex-col items-center justify-center gap-1.5 text-[11px] tracking-wider text-muted-foreground',
+                    'relative flex h-16 flex-col items-center justify-center gap-1.5 text-xs tracking-wider text-muted-foreground',
                     section === current && 'text-foreground'
                   )}
                 >
+                  {section === current ? (
+                    <span className="absolute inset-x-3 top-0 h-0.5 bg-gold" aria-hidden="true" />
+                  ) : null}
                   <section.icon className="size-[22px]" strokeWidth={1.5} />
                   {section.label}
                   {section.to === '/me' && busy ? (

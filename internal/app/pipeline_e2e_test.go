@@ -289,6 +289,10 @@ func (catalogue *fakeCatalogue) ResolveMovieID(_ context.Context, code string) (
 
 func (catalogue *fakeCatalogue) Route() (javdb.RouteStatus, bool) { return javdb.RouteStatus{}, false }
 
+func (catalogue *fakeCatalogue) Login(context.Context, string, string) error { return nil }
+func (catalogue *fakeCatalogue) LoggedIn() bool                              { return false }
+func (catalogue *fakeCatalogue) Username() string                            { return "" }
+
 func fixtureJPEG(t testing.TB, width, height int) []byte {
 	t.Helper()
 	var body bytes.Buffer

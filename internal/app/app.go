@@ -23,6 +23,7 @@ import (
 	"github.com/ppxb/miyabi/internal/gfriends"
 	mediaimage "github.com/ppxb/miyabi/internal/image"
 	"github.com/ppxb/miyabi/internal/javbus"
+	"github.com/ppxb/miyabi/internal/javdb"
 	"github.com/ppxb/miyabi/internal/library"
 	"github.com/ppxb/miyabi/internal/library/scrape"
 	"github.com/ppxb/miyabi/internal/maintenance"
@@ -105,7 +106,9 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 		_ = store.Close()
 		return nil, err
 	}
-	catalogueSvc, err := catalogue.New(ctx, store.Client, networkSvc.ProxyManager(), libSvc, javbusClient)
+	catalogueSvc, err := catalogue.New(ctx, store.Client, networkSvc.ProxyManager(), libSvc, javbusClient, javdb.Credentials{
+		Username: cfg.JavDBUsername, Password: cfg.JavDBPassword,
+	})
 	if err != nil {
 		javbusClient.Close()
 		driveSvc.Close()
@@ -233,6 +236,7 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 		Emby:           embySvc,
 		Organize:       organizer,
 		ActorLinks:     actorLinker,
+		JavDB:          catalogueSvc,
 		Playback:       libSvc,
 		Collections:    libSvc,
 		Subtitles:      subtitlePlayer,

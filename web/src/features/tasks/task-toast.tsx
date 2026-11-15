@@ -94,7 +94,7 @@ export function notifyScanTask(task: ScanTask, options: TaskToastOptions = {}) {
       ...props,
       description:
         task.scan.metadata_failed && !task.movie_id
-          ? `${task.scan.metadata_failed} 部影片失败`
+          ? `${task.scan.metadata_failed} 部影片失败，检查 JavDB 登录或代理设置后重试`
           : task.error
     })
   } else {

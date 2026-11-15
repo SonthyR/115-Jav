@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 
 import { MovieCover } from '@/components/movie/movie-cover'
+import { ResourceBadgeLimitContext } from '@/components/movie/movie-badges'
 import { OverflowTooltip } from '@/components/overflow-tooltip'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -35,10 +36,14 @@ export function MovieCard({
             width={720}
             loading={coverLoading}
             onReady={onCoverReady}
+            alt={title}
           />
         </div>
         <div className="absolute top-2 left-2 flex max-w-[calc(100%-3.5rem)] flex-wrap gap-1.5">
-          <Badge variant="frosted" className="max-w-full truncate">
+          <Badge
+            variant="frosted"
+            className="max-w-full truncate font-mono tracking-normal tabular-nums"
+          >
             {movie.code}
           </Badge>
           {state}
@@ -50,7 +55,11 @@ export function MovieCard({
         {description != null ? (
           <div className="text-xs text-muted-foreground">{description}</div>
         ) : null}
-        {children ? <div className="flex flex-wrap gap-1.5">{children}</div> : null}
+        {children ? (
+          <ResourceBadgeLimitContext value={2}>
+            <div className="flex flex-wrap gap-1.5">{children}</div>
+          </ResourceBadgeLimitContext>
+        ) : null}
       </CardContent>
     </Card>
   )

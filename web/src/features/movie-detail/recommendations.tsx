@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { type MovieReference, useRecommendationMovie } from '@/api/discover'
-import { MovieCard, MovieCardSkeleton, MovieGridLayout } from '@/components/movie'
+import { MovieCard, MovieCardSkeleton } from '@/components/movie'
 import { MovieResourceBadges, MovieStateBadge } from '@/components/movie/movie-badges'
 import { Button } from '@/components/ui/button'
 import { cn } from 'cn'
@@ -20,15 +20,22 @@ export function MovieRecommendations({
 
   return (
     <section className="space-y-4">
-      <h2 className="text-xl font-semibold tracking-normal">{title}</h2>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-sm font-medium tracking-[0.08em]">{title}</h2>
+        <span className="font-mono text-[11px] tracking-[0.06em] text-muted-foreground">
+          {visible.length} 部
+        </span>
+      </div>
       {visible.length === 0 ? (
         <p className="text-sm text-muted-foreground">暂无相关影片</p>
       ) : (
-        <MovieGridLayout>
+        <div className="-mx-1 flex snap-x [scrollbar-width:none] gap-3 overflow-x-auto px-1 pb-2 [&::-webkit-scrollbar]:hidden">
           {visible.map(movie => (
-            <RecommendationCard key={movie.id} movie={movie} />
+            <div key={movie.id} className="w-52 shrink-0 snap-start sm:w-60">
+              <RecommendationCard movie={movie} />
+            </div>
           ))}
-        </MovieGridLayout>
+        </div>
       )}
     </section>
   )
@@ -55,13 +62,13 @@ function RecommendationCard({ movie }: { movie: MovieReference }) {
     <div ref={cardRef} className="relative h-full min-w-0">
       <MovieDetailTrigger
         movie={{ id: movie.id }}
-        className="relative block h-full rounded-lg outline-ring"
+        className="relative block h-full rounded-xl outline-ring focus-visible:ring-2 focus-visible:ring-ring"
         onFocus={() => {
           if (!data && !failed) prioritize()
         }}
         onClick={prioritize}
       >
-        <div className={cn('h-full', loading && 'invisible')}>
+        <div className={cn('h-full overflow-hidden rounded-xl', loading && 'invisible')}>
           <MovieCard
             movie={{
               code: data?.code ?? movie.code,

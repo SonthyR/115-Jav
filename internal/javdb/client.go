@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"net/http"
 	"net/url"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -26,16 +28,22 @@ type routeState struct {
 }
 
 type jsonTransport interface {
-	getJSON(context.Context, string, url.Values, any) error
+	request(context.Context, string, string, url.Values, any, string) error
 	closeIdleConnections()
 }
 
-// Client is the anonymous JavDB App API client.
+// Client is the JavDB App API client. It talks anonymously until credentials
+// are configured, then keeps a bearer token for every request.
 type Client struct {
 	options       Options
 	limiter       *rate.Limiter
 	cooldownMu    sync.Mutex
 	cooldownUntil time.Time
+	authMu        sync.RWMutex
+	loginMu       sync.Mutex
+	username      string
+	password      string
+	token         string
 	media         *resty.Client
 	mediaSlots    chan struct{}
 	current       atomic.Pointer[routeState]
@@ -61,6 +69,12 @@ func New(options Options) (*Client, error) {
 	if options.Timeout == 0 {
 		options.Timeout = defaultTimeout
 	}
+	username := strings.TrimSpace(options.Credentials.Username)
+	password := options.Credentials.Password
+	if (username == "") != (password == "") {
+		return nil, errors.New("JavDB username and password must be configured together")
+	}
+	options.Credentials = Credentials{}
 
 	fingerprint, err := netx.NewProxiedFingerprintClient(options.Proxy, netx.FingerprintOptions{Timeout: options.Timeout, CookieJar: true})
 	if err != nil {
@@ -70,6 +84,8 @@ func New(options Options) (*Client, error) {
 	client := &Client{
 		options:      options,
 		limiter:      rate.NewLimiter(defaultRate, defaultBurst),
+		username:     username,
+		password:     password,
 		media:        newMediaClient(options),
 		mediaSlots:   make(chan struct{}, maxMediaFetches),
 		routeContext: routeContext,
@@ -105,6 +121,108 @@ func NewDeviceUUID() (string, error) {
 		return "", fmt.Errorf("create JavDB device UUID: %w", err)
 	}
 	return id.String(), nil
+}
+
+// Login signs in and keeps the returned token for later requests. The
+// credentials stay in memory so an expired token can be renewed.
+func (c *Client) Login(ctx context.Context, username, password string) error {
+	username = strings.TrimSpace(username)
+	if username == "" || password == "" {
+		return errors.New("JavDB username and password are required")
+	}
+
+	c.loginMu.Lock()
+	defer c.loginMu.Unlock()
+	return c.loginLocked(ctx, username, password)
+}
+
+// loginLocked performs one session request and stores its token; loginMu must be held.
+func (c *Client) loginLocked(ctx context.Context, username, password string) error {
+	var data wireSessionData
+	if err := c.doJSON(ctx, http.MethodPost, "/api/v1/sessions", url.Values{
+		"username": {username},
+		"password": {password},
+	}, &data, false); err != nil {
+		return err
+	}
+	token := data.Token
+	if token == "" {
+		token = data.AccessToken
+	}
+	if token == "" {
+		return errors.New("JavDB login response did not contain a token")
+	}
+
+	c.authMu.Lock()
+	c.username, c.password, c.token = username, password, token
+	c.authMu.Unlock()
+	return nil
+}
+
+// Username returns the configured account name, or an empty string when none is set.
+func (c *Client) Username() string {
+	c.authMu.RLock()
+	defer c.authMu.RUnlock()
+	return c.username
+}
+
+// LoggedIn reports whether a bearer token is available.
+func (c *Client) LoggedIn() bool { return c.Token() != "" }
+
+// Token returns the current bearer token.
+func (c *Client) Token() string {
+	c.authMu.RLock()
+	defer c.authMu.RUnlock()
+	return c.token
+}
+
+func (c *Client) credentials() (string, string) {
+	c.authMu.RLock()
+	defer c.authMu.RUnlock()
+	return c.username, c.password
+}
+
+func (c *Client) clearToken() {
+	c.authMu.Lock()
+	c.token = ""
+	c.authMu.Unlock()
+}
+
+// ensureLogin signs in with the configured account when no token is held. The
+// token is checked again under loginMu so concurrent first requests share one
+// login. Anonymous clients have nothing to do.
+func (c *Client) ensureLogin(ctx context.Context) error {
+	username, password := c.credentials()
+	if username == "" || password == "" || c.LoggedIn() {
+		return nil
+	}
+	c.loginMu.Lock()
+	defer c.loginMu.Unlock()
+	if c.LoggedIn() {
+		return nil
+	}
+	return c.loginLocked(ctx, username, password)
+}
+
+// renewLogin replaces the token that failed, unless another request already
+// installed a newer one. It reports whether the caller should replay with the
+// token now held. The comparison and the replacement share loginMu, so a token
+// read before the failed request cannot race with a concurrent renewal.
+func (c *Client) renewLogin(ctx context.Context, failed string) (bool, error) {
+	c.loginMu.Lock()
+	defer c.loginMu.Unlock()
+	username, password := c.credentials()
+	if username == "" || password == "" {
+		return false, nil
+	}
+	if c.Token() != failed {
+		return true, nil
+	}
+	c.clearToken()
+	if err := c.loginLocked(ctx, username, password); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // Initialize selects an API route when no cached or active route is available.
@@ -223,22 +341,55 @@ func (c *Client) getJSON(
 	params url.Values,
 	destination any,
 ) error {
+	return c.doJSON(ctx, http.MethodGet, path, params, destination, true)
+}
+
+// doJSON runs one signed request and repeats it after a rate limit, an expired
+// token, or a failed route. Each request carries the exact token snapshot read
+// for it, so an authentication failure can tell whether another request has
+// already renewed that token. The login request itself passes authenticate false.
+func (c *Client) doJSON(
+	ctx context.Context,
+	method string,
+	path string,
+	params url.Values,
+	destination any,
+	authenticate bool,
+) error {
 	state, err := c.ensureRoute(ctx)
 	if err != nil {
 		return err
 	}
 	deadline := time.Now().Add(maxRateLimitWait)
 	failover := false
+	reauthenticated := false
 	for retries := 0; ; {
 		if err := c.waitRequest(ctx, deadline); err != nil {
 			return err
 		}
+		token := ""
+		if authenticate {
+			if err := c.ensureLogin(ctx); err != nil {
+				return fmt.Errorf("login JavDB: %w", err)
+			}
+			token = c.Token()
+		}
 		if current := c.current.Load(); current != nil {
 			state = current
 		}
-		err = state.transport.getJSON(ctx, path, params, destination)
+		err = state.transport.request(ctx, method, path, params, destination, token)
 		if ctx.Err() != nil {
 			return ctx.Err()
+		}
+		if authenticate && !reauthenticated && authRequired(err) {
+			reauthenticated = true
+			replay, renewErr := c.renewLogin(ctx, token)
+			if renewErr != nil {
+				return fmt.Errorf("renew JavDB login: %w", renewErr)
+			}
+			if replay {
+				continue
+			}
 		}
 		var response *HTTPError
 		if errors.As(err, &response) && response.StatusCode == 429 {

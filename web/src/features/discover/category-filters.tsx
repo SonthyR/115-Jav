@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { CategoryFilters as CategoryValues, DiscoverSort } from './search'
-import { CommonFilterSelect } from './common-filter-select'
+import { CommonFilterSelect, filterSelectClass } from './common-filter-select'
 import { DISCOVER_SORTS as sorts, DISCOVER_ZONES as zones } from './constants'
 
 export const MAIN_CATEGORY = 'main'
@@ -39,14 +39,14 @@ export function CategoryFilters({
   const effectiveCategoryID = selectedCategory?.id ?? ''
 
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+    <div className="-mx-5 flex min-w-0 [scrollbar-width:none] items-center gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
       <Select
         value={zone}
         onValueChange={value =>
           updateCategory({ zone: value as JavDBZone, categoryID: '', tagID: '', main: '' })
         }
       >
-        <SelectTrigger className="w-full sm:w-32">
+        <SelectTrigger className={filterSelectClass}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent position="popper" align="start">
@@ -62,12 +62,13 @@ export function CategoryFilters({
 
       {taxonomy.isLoading ? (
         <>
-          <Skeleton className="h-9 w-full rounded-full sm:w-48" />
-          <Skeleton className="h-9 w-full rounded-full sm:w-56" />
-          <Skeleton className="h-9 w-full rounded-full sm:w-48" />
+          <Skeleton className="h-10 w-32 shrink-0 rounded-full sm:h-9" />
+          <Skeleton className="h-10 w-40 shrink-0 rounded-full sm:h-9" />
+          <Skeleton className="h-10 w-36 shrink-0 rounded-full sm:h-9" />
         </>
       ) : taxonomy.isError ? (
         <InlineError
+          className="shrink-0"
           onRetry={() => taxonomy.refetch()}
           retrying={taxonomy.isFetching}
           retryLabel="重试分类"
@@ -80,7 +81,7 @@ export function CategoryFilters({
             value={effectiveCategoryID}
             onValueChange={value => updateCategory({ categoryID: value, tagID: '' })}
           >
-            <SelectTrigger className="w-full sm:w-48">
+            <SelectTrigger className={filterSelectClass}>
               <SelectValue placeholder="选择分类" />
             </SelectTrigger>
             <SelectContent position="popper" align="start">
@@ -102,7 +103,7 @@ export function CategoryFilters({
               })
             }
           >
-            <SelectTrigger className="w-full sm:w-56">
+            <SelectTrigger className={`${filterSelectClass} min-w-40`}>
               <SelectValue placeholder="全部标签" />
             </SelectTrigger>
             <SelectContent position="popper" align="start">
@@ -126,20 +127,22 @@ export function CategoryFilters({
         </>
       )}
 
-      <Select value={sort} onValueChange={value => onSortChange(value as DiscoverSort)}>
-        <SelectTrigger className="w-full sm:w-36">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent position="popper" align="start">
-          <SelectGroup>
-            {sorts.map(item => (
-              <SelectItem key={item.value} value={item.value}>
-                按{item.label}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
+      <div className="shrink-0 sm:ml-auto">
+        <Select value={sort} onValueChange={value => onSortChange(value as DiscoverSort)}>
+          <SelectTrigger className={`${filterSelectClass} min-w-32`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper" align="start">
+            <SelectGroup>
+              {sorts.map(item => (
+                <SelectItem key={item.value} value={item.value}>
+                  按{item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   )
 }

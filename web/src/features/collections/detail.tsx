@@ -97,6 +97,7 @@ export function CollectionDetail({ id, search }: { id: number; search: LibrarySe
           to: '/collections/$id',
           params: { id: String(id) },
           search: rest,
+          replace: true,
           resetScroll: false
         })
       }}

@@ -7,11 +7,14 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"slices"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
 
+	"github.com/ppxb/miyabi/internal/domain"
 	"github.com/ppxb/miyabi/internal/netx"
 	"golang.org/x/time/rate"
 )
@@ -21,17 +24,339 @@ type stubTransport struct {
 	calls int
 }
 
-func (transport *stubTransport) getJSON(
+func (transport *stubTransport) request(
 	context.Context,
+	string,
 	string,
 	url.Values,
 	any,
+	string,
 ) error {
 	transport.calls++
 	return transport.err
 }
 
 func (*stubTransport) closeIdleConnections() {}
+
+type sessionTransport struct {
+	method string
+	path   string
+	params url.Values
+	token  string
+	field  string
+}
+
+func (transport *sessionTransport) request(
+	_ context.Context,
+	method string,
+	path string,
+	params url.Values,
+	destination any,
+	token string,
+) error {
+	transport.method, transport.path, transport.params, transport.token = method, path, params, token
+	if data, ok := destination.(*wireSessionData); ok {
+		if transport.field == "token" {
+			data.Token = "primary-token"
+		} else {
+			data.AccessToken = "access-token"
+		}
+	}
+	return nil
+}
+
+func (*sessionTransport) closeIdleConnections() {}
+
+func TestClientLoginStoresAccessToken(t *testing.T) {
+	transport := &sessionTransport{}
+	client := clientWithTransport(transport)
+
+	if err := client.Login(t.Context(), " alice ", "secret"); err != nil {
+		t.Fatal(err)
+	}
+	if !client.LoggedIn() || client.Token() != "access-token" || client.Username() != "alice" {
+		t.Fatalf("login state: loggedIn=%t token=%q username=%q", client.LoggedIn(), client.Token(), client.Username())
+	}
+	if transport.method != http.MethodPost || transport.path != "/api/v1/sessions" {
+		t.Fatalf("login request = %s %s", transport.method, transport.path)
+	}
+	if transport.params.Get("username") != "alice" || transport.params.Get("password") != "secret" {
+		t.Fatalf("login form = %v", transport.params)
+	}
+	if transport.token != "" {
+		t.Fatalf("login request carried token %q", transport.token)
+	}
+}
+
+func TestClientLoginPrefersPrimaryTokenField(t *testing.T) {
+	transport := &sessionTransport{field: "token"}
+	client := clientWithTransport(transport)
+
+	if err := client.Login(t.Context(), "alice", "secret"); err != nil {
+		t.Fatal(err)
+	}
+	if client.Token() != "primary-token" {
+		t.Fatalf("token = %q", client.Token())
+	}
+}
+
+func TestClientLoginDropsStaleToken(t *testing.T) {
+	transport := &sessionTransport{}
+	client := clientWithTransport(transport)
+	client.username, client.password = "alice", "secret"
+	client.token = "stale-token"
+
+	if err := client.Login(t.Context(), "alice", "secret"); err != nil {
+		t.Fatal(err)
+	}
+	if transport.token != "" {
+		t.Fatalf("login request carried stale token %q", transport.token)
+	}
+	if client.Token() != "access-token" {
+		t.Fatalf("token = %q", client.Token())
+	}
+}
+
+func TestNewDoesNotRetainCredentialsInOptions(t *testing.T) {
+	client, err := New(Options{
+		DeviceUUID:  "00000000-0000-4000-8000-000000000000",
+		Credentials: Credentials{Username: "alice", Password: "secret"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	if client.options.Credentials != (Credentials{}) {
+		t.Fatalf("options retained credentials: %+v", client.options.Credentials)
+	}
+	if client.Username() != "alice" {
+		t.Fatalf("username = %q", client.Username())
+	}
+}
+
+type renewingTransport struct {
+	calls  []string
+	tokens []string
+}
+
+func (transport *renewingTransport) request(
+	_ context.Context,
+	method string,
+	path string,
+	_ url.Values,
+	destination any,
+	token string,
+) error {
+	transport.calls = append(transport.calls, method+" "+path)
+	transport.tokens = append(transport.tokens, token)
+	if path == "/api/v1/sessions" {
+		destination.(*wireSessionData).Token = "fresh-token"
+		return nil
+	}
+	if len(transport.calls) == 1 {
+		return &APIError{Action: "JWTVerificationError", Message: "token expired"}
+	}
+	return nil
+}
+
+func (*renewingTransport) closeIdleConnections() {}
+
+func TestClientRenewsRejectedTokenWithStoredCredentials(t *testing.T) {
+	transport := &renewingTransport{}
+	client := clientWithTransport(transport)
+	client.username, client.password = "alice", "secret"
+	client.token = "stale-token"
+
+	if err := client.getJSON(t.Context(), "/api/v2/search", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"GET /api/v2/search", "POST /api/v1/sessions", "GET /api/v2/search"}
+	if !slices.Equal(transport.calls, want) {
+		t.Fatalf("calls = %v, want %v", transport.calls, want)
+	}
+	wantTokens := []string{"stale-token", "", "fresh-token"}
+	if !slices.Equal(transport.tokens, wantTokens) {
+		t.Fatalf("tokens = %v, want %v", transport.tokens, wantTokens)
+	}
+	if client.Token() != "fresh-token" {
+		t.Fatalf("token = %q", client.Token())
+	}
+}
+
+type refreshingTransport struct {
+	client *Client
+	calls  []string
+	tokens []string
+}
+
+func (transport *refreshingTransport) request(
+	_ context.Context,
+	method string,
+	path string,
+	_ url.Values,
+	_ any,
+	token string,
+) error {
+	transport.calls = append(transport.calls, method+" "+path)
+	transport.tokens = append(transport.tokens, token)
+	if len(transport.tokens) == 1 {
+		transport.client.authMu.Lock()
+		transport.client.token = "fresh-token"
+		transport.client.authMu.Unlock()
+		return &APIError{Action: "JWTVerificationError", Message: "token expired"}
+	}
+	return nil
+}
+
+func (*refreshingTransport) closeIdleConnections() {}
+
+func TestClientReplaysWithTokenRenewedByAnotherRequest(t *testing.T) {
+	client := &Client{limiter: rate.NewLimiter(rate.Inf, 1)}
+	transport := &refreshingTransport{client: client}
+	client.current.Store(&routeState{transport: transport})
+	client.username, client.password = "alice", "secret"
+	client.token = "stale-token"
+
+	if err := client.getJSON(t.Context(), "/api/v2/search", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"GET /api/v2/search", "GET /api/v2/search"}
+	if !slices.Equal(transport.calls, want) {
+		t.Fatalf("calls = %v, want %v", transport.calls, want)
+	}
+	wantTokens := []string{"stale-token", "fresh-token"}
+	if !slices.Equal(transport.tokens, wantTokens) {
+		t.Fatalf("tokens = %v, want %v", transport.tokens, wantTokens)
+	}
+	if client.Token() != "fresh-token" {
+		t.Fatalf("token = %q", client.Token())
+	}
+}
+
+type loginGateTransport struct {
+	loginStarted chan<- struct{}
+	release      <-chan struct{}
+	mu           sync.Mutex
+	logins       int
+	tokens       []string
+}
+
+func (transport *loginGateTransport) request(
+	_ context.Context,
+	_ string,
+	path string,
+	_ url.Values,
+	destination any,
+	token string,
+) error {
+	if path == "/api/v1/sessions" {
+		transport.mu.Lock()
+		transport.logins++
+		transport.mu.Unlock()
+		select {
+		case transport.loginStarted <- struct{}{}:
+		default:
+		}
+		<-transport.release
+		destination.(*wireSessionData).Token = "token-1"
+		return nil
+	}
+	transport.mu.Lock()
+	transport.tokens = append(transport.tokens, token)
+	transport.mu.Unlock()
+	return nil
+}
+
+func (*loginGateTransport) closeIdleConnections() {}
+
+func TestClientDeduplicatesConcurrentFirstLogin(t *testing.T) {
+	loginStarted := make(chan struct{}, 2)
+	release := make(chan struct{})
+	transport := &loginGateTransport{loginStarted: loginStarted, release: release}
+	client := clientWithTransport(transport)
+	client.username, client.password = "alice", "secret"
+
+	first := make(chan error, 1)
+	go func() { first <- client.getJSON(t.Context(), "/first", nil, nil) }()
+	<-loginStarted
+	second := make(chan error, 1)
+	go func() { second <- client.getJSON(t.Context(), "/second", nil, nil) }()
+	time.Sleep(10 * time.Millisecond)
+	close(release)
+	if err := <-first; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-second; err != nil {
+		t.Fatal(err)
+	}
+	transport.mu.Lock()
+	logins := transport.logins
+	transport.mu.Unlock()
+	if logins != 1 {
+		t.Fatalf("logins = %d, want 1", logins)
+	}
+}
+
+func TestClientDoesNotRetryAuthErrorsWithoutCredentials(t *testing.T) {
+	transport := &stubTransport{err: &APIError{Action: "JWTVerificationError", Message: "bad token"}}
+	client := clientWithTransport(transport)
+
+	err := client.getJSON(t.Context(), "/api/v2/search", nil, nil)
+	if !authRequired(err) || transport.calls != 1 {
+		t.Fatalf("error = %v, calls = %d", err, transport.calls)
+	}
+	if message := err.(*APIError).PublicMessage(); !strings.Contains(message, "登录") {
+		t.Fatalf("public message = %q", message)
+	}
+}
+
+func TestClientLogsInBeforeRequestsAndSendsBearerToken(t *testing.T) {
+	var requests []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests = append(requests, r.Method+" "+r.URL.Path+" authorization="+r.Header.Get("authorization"))
+		switch r.URL.Path {
+		case "/api/v1/sessions":
+			if err := r.ParseForm(); err != nil {
+				t.Errorf("parse login form: %v", err)
+			}
+			if r.Form.Get("username") != "alice" || r.Form.Get("password") != "secret" {
+				t.Errorf("login form = %v", r.Form)
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"access_token":"token-1"}}`))
+		case "/api/v2/search":
+			if r.Header.Get("authorization") != "Bearer token-1" {
+				_, _ = w.Write([]byte(`{"success":false,"action":"JWTVerificationError","message":"login required"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"movies":[]}}`))
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client, err := New(Options{
+		DeviceUUID:  "00000000-0000-4000-8000-000000000000",
+		CachedHost:  server.URL,
+		Credentials: Credentials{Username: "alice", Password: "secret"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	if _, err := client.Search(t.Context(), "ABP-123", domain.SearchOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"POST /api/v1/sessions authorization=",
+		"GET /api/v2/search authorization=Bearer token-1",
+	}
+	if !slices.Equal(requests, want) {
+		t.Fatalf("requests = %v, want %v", requests, want)
+	}
+}
 
 func TestRouteProbeResultsRemainIndependentOfActiveSelection(t *testing.T) {
 	var responseCode atomic.Int32

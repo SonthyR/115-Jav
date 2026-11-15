@@ -21,7 +21,7 @@ function LibraryRoute() {
   const { page, ...filter } = Route.useSearch()
   const navigate = Route.useNavigate()
   const changeFilter = useCallback(
-    (next: LibraryFilter) => void navigate({ search: next, resetScroll: false }),
+    (next: LibraryFilter) => void navigate({ search: next, replace: true, resetScroll: false }),
     [navigate]
   )
   return (

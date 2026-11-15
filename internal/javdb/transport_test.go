@@ -21,6 +21,27 @@ func (client *responseClient) Do(*http.Request) (*http.Response, error) {
 
 func (*responseClient) CloseIdleConnections() {}
 
+type recordingClient struct {
+	request *http.Request
+	body    string
+}
+
+func (client *recordingClient) Do(request *http.Request) (*http.Response, error) {
+	client.request = request
+	body, err := io.ReadAll(request.Body)
+	if err != nil {
+		return nil, err
+	}
+	client.body = string(body)
+	return &http.Response{
+		StatusCode: 200,
+		Header:     http.Header{},
+		Body:       io.NopCloser(strings.NewReader(`{"success":true,"data":{}}`)),
+	}, nil
+}
+
+func (*recordingClient) CloseIdleConnections() {}
+
 type failingBody struct{}
 
 func (failingBody) Read([]byte) (int, error) {
@@ -35,9 +56,11 @@ func TestTransportBuildsSignedAppRequest(t *testing.T) {
 	transport := &transport{host: "https://api.example", deviceUUID: "device-1"}
 	request, err := transport.newRequest(
 		context.Background(),
+		http.MethodGet,
 		"/api/v2/search",
 		url.Values{"q": {"SSIS-589"}},
 		1784134914,
+		"",
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -58,6 +81,63 @@ func TestTransportBuildsSignedAppRequest(t *testing.T) {
 	}
 	if got := request.Header.Get("user-agent"); got != userAgent {
 		t.Fatalf("user-agent = %q", got)
+	}
+	if got := request.Header.Get("authorization"); got != "" {
+		t.Fatalf("anonymous request carried authorization %q", got)
+	}
+}
+
+func TestTransportAttachesBearerToken(t *testing.T) {
+	transport := &transport{host: "https://api.example", deviceUUID: "device-1"}
+	request, err := transport.newRequest(
+		context.Background(),
+		http.MethodGet,
+		"/api/v2/search",
+		nil,
+		1784134914,
+		"token-1",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := request.Header.Get("authorization"); got != "Bearer token-1" {
+		t.Fatalf("authorization = %q, want Bearer token-1", got)
+	}
+}
+
+func TestTransportPostsSignedLoginForm(t *testing.T) {
+	client := &recordingClient{}
+	transport := &transport{host: "https://api.example", deviceUUID: "device-1", client: client}
+	err := transport.request(context.Background(), http.MethodPost, "/api/v1/sessions", url.Values{
+		"username": {"alice"},
+		"password": {"secret"},
+	}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	request := client.request
+	if request.Method != http.MethodPost {
+		t.Fatalf("method = %s, want POST", request.Method)
+	}
+	if got := request.Header.Get("content-type"); got != "application/x-www-form-urlencoded" {
+		t.Fatalf("content-type = %q", got)
+	}
+	if got := request.Header.Get("authorization"); got != "" {
+		t.Fatalf("login request carried authorization %q", got)
+	}
+	if got := request.Header.Get("jdsignature"); got == "" {
+		t.Fatal("login request is not signed")
+	}
+	form, err := url.ParseQuery(client.body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if form.Get("username") != "alice" || form.Get("password") != "secret" || form.Get("device_uuid") != "device-1" {
+		t.Fatalf("login form = %v", form)
+	}
+	if request.URL.RawQuery != "" {
+		t.Fatalf("POST parameters leaked into the query: %q", request.URL.RawQuery)
 	}
 }
 

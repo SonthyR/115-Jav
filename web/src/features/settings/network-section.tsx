@@ -25,6 +25,7 @@ export function NetworkSection() {
   const config = network.data
   const [userEnabled, setUserEnabled] = useState<boolean | null>(null)
   const [userInput, setUserInput] = useState<string | null>(null)
+  const [probe, setProbe] = useState<NetworkTestResponse | null>(null)
 
   const isEnabled = userEnabled ?? config?.enabled ?? false
   const url = userInput ?? config?.url ?? ''
@@ -33,7 +34,13 @@ export function NetworkSection() {
     (userInput !== null && userInput !== (config?.url ?? ''))
   const disabled = network.isLoading || network.isError || updateConfig.isPending
 
+  function clearProbeResult() {
+    setProbe(null)
+    testNetwork.reset()
+  }
+
   function handleToggle(checked: boolean) {
+    clearProbeResult()
     if (checked) {
       setUserEnabled(true)
     } else {
@@ -89,10 +96,14 @@ export function NetworkSection() {
       inputRef.current?.focus()
       return
     }
+    clearProbeResult()
     testNetwork.mutate(
       { enabled: true, url: normalized },
       {
-        onSuccess: showProbeResult,
+        onSuccess: result => {
+          setProbe(result)
+          showProbeResult(result)
+        },
         onError: error => {
           toast.error(describeApiError(error))
         }
@@ -116,7 +127,10 @@ export function NetworkSection() {
               value={url}
               placeholder="http://127.0.0.1:7890"
               disabled={disabled}
-              onChange={e => setUserInput(e.target.value)}
+              onChange={e => {
+                setUserInput(e.target.value)
+                clearProbeResult()
+              }}
               onKeyDown={e => {
                 if (e.key === 'Enter') handleSave()
               }}
@@ -139,6 +153,12 @@ export function NetworkSection() {
               保存
             </Button>
           </div>
+
+          {testNetwork.isError ? (
+            <InlineError>{describeApiError(testNetwork.error)}</InlineError>
+          ) : probe ? (
+            <ProbeResult result={probe} />
+          ) : null}
         </>
       ) : null}
 
@@ -148,6 +168,46 @@ export function NetworkSection() {
         </InlineError>
       ) : null}
     </SettingsSection>
+  )
+}
+
+function ProbeResult({ result }: { result: NetworkTestResponse }) {
+  const available = Number(result.javdb.available) + Number(result.javbus.available)
+  const title =
+    available === 2 ? '代理连接正常' : available === 1 ? '部分站点无法连接' : '代理连接失败'
+  const titleTone =
+    available === 2
+      ? 'text-emerald-700 dark:text-emerald-300'
+      : available === 1
+        ? 'text-amber-700 dark:text-amber-300'
+        : 'text-red-700 dark:text-red-300'
+
+  return (
+    <div aria-live="polite" className="space-y-1 text-xs">
+      <p className={`font-medium ${titleTone}`}>上次测试：{title}</p>
+      <p className="text-muted-foreground">
+        JavDB{' '}
+        <span
+          className={
+            result.javdb.available
+              ? 'text-emerald-700 dark:text-emerald-300'
+              : 'text-red-700 dark:text-red-300'
+          }
+        >
+          {describeProbe(result.javdb)}
+        </span>
+        {' · '}JavBus{' '}
+        <span
+          className={
+            result.javbus.available
+              ? 'text-emerald-700 dark:text-emerald-300'
+              : 'text-red-700 dark:text-red-300'
+          }
+        >
+          {describeProbe(result.javbus)}
+        </span>
+      </p>
+    </div>
   )
 }
 

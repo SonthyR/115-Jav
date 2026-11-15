@@ -4,9 +4,11 @@ import { DiscoverResults } from './results'
 
 export function BrowseResults({
   params,
+  featured = false,
   onPageChange
 }: {
   params: BrowseMoviesParams & { page: number }
+  featured?: boolean
   onPageChange: (page: number) => void
 }) {
   const movies = useDiscoverMovies(params)
@@ -17,6 +19,7 @@ export function BrowseResults({
       fetching={movies.isFetching}
       error={movies.isError}
       searching={false}
+      featured={featured}
       page={params.page}
       onPageChange={onPageChange}
       onRetry={() => movies.refetch()}

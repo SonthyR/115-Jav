@@ -1,13 +1,13 @@
 import { SUBSCRIPTION_PAGE_SIZE, useSubscriptions } from '@/api/subscriptions'
 import type { SubscriptionItem } from '@/api/subscriptions'
 import { ListPagination } from '@/components/list-pagination'
-import { EmptyState } from '@/components/empty-state'
 import { ErrorState } from '@/components/error-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from 'cn'
 import { ActorChip } from './actor-chip'
-import { MovieSubscriptions } from './movie-subscriptions'
+import { MovieSubscriptions, SubscriptionEmptyState } from './movie-subscriptions'
 
 type ActorSubscriptionsProps = {
   actors: ReturnType<typeof useSubscriptions>
@@ -49,7 +49,7 @@ export function ActorSubscriptions({
     return (
       <div className="flex gap-3 overflow-hidden">
         {Array.from({ length: 3 }, (_, index) => (
-          <Skeleton key={index} className="h-16 w-64 shrink-0 rounded-lg" />
+          <Skeleton key={index} className="h-[74px] w-64 shrink-0 rounded-[12px]" />
         ))}
       </div>
     )
@@ -64,7 +64,12 @@ export function ActorSubscriptions({
     )
   }
   if (page === 1 && actors.data.length === 0) {
-    return <EmptyState title="还没有订阅演员，在演员作品页点击「订阅演员」" />
+    return (
+      <SubscriptionEmptyState
+        title="还没有订阅演员，在演员作品页点击「订阅演员」"
+        description="有新作时会在订阅里出现，也可以为演员开启自动入库。"
+      />
+    )
   }
 
   const counts = new Map<number, number>()
@@ -76,15 +81,22 @@ export function ActorSubscriptions({
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-6">
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="-mx-5 flex [scrollbar-width:none] gap-2.5 overflow-x-auto px-5 pb-2 sm:mx-0 sm:px-0">
         <Button
           type="button"
-          variant={selectedID === null ? 'secondary' : 'outline'}
-          className="h-auto shrink-0 rounded-lg px-4 py-3"
+          variant="ghost"
+          className={cn(
+            'h-auto shrink-0 rounded-full border px-4 py-2.5 text-xs tracking-wide',
+            selectedID === null
+              ? 'border-foreground bg-foreground text-background hover:bg-foreground/90 hover:text-background'
+              : 'border-border bg-card/50 text-muted-foreground hover:border-foreground/30 hover:text-foreground'
+          )}
           onClick={() => onSelectID(null)}
         >
           全部新作
-          <Badge variant="outline">{allSpawned.length}</Badge>
+          <Badge variant="outline" className="h-5 border-current/20 bg-transparent text-current">
+            {allSpawned.length}
+          </Badge>
         </Button>
         {actors.data.map(actor => (
           <ActorChip

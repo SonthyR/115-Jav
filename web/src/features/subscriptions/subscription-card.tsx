@@ -46,11 +46,12 @@ export function SubscriptionCard({
     <MovieCard
       movie={item}
       description={
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 font-mono text-[10px] tracking-[0.03em] tabular-nums">
             <span>{item.release_date ? `发行 ${item.release_date}` : '发行日期未知'}</span>
-            <span className="tabular-nums">{describeSchedule(item)}</span>
+            <span>{item.code}</span>
           </div>
+          <p className="text-xs leading-4 text-muted-foreground">{describeSchedule(item)}</p>
           {item.error ? (
             <p className="line-clamp-2 text-destructive" title={item.error}>
               {item.error}
@@ -61,7 +62,10 @@ export function SubscriptionCard({
       state={
         <>
           <MovieStateBadge movie={{ id: item.target_id, code: item.code }} hideViewed />
-          <Badge variant={statusVariant(item.status)}>{statusLabels[item.status]}</Badge>
+          <Badge variant={statusVariant(item.status)} className="gap-1">
+            <span className="size-1 rounded-full bg-current opacity-70" />
+            {statusLabels[item.status]}
+          </Badge>
         </>
       }
       coverOverlay={
@@ -71,9 +75,10 @@ export function SubscriptionCard({
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="ghost"
                   size="icon-sm"
                   disabled={busy}
+                  className="size-9 rounded-full border border-white/20 bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 hover:text-white"
                   onClick={event => {
                     event.preventDefault()
                     event.stopPropagation()
@@ -100,8 +105,8 @@ export function SubscriptionCard({
       <MovieDetailTrigger
         movie={{ id: item.target_id }}
         className={cn(
-          'block h-full rounded-lg outline-ring',
-          selected && 'ring-2 ring-success',
+          'block h-full rounded-[9px] outline-ring focus-visible:outline-2 focus-visible:outline-offset-4',
+          selected && 'ring-2 ring-gold',
           selecting && disabled && 'cursor-not-allowed opacity-50'
         )}
         role={selecting ? 'checkbox' : undefined}
@@ -119,7 +124,7 @@ export function SubscriptionCard({
           checked={selected}
           disabled={disabled}
           onCheckedChange={onSelect}
-          className="absolute top-3 right-3 size-5 data-checked:border-success data-checked:bg-success data-checked:text-white"
+          className="absolute top-3 right-3 size-5 data-checked:border-gold data-checked:bg-gold data-checked:text-library-foreground"
         />
       ) : null}
     </div>

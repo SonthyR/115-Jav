@@ -51,6 +51,12 @@ type wireMoviesData struct {
 	Movies []wireMovie `json:"movies"`
 }
 
+// wireSessionData is the data payload of POST /api/v1/sessions.
+type wireSessionData struct {
+	Token       string `json:"token"`
+	AccessToken string `json:"access_token"`
+}
+
 type wireMovieData struct {
 	Movie wireMovieDetail `json:"movie"`
 }

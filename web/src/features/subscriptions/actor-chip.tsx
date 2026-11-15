@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { cn } from 'cn'
 
 // One subscribed actor: avatar, name and new-work count as a toggle, with the
 // auto-download switch and pause / remove controls beside it.
@@ -32,11 +33,17 @@ export function ActorChip({
   const busy = update.isPending || remove.isPending
 
   return (
-    <div className="flex shrink-0 items-center gap-2 rounded-lg border p-2">
+    <div
+      className={cn(
+        'flex shrink-0 items-center gap-1.5 rounded-[12px] border bg-card/50 p-1.5 transition-colors',
+        selected ? 'border-gold/60 ring-1 ring-gold/20' : 'border-border'
+      )}
+    >
       <Button
         type="button"
-        variant={selected ? 'secondary' : 'ghost'}
-        className="h-auto rounded-md px-2 py-1"
+        variant="ghost"
+        aria-pressed={selected}
+        className="h-auto rounded-[9px] px-2 py-1.5 hover:bg-foreground/5"
         onClick={onSelect}
       >
         <div className="flex min-w-0 items-center gap-3">
@@ -49,10 +56,20 @@ export function ActorChip({
           <div className="min-w-0 space-y-1 text-left">
             <div className="flex items-center gap-1.5">
               <span className="truncate text-sm font-semibold">{actor.title}</span>
-              {paused ? <Badge variant="secondary">已暂停</Badge> : null}
-              {actor.error ? <Badge variant="destructive">检查失败</Badge> : null}
+              {paused ? (
+                <Badge variant="secondary" className="h-[18px] text-[10px]">
+                  已暂停
+                </Badge>
+              ) : null}
+              {actor.error ? (
+                <Badge variant="destructive" className="h-[18px] text-[10px]">
+                  检查失败
+                </Badge>
+              ) : null}
             </div>
-            <div className="truncate text-xs text-muted-foreground">新作 {count} 部</div>
+            <div className="truncate font-mono text-[10px] tracking-[0.03em] text-muted-foreground tabular-nums">
+              新作 {count} 部
+            </div>
           </div>
         </div>
       </Button>
@@ -76,6 +93,7 @@ export function ActorChip({
             variant="ghost"
             size="icon-sm"
             disabled={busy}
+            className="rounded-full text-muted-foreground hover:text-foreground"
             onClick={() => update.mutate({ id: actor.id, status: paused ? 'active' : 'paused' })}
           >
             {paused ? <PlayIcon /> : <PauseIcon />}
@@ -90,6 +108,7 @@ export function ActorChip({
             variant="ghost"
             size="icon-sm"
             disabled={busy}
+            className="rounded-full text-muted-foreground hover:text-destructive"
             onClick={() => remove.mutate(actor, { onSuccess: onRemoved })}
           >
             <Trash2Icon />

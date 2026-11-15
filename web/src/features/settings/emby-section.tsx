@@ -75,17 +75,20 @@ export function EmbySection() {
       return
     }
 
-    setForm(null)
+    const dirty = isDirty
+    if (dirty) updateField('enabled', false)
+    else setForm(null)
     if (!config?.enabled) return
 
     updateConfig.mutate(
       { ...config, enabled: false },
       {
         onSuccess: next => {
-          setForm(configToFormData(next))
+          if (!dirty) setForm(configToFormData(next))
           toast.success('已关闭 Emby')
         },
         onError: error => {
+          if (dirty) updateField('enabled', config.enabled)
           toast.error(describeApiError(error))
         }
       }

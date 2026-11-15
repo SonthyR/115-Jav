@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, expect, test, vi } from 'vitest'
 
@@ -19,7 +20,10 @@ vi.mock('@/api/discover', () => ({
 }))
 vi.mock('@/api/browse-history', () => ({ useRecordMovieView: vi.fn() }))
 vi.mock('@/api/auth', () => ({ useLite: () => false }))
-vi.mock('@/api/library', () => ({ useLibraryMovie: vi.fn() }))
+vi.mock('@/api/library', () => ({
+  useLibraryMovie: vi.fn(),
+  useRescrapeLibraryMovie: () => ({ isPending: false, mutate: vi.fn() })
+}))
 vi.mock('@/api/collections', () => ({
   useCollections: () => ({ data: [] }),
   useMovieCollections: () => ({ data: [] }),
@@ -72,7 +76,11 @@ test('saved library metadata renders without a JavDB identity or lookup', () => 
     } satisfies LibraryMovieDetail,
     isPending: false
   })
-  const html = renderToStaticMarkup(<MovieDetailContent movie={{ libraryId: 42 }} />)
+  const html = renderToStaticMarkup(
+    <QueryClientProvider client={new QueryClient()}>
+      <MovieDetailContent movie={{ libraryId: 42 }} />
+    </QueryClientProvider>
+  )
   expect(useLibraryMovie).toHaveBeenCalledWith(42)
   expect(useDiscoverMovie).not.toHaveBeenCalled()
   expect(useResolveDiscoverMovie).not.toHaveBeenCalled()

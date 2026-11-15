@@ -3,8 +3,9 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { SearchIcon, XIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-import { apiGet, imageURL } from '@/api/client'
+import { apiGet } from '@/api/client'
 import { type LibraryMovie, libraryKeys, useLibraryFacets } from '@/api/library'
+import { MediaImage } from '@/components/media-image'
 import { cn } from 'cn'
 import { ActorPortrait } from './actor-portrait'
 
@@ -57,10 +58,24 @@ export function WatchSearchBox() {
     return () => document.removeEventListener('pointerdown', close)
   }, [open])
 
-  // "/" jumps to the search box from anywhere but a text field.
+  // "/" jumps to search from anywhere but a text field; the platform shortcut
+  // opens it globally, and Escape dismisses an open search from any focus.
   useEffect(() => {
     const jump = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setOpen(true)
+        input.current?.focus()
+        return
+      }
+      if (event.key === 'Escape' && open) {
+        event.preventDefault()
+        setOpen(false)
+        setText('')
+        input.current?.blur()
+        return
+      }
       if (
         event.key !== '/' ||
         target.isContentEditable ||
@@ -73,7 +88,7 @@ export function WatchSearchBox() {
     }
     document.addEventListener('keydown', jump)
     return () => document.removeEventListener('keydown', jump)
-  }, [])
+  }, [open])
 
   const finish = () => {
     setOpen(false)
@@ -159,40 +174,43 @@ export function WatchSearchBox() {
               ))}
             </div>
           ) : null}
-          {found.map(movie => (
-            <Link
-              key={movie.id}
-              to="/movie/$id"
-              params={{ id: String(movie.id) }}
-              className="flex items-center gap-3 rounded-lg p-1.5 hover:bg-muted"
-              onClick={finish}
-            >
-              <span className="block aspect-2/3 w-9 shrink-0 overflow-hidden rounded-md bg-muted">
-                {movie.poster || movie.cover ? (
-                  <img
-                    src={imageURL((movie.poster ?? movie.cover)!, 360)}
-                    alt=""
-                    loading="lazy"
-                    className="size-full object-cover"
-                  />
-                ) : null}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">
-                  {movie.title || movie.code}
+          {found.map(movie => {
+            const cover = movie.poster ?? movie.cover
+            return (
+              <Link
+                key={movie.id}
+                to="/movie/$id"
+                params={{ id: String(movie.id) }}
+                className="flex items-center gap-3 rounded-lg p-1.5 hover:bg-muted"
+                onClick={finish}
+              >
+                <span className="block aspect-2/3 w-9 shrink-0 overflow-hidden rounded-md bg-muted">
+                  {cover ? (
+                    <MediaImage
+                      source={cover}
+                      width={360}
+                      alt={movie.code}
+                      className="object-cover"
+                    />
+                  ) : null}
                 </span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {movie.code}
-                  {movie.actors.length
-                    ? ` · ${movie.actors
-                        .slice(0, 2)
-                        .map(actor => actor.name)
-                        .join('、')}`
-                    : ''}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">
+                    {movie.title || movie.code}
+                  </span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {movie.code}
+                    {movie.actors.length
+                      ? ` · ${movie.actors
+                          .slice(0, 2)
+                          .map(actor => actor.name)
+                          .join('、')}`
+                      : ''}
+                  </span>
                 </span>
-              </span>
-            </Link>
-          ))}
+              </Link>
+            )
+          })}
           {found.length === 0 && actors.length === 0 ? (
             <p className="px-3 pt-4 pb-2 text-center text-sm text-muted-foreground">
               片库里没有「{query}」

@@ -45,7 +45,7 @@ export function MovieDetailDialogProvider({ children }: PropsWithChildren) {
         <DialogContent
           ref={contentRef}
           showCloseButton={false}
-          className="flex h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-[min(56rem,calc(100dvh-2rem))] sm:w-[calc(100%-2rem)] sm:max-w-6xl sm:rounded-4xl"
+          className="flex h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none bg-background/95 p-0 shadow-2xl ring-1 ring-foreground/10 sm:h-[min(58rem,calc(100dvh-2rem))] sm:w-[calc(100%-2rem)] sm:max-w-6xl sm:rounded-3xl"
           onOpenAutoFocus={event => {
             event.preventDefault()
             contentRef.current?.focus()
@@ -62,7 +62,7 @@ export function MovieDetailDialogProvider({ children }: PropsWithChildren) {
               variant="secondary"
               size="icon"
               aria-label="关闭"
-              className="absolute top-3 right-3 z-10 rounded-full shadow-md sm:hidden"
+              className="absolute top-3 right-3 z-30 rounded-full border border-white/15 bg-black/45 text-white shadow-md backdrop-blur-md hover:bg-black/60 hover:text-white sm:hidden"
             >
               <XIcon />
             </Button>

@@ -63,7 +63,9 @@ function BrowseRoute() {
           resetScroll: false
         })
       }
-      onFilterChange={(next: LibraryFilter) => void navigate({ search: next, resetScroll: false })}
+      onFilterChange={(next: LibraryFilter) =>
+        void navigate({ search: next, replace: true, resetScroll: false })
+      }
     />
   )
 }

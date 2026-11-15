@@ -1,5 +1,5 @@
 import { SearchIcon, XIcon } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { useLite } from '@/api/auth'
 import type {
@@ -50,31 +50,46 @@ export function LibraryFilters({
 }) {
   const lite = useLite()
   const [text, setText] = useState(filter.q ?? '')
+  const emitted = useRef(filter.q ?? '')
+  const latest = useRef({ filter, onChange })
 
   useEffect(() => {
-    if (text.trim() === (filter.q ?? '')) return
-    const timer = setTimeout(
-      () => onChange({ ...filter, q: text.trim() || undefined }),
-      searchDelay
-    )
+    latest.current = { filter, onChange }
+  })
+
+  useEffect(() => {
+    const q = filter.q ?? ''
+    if (q === emitted.current) return
+    emitted.current = q
+    setText(q)
+  }, [filter.q])
+
+  useEffect(() => {
+    const q = text.trim()
+    if (q === (filter.q ?? '')) return
+    const timer = setTimeout(() => {
+      emitted.current = q
+      const current = latest.current
+      current.onChange({ ...current.filter, q: q || undefined })
+    }, searchDelay)
     return () => clearTimeout(timer)
-  }, [text, filter, onChange])
+  }, [text, filter.q])
 
   return (
-    <div className="space-y-3 border-y border-border py-4">
-      <div className="flex items-center gap-3">
-        <label className="flex h-9 min-w-0 flex-1 items-center gap-2.5 rounded-full border border-foreground/15 px-3.5 transition-colors focus-within:border-foreground/40 sm:max-w-xs">
+    <div className="space-y-3.5 border-y border-border py-4">
+      <div className="flex items-center gap-2.5">
+        <label className="flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-full border border-border bg-card/55 px-3.5 transition-colors focus-within:border-foreground/35 sm:h-9 sm:max-w-[340px]">
           <SearchIcon className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
           <input
             value={text}
             placeholder="番号、标题或演员"
             aria-label="在片库里筛选"
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent text-xs tracking-wide outline-none placeholder:text-muted-foreground/75"
             onChange={event => setText(event.target.value)}
           />
         </label>
-        <span className="ml-auto shrink-0 text-[13px] tracking-wide text-muted-foreground tabular-nums">
-          {total === undefined ? null : `${total} 部`}
+        <span className="ml-auto shrink-0 font-mono text-[11px] tracking-[0.04em] text-muted-foreground tabular-nums">
+          {total === undefined ? null : `共 ${total} 部`}
         </span>
         <ChoiceChip
           plain

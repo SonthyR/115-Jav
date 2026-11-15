@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Fragment, type ReactNode } from 'react'
+import { Fragment, type ReactNode, useEffect, useRef } from 'react'
 
 import { AppPage } from '@/components/app-page'
 import { PageHeader } from '@/components/page-header'
@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AppearanceSection } from '@/features/settings/appearance-section'
 import { DataSection } from '@/features/settings/data-section'
 import { EmbySection } from '@/features/settings/emby-section'
+import { JavDBSection } from '@/features/settings/javdb-section'
 import { NetworkSection } from '@/features/settings/network-section'
 import { OrganizeSection } from '@/features/settings/organize-section'
 import { PanSection } from '@/features/settings/pan-section'
@@ -25,7 +26,11 @@ const tabs = [
   },
   { id: 'organize', label: '整理', sections: [<OrganizeSection key="organize" />] },
   { id: 'emby', label: 'Emby', sections: [<EmbySection key="emby" />] },
-  { id: 'scraping', label: '刮削', sections: [<ScrapingSection key="scraping" />] },
+  {
+    id: 'scraping',
+    label: '刮削',
+    sections: [<ScrapingSection key="scraping" />, <JavDBSection key="javdb" />]
+  },
   {
     id: 'subscription',
     label: '订阅',
@@ -54,6 +59,18 @@ export const Route = createFileRoute('/_app/settings')({
 function SettingsPage() {
   const { tab = 'pan' } = Route.useSearch()
   const navigate = Route.useNavigate()
+  const tabListRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const list = tabListRef.current
+    const active = list?.querySelector<HTMLElement>(`[data-settings-tab="${tab}"]`)
+    if (!list || !active) return
+    const left = active.offsetLeft - (list.clientWidth - active.clientWidth) / 2
+    list.scrollTo({
+      left: Math.max(0, Math.min(left, list.scrollWidth - list.clientWidth)),
+      behavior: 'smooth'
+    })
+  }, [tab])
 
   return (
     <AppPage showBackTop={false}>
@@ -61,20 +78,23 @@ function SettingsPage() {
 
       <Tabs
         value={tab}
-        orientation="vertical"
-        className="flex-col gap-6 md:flex-row md:items-start"
+        className="gap-6"
         onValueChange={value =>
           void navigate({ search: value === 'pan' ? {} : { tab: value as SettingsTab } })
         }
       >
-        {/* A side list on desktop; a row that scrolls sideways on phones. */}
-        <div className="-mx-4 overflow-x-auto px-4 md:sticky md:top-8 md:mx-0 md:w-40 md:shrink-0 md:px-0">
-          <TabsList className="h-auto w-max flex-row! gap-1 bg-transparent p-0 md:w-full md:flex-col! md:items-stretch">
+        <div className="-mx-4 overflow-x-auto px-4">
+          <TabsList
+            ref={tabListRef}
+            aria-label="设置分类"
+            className="h-auto w-max [scrollbar-width:none] flex-row! gap-1 bg-transparent p-0 [&::-webkit-scrollbar]:hidden"
+          >
             {tabs.map(item => (
               <TabsTrigger
                 key={item.id}
                 value={item.id}
-                className="h-9 w-auto! flex-none rounded-lg px-3 md:w-full! data-active:bg-muted data-active:shadow-none dark:data-active:border-transparent"
+                data-settings-tab={item.id}
+                className="h-9 w-auto! flex-none rounded-lg px-3 data-active:bg-muted data-active:shadow-none dark:data-active:border-transparent"
               >
                 {item.label}
               </TabsTrigger>
@@ -82,7 +102,7 @@ function SettingsPage() {
           </TabsList>
         </div>
         {tabs.map(item => (
-          <TabsContent key={item.id} value={item.id} className="min-w-0 flex-1">
+          <TabsContent key={item.id} value={item.id} className="min-w-0">
             <Card>
               <CardContent className="space-y-8">
                 {item.sections.map((section, index) => (

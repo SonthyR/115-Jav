@@ -1,18 +1,27 @@
+import { createContext, useContext } from 'react'
+
 import { useIsMovieViewed } from '@/api/browse-history'
 import type { DiscoverMovie } from '@/api/discover'
 import type { MovieIdentity } from '@/api/movie-states'
 import { useMovieState } from '@/api/movie-states'
 import { Badge } from '@/components/ui/badge'
 
+export const ResourceBadgeLimitContext = createContext<number | undefined>(undefined)
+
 export function MovieResourceBadges({ movie }: { movie: DiscoverMovie }) {
-  return (
-    <>
-      {movie.has_subtitle ? <Badge variant="outline">字幕</Badge> : null}
-      {movie.has_preview ? <Badge variant="outline">有预览</Badge> : null}
-      {movie.magnets_count > 0 ? <Badge variant="outline">含磁力</Badge> : null}
-      {movie.release_status === 'upcoming' ? <Badge variant="outline">即将发行</Badge> : null}
-    </>
-  )
+  const limit = useContext(ResourceBadgeLimitContext)
+  const badges = [
+    movie.magnets_count > 0 ? '含磁力' : null,
+    movie.has_subtitle ? '字幕' : null,
+    movie.release_status === 'upcoming' ? '即将发行' : null,
+    movie.has_preview ? '有预览' : null
+  ].filter((badge): badge is string => badge !== null)
+
+  return (limit === undefined ? badges : badges.slice(0, limit)).map(badge => (
+    <Badge key={badge} variant="outline">
+      {badge}
+    </Badge>
+  ))
 }
 
 export function MovieStateBadge({

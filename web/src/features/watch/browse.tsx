@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { type ReactNode, useEffect, useRef } from 'react'
 
 import {
@@ -8,8 +9,9 @@ import {
 } from '@/api/library'
 import { AppPage } from '@/components/app-page'
 import { EmptyState } from '@/components/empty-state'
-import { ErrorState } from '@/components/error-state'
+import { ErrorState, InlineError } from '@/components/error-state'
 import { PageHeader } from '@/components/page-header'
+import { Button } from '@/components/ui/button'
 import { LibraryFilters } from '@/features/library/filters'
 import { PosterCard, PosterGrid, PosterSkeletons } from './poster-card'
 
@@ -42,6 +44,11 @@ export function WatchBrowse({
 }) {
   const first = useLibraryMovies(1, filter, WATCH_PAGE_SIZE)
   const total = first.data?.total
+  const hasPageData = !!first.data && !first.isPlaceholderData
+  const source = first.data?.source
+  const filtered = Object.entries(filter).some(
+    ([key, value]) => key !== 'sort' && value !== undefined
+  )
   const last = Math.max(1, Math.ceil((total ?? 0) / WATCH_PAGE_SIZE))
   const shown = Math.min(pages, last)
   // The next page waits until the last one shown has arrived.
@@ -70,20 +77,41 @@ export function WatchBrowse({
       </PageHeader>
       {header}
       <LibraryFilters filter={filter} locked={locked} total={total} onChange={onFilterChange} />
-      {first.isError ? (
+      {first.isError && !hasPageData ? (
         <ErrorState
           message="无法读取片库，请检查后端服务后重试"
           onRetry={() => void first.refetch()}
           retrying={first.isFetching}
         />
-      ) : first.data && first.data.movies.length === 0 ? (
-        <EmptyState className="min-h-0 flex-1 py-12" title="没有符合条件的影片" />
       ) : (
-        <PosterGrid>
-          {Array.from({ length: shown }, (_, index) => (
-            <PosterPage key={index + 1} page={index + 1} filter={filter} />
-          ))}
-        </PosterGrid>
+        <>
+          {first.isError ? (
+            <InlineError onRetry={() => void first.refetch()} retrying={first.isFetching}>
+              刷新失败，显示的是上次的内容
+            </InlineError>
+          ) : null}
+          {first.data && first.data.movies.length === 0 ? (
+            <EmptyState
+              className="min-h-0 flex-1 py-12"
+              title={
+                !source ? '还没有连接 115' : filtered ? '没有符合条件的影片' : '媒体库里还没有影片'
+              }
+              actions={
+                !source ? (
+                  <Button asChild variant="outline" size="sm">
+                    <Link to="/settings">去设置连接 115</Link>
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <PosterGrid>
+              {Array.from({ length: shown }, (_, index) => (
+                <PosterPage key={index + 1} page={index + 1} filter={filter} />
+              ))}
+            </PosterGrid>
+          )}
+        </>
       )}
       <div ref={end} />
       {first.data && shown >= last && last > 1 ? (
@@ -97,6 +125,22 @@ export function WatchBrowse({
 
 function PosterPage({ page, filter }: { page: number; filter: LibraryFilter }) {
   const result = useLibraryMovies(page, filter, WATCH_PAGE_SIZE)
+  if (result.isError && !result.data) {
+    return (
+      <div className="col-span-full flex min-h-24 items-center justify-center gap-3 text-sm text-muted-foreground">
+        <span>加载失败</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={result.isFetching}
+          onClick={() => void result.refetch()}
+        >
+          重试
+        </Button>
+      </div>
+    )
+  }
   if (!result.data) return <PosterSkeletons count={WATCH_PAGE_SIZE} />
   return result.data.movies.map(movie => <PosterCard key={movie.id} movie={movie} />)
 }

@@ -1,6 +1,7 @@
 package javdb
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -18,13 +19,20 @@ const (
 	defaultBurst     = 1
 )
 
-// Options configures the anonymous JavDB App API client.
+// Credentials is a JavDB account used to sign in automatically.
+type Credentials struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// Options configures the JavDB App API client.
 type Options struct {
 	CachedHost    string
 	CachedLatency time.Duration
 	DeviceUUID    string
 	Proxy         *netx.ProxyManager
 	Timeout       time.Duration
+	Credentials   Credentials
 }
 
 // RouteStatus describes the currently selected API route.
@@ -70,10 +78,37 @@ func (e *APIError) Error() string {
 func (e *APIError) DomainKind() domain.Kind { return domain.KindUpstream }
 
 func (e *APIError) PublicMessage() string {
+	if authActions[e.Action] {
+		return "JavDB 需要登录，请在设置中登录 JavDB 账号"
+	}
 	if e.Message == "" {
 		return "JavDB 返回了错误"
 	}
 	return "JavDB 返回了错误：" + e.Message
+}
+
+// authActions are the API error actions that mean the bearer token is missing
+// or no longer valid.
+var authActions = map[string]bool{
+	"JWTVerificationError": true,
+	"Unauthorized":         true,
+	"LoginRequired":        true,
+	"TokenInvalid":         true,
+	"TokenExpired":         true,
+}
+
+func authRequired(err error) bool {
+	var failure *APIError
+	return errors.As(err, &failure) && authActions[failure.Action]
+}
+
+// IsAuthError reports whether err represents a rejected login or bearer token.
+func IsAuthError(err error) bool {
+	var response *HTTPError
+	if errors.As(err, &response) && (response.StatusCode == 401 || response.StatusCode == 403) {
+		return true
+	}
+	return authRequired(err)
 }
 
 // HTTPError is returned for a non-success HTTP status.

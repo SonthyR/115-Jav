@@ -63,6 +63,7 @@ function DirectoryPicker({
   const files = usePanFiles(accountID, location.id, location.page)
   const select = useSelectPanDirectory(accountID)
   const mounted = location.id === mountedID
+  const atRoot = location.id === '0'
 
   function navigate(id: string, page = 1) {
     select.reset()
@@ -108,6 +109,11 @@ function DirectoryPicker({
         </div>
       </div>
       {select.isError ? <InlineError>目录挂载未完成，请稍后重试。</InlineError> : null}
+      {atRoot ? (
+        <p className="text-right text-xs text-muted-foreground">
+          建议先进入具体文件夹；挂载全部文件会递归扫描整个网盘。
+        </p>
+      ) : null}
       <div className="flex justify-end">
         <Button
           type="button"
@@ -119,7 +125,7 @@ function DirectoryPicker({
           ) : (
             <FolderIcon className="size-4" />
           )}
-          {mounted ? '当前已挂载' : '挂载当前目录'}
+          {mounted ? '当前已挂载' : atRoot ? '挂载全部文件（扫描整个网盘）' : '挂载当前目录'}
         </Button>
       </div>
     </div>

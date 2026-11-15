@@ -13,7 +13,6 @@ import {
 import { AppPage } from '@/components/app-page'
 import { InlineError } from '@/components/error-state'
 import { ListPagination } from '@/components/list-pagination'
-import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -120,76 +119,115 @@ export function SubscriptionsPage({
   }
 
   return (
-    <AppPage>
-      <PageHeader title="订阅" description="追踪影片磁力与演员新作，出现资源后加入 115">
-        {selecting ? (
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={pendingCount === 0 || batch.isPending}
-              onClick={() =>
-                setSelected(allSelected ? new Set() : new Set(pending.map(item => item.id)))
-              }
-            >
-              {allSelected ? '取消全选' : '全选待入库'}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={selectedIDs.length === 0 || batch.isPending}
-              onClick={() => {
-                batch.reset()
-                setConfirmMode('selected')
-              }}
-            >
-              <CloudDownloadIcon />
-              入库选中{selectedIDs.length > 0 ? ` (${selectedIDs.length})` : ''}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={batch.isPending}
-              onClick={leaveSelection}
-            >
-              <XIcon />
-              退出
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={pending.length === 0}
-              onClick={() => setSelecting(true)}
-            >
-              选择入库
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={!canBatchAll}
-              onClick={() => {
-                batch.reset()
-                setConfirmMode('all')
-              }}
-            >
-              <CloudDownloadIcon />
-              一键入库
-            </Button>
-          </>
-        )}
-      </PageHeader>
+    <AppPage
+      className="pb-[calc(86px+env(safe-area-inset-bottom))] md:pb-20"
+      contentClassName="gap-7"
+    >
+      <header className="relative overflow-hidden rounded-[18px] border border-border bg-card/55 px-5 py-6 sm:px-7 md:px-9 md:py-8">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(90%_140%_at_100%_0%,color-mix(in_srgb,var(--gold)_18%,transparent),transparent_58%)]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,color-mix(in_srgb,var(--foreground)_3%,transparent)_0_1px,transparent_1px_4px)] opacity-35"
+        />
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <p className="mb-2 font-mono text-[10px] tracking-[0.18em] text-gold uppercase">
+              Subscriptions / Monitor
+            </p>
+            <h1 className="font-serif text-[32px] leading-[1.1] font-semibold tracking-[-0.02em] md:text-[40px]">
+              订阅
+            </h1>
+            <p className="mt-2 max-w-xl text-xs leading-6 tracking-wide text-muted-foreground">
+              追踪影片磁力与演员新作，出现资源后加入 115。
+            </p>
+          </div>
+          <div className="flex max-w-full flex-wrap items-center gap-2">
+            {selecting ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={pendingCount === 0 || batch.isPending}
+                  onClick={() =>
+                    setSelected(allSelected ? new Set() : new Set(pending.map(item => item.id)))
+                  }
+                >
+                  {allSelected ? '取消全选' : '全选待入库'}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={selectedIDs.length === 0 || batch.isPending}
+                  onClick={() => {
+                    batch.reset()
+                    setConfirmMode('selected')
+                  }}
+                >
+                  <CloudDownloadIcon />
+                  入库选中{selectedIDs.length > 0 ? ` (${selectedIDs.length})` : ''}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={batch.isPending}
+                  onClick={leaveSelection}
+                >
+                  <XIcon />
+                  退出
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={pending.length === 0}
+                  onClick={() => setSelecting(true)}
+                >
+                  选择入库
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!canBatchAll}
+                  onClick={() => {
+                    batch.reset()
+                    setConfirmMode('all')
+                  }}
+                >
+                  <CloudDownloadIcon />
+                  一键入库
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
 
       <div className="flex min-w-0 flex-1 flex-col gap-6">
         <Tabs value={view} onValueChange={value => handleTabChange(value as SubscriptionsView)}>
-          <TabsList variant="line">
-            <TabsTrigger value="movies">影片订阅</TabsTrigger>
-            <TabsTrigger value="actors">演员订阅</TabsTrigger>
+          <TabsList
+            variant="line"
+            className="h-auto w-full [scrollbar-width:none] justify-start gap-6 overflow-x-auto border-b border-border pb-0 sm:gap-8"
+          >
+            <TabsTrigger
+              value="movies"
+              className="h-11 flex-none px-0 text-[12px] tracking-[0.04em] after:bottom-0"
+            >
+              影片订阅
+            </TabsTrigger>
+            <TabsTrigger
+              value="actors"
+              className="h-11 flex-none px-0 text-[12px] tracking-[0.04em] after:bottom-0"
+            >
+              演员订阅
+            </TabsTrigger>
           </TabsList>
         </Tabs>
 

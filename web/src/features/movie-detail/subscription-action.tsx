@@ -4,12 +4,48 @@ import { useAddSubscription, useRemoveSubscription, useSubscription } from '@/ap
 import { Button } from '@/components/ui/button'
 
 // Inline subscription toggle for the detail page when no magnet exists yet.
-export function MovieSubscriptionAction({ movieID }: { movieID: string }) {
+export function MovieSubscriptionAction({
+  movieID,
+  look = 'inline'
+}: {
+  movieID: string
+  look?: 'inline' | 'action'
+}) {
   const { subscription, isPending } = useSubscription('movie', movieID)
   const add = useAddSubscription()
   const remove = useRemoveSubscription()
   const subscribed = subscription?.status === 'waiting'
   const busy = isPending || add.isPending || remove.isPending
+  const toggle = () =>
+    subscribed ? remove.mutate(subscription) : add.mutate({ kind: 'movie', target_id: movieID })
+  const icon =
+    add.isPending || remove.isPending ? (
+      <LoaderCircleIcon className="animate-spin" />
+    ) : subscribed ? (
+      <BellOffIcon />
+    ) : subscription ? (
+      <BellRingIcon />
+    ) : (
+      <BellPlusIcon />
+    )
+
+  if (look === 'action') {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        className="h-10 gap-2 border-foreground/20 bg-background/10 px-4 backdrop-blur-sm"
+        aria-pressed={subscribed}
+        title={subscribed ? '取消订阅' : subscription ? '重新订阅' : '订阅影片'}
+        disabled={busy}
+        onClick={toggle}
+      >
+        {icon}
+        {subscribed ? '已订阅' : subscription ? '重新订阅' : '订阅'}
+      </Button>
+    )
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -25,21 +61,9 @@ export function MovieSubscriptionAction({ movieID }: { movieID: string }) {
         variant={subscribed ? 'outline' : 'default'}
         size="sm"
         disabled={busy}
-        onClick={() =>
-          subscribed
-            ? remove.mutate(subscription)
-            : add.mutate({ kind: 'movie', target_id: movieID })
-        }
+        onClick={toggle}
       >
-        {add.isPending || remove.isPending ? (
-          <LoaderCircleIcon className="animate-spin" />
-        ) : subscribed ? (
-          <BellOffIcon />
-        ) : subscription ? (
-          <BellRingIcon />
-        ) : (
-          <BellPlusIcon />
-        )}
+        {icon}
         {subscribed ? '取消订阅' : subscription ? '重新订阅' : '订阅影片'}
       </Button>
     </div>

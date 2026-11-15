@@ -13,16 +13,19 @@ import {
   useLibraryMovies
 } from '@/api/library'
 import { EmptyState } from '@/components/empty-state'
+import { ErrorState } from '@/components/error-state'
 import { MovieCover } from '@/components/movie/movie-cover'
 import { Button } from '@/components/ui/button'
 import { CollectionButton } from '@/features/collections/collection-button'
 import { cn } from 'cn'
+import { useSettingsStore } from '@/stores/settings'
 import { ActorTile } from './actor-tile'
 import { ContinueWatching } from './continue-watching'
-import { PosterCard } from './poster-card'
+import { PosterCard, PosterSkeletons } from './poster-card'
 import { Row } from './row'
 
-const posterClass = 'w-32 shrink-0 snap-start sm:w-44'
+const posterClass = 'w-[124px] shrink-0 snap-start sm:w-[152px]'
+const contentClass = 'mx-auto w-full max-w-[1200px] px-5 md:px-12'
 const heroCount = 5
 const heroInterval = 8000
 
@@ -35,10 +38,25 @@ export function WatchHome() {
   const [seed] = useState(() => Math.random())
   const tags = pickTags(facets.data?.tags ?? [], seed)
 
+  if (recent.isPending) return <HomeLoading />
+  if (recent.isError) {
+    return (
+      <main className="pb-20 md:pb-24">
+        <div className={cn(contentClass, 'pt-24')}>
+          <ErrorState
+            message="首页内容加载失败，请检查后端服务后重试"
+            onRetry={() => void recent.refetch()}
+            retrying={recent.isFetching}
+          />
+        </div>
+      </main>
+    )
+  }
+
   return (
-    <main className="pb-24">
+    <main className="pb-20 md:pb-24">
       <Hero movies={movies} />
-      <div className="mx-auto max-w-6xl space-y-14 px-4 pt-6 sm:space-y-16">
+      <div className={cn(contentClass, 'space-y-[38px] pt-10')}>
         <ContinueWatching />
 
         {movies.length > 0 ? (
@@ -48,7 +66,17 @@ export function WatchHome() {
             ))}
           </Row>
         ) : recent.data ? (
-          <EmptyState className="py-12" title="媒体库里还没有影片" />
+          <EmptyState
+            className="py-12"
+            title={recent.data.source ? '媒体库里还没有影片' : '还没有连接 115'}
+            actions={
+              <Button asChild variant="outline" size="sm">
+                <Link to="/settings">
+                  {recent.data.source ? '还没有影片，去设置检查媒体目录' : '去设置连接 115'}
+                </Link>
+              </Button>
+            }
+          />
         ) : null}
 
         {facets.data?.actors.length ? (
@@ -57,7 +85,7 @@ export function WatchHome() {
               <ActorTile
                 key={actor.name}
                 actor={actor}
-                className="w-22 shrink-0 snap-start sm:w-26"
+                className="w-26 shrink-0 snap-start sm:w-30"
               />
             ))}
           </Row>
@@ -78,25 +106,65 @@ export function WatchHome() {
                 key={item.id}
                 to="/collections/$id"
                 params={{ id: String(item.id) }}
-                className="group w-48 shrink-0 snap-start space-y-3 outline-ring sm:w-60"
+                className="group w-48 shrink-0 snap-start outline-ring sm:w-60"
               >
-                <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-md bg-muted transition group-hover:brightness-110">
+                <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-[9px] border border-border bg-card">
                   {item.cover ? (
-                    <div className="absolute inset-0">
+                    <div className="absolute inset-0 transition-[transform,filter] duration-300 group-hover:scale-[1.02] group-hover:brightness-[1.06] motion-reduce:transition-none motion-reduce:group-hover:scale-100">
                       <MovieCover source={item.cover} width={720} />
                     </div>
                   ) : (
                     <BookmarkIcon className="size-7 text-muted-foreground" strokeWidth={1.5} />
                   )}
                 </div>
-                <p className="truncate text-sm">
-                  {item.name}{' '}
-                  <span className="text-xs text-muted-foreground">· {item.count} 部</span>
+                <p className="mt-3 truncate text-xs">
+                  {item.name}
+                  <span className="ml-2 font-mono text-[10px] text-muted-foreground tabular-nums">
+                    · {item.count} 部
+                  </span>
                 </p>
               </Link>
             ))}
           </Row>
         ) : null}
+      </div>
+    </main>
+  )
+}
+
+function HomeLoading() {
+  return (
+    <main className="pb-20 md:pb-24" aria-busy="true">
+      <section
+        className="relative -mt-[60px] flex min-h-[470px] items-end overflow-hidden bg-muted md:min-h-[540px]"
+        aria-hidden="true"
+      >
+        <div className="absolute inset-0 animate-pulse bg-[radial-gradient(70%_70%_at_72%_20%,var(--muted),transparent_68%)] motion-reduce:animate-none" />
+        <div className="absolute inset-0 bg-linear-to-t from-background via-background/55 to-transparent" />
+        <div className={cn(contentClass, 'relative z-10 pb-9 md:pb-14')}>
+          <div className="max-w-[680px] space-y-4">
+            <div className="h-3 w-44 animate-pulse rounded-sm bg-foreground/10 motion-reduce:animate-none" />
+            <div className="h-11 w-4/5 animate-pulse rounded-sm bg-foreground/10 motion-reduce:animate-none md:h-16 md:max-w-xl" />
+            <div className="h-4 w-52 animate-pulse rounded-sm bg-foreground/10 motion-reduce:animate-none" />
+            <div className="flex gap-2.5 pt-2">
+              <div className="h-10 w-24 animate-pulse rounded-full bg-foreground/10 motion-reduce:animate-none" />
+              <div className="h-10 w-20 animate-pulse rounded-full bg-foreground/10 motion-reduce:animate-none" />
+              <div className="size-10 animate-pulse rounded-full bg-foreground/10 motion-reduce:animate-none" />
+            </div>
+          </div>
+        </div>
+      </section>
+      <div className={cn(contentClass, 'pt-10')}>
+        <div className="space-y-3.5">
+          <div className="h-5 w-28 animate-pulse rounded-sm bg-muted motion-reduce:animate-none" />
+          <div className="-mx-5 flex gap-3.5 overflow-hidden px-5 pb-1 md:-mx-12 md:px-12">
+            {Array.from({ length: 6 }, (_, index) => (
+              <div key={index} className={posterClass}>
+                <PosterSkeletons count={1} />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </main>
   )
@@ -131,7 +199,7 @@ function RandomRow() {
       action={
         <button
           type="button"
-          className="flex items-center gap-1.5 text-[13px] tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center gap-1.5 text-xs tracking-[0.03em] text-muted-foreground transition-colors hover:text-gold"
           onClick={() => setRoll(Math.random())}
         >
           <RefreshCwIcon className="size-3.5" strokeWidth={1.5} />
@@ -172,6 +240,7 @@ function shuffle<T>(items: T[], seed: number) {
 // visit. They change by themselves, by the bars or by a swipe.
 function Hero({ movies }: { movies: LibraryMovie[] }) {
   const [seed] = useState(() => Math.random())
+  const nsfwMode = useSettingsStore(state => state.nsfwMode)
   const picks = shuffle(
     movies.filter(movie => movie.cover),
     seed
@@ -191,7 +260,7 @@ function Hero({ movies }: { movies: LibraryMovie[] }) {
   const year = movie.release_date?.slice(0, 4)
   return (
     <section
-      className="relative isolate -mt-16 h-[72vh] min-h-[30rem] overflow-hidden sm:h-[82vh]"
+      className="relative isolate -mt-[60px] flex min-h-[470px] items-end overflow-hidden bg-card md:min-h-[540px]"
       onTouchStart={event => setTouch(event.touches[0]?.clientX)}
       onTouchEnd={event => {
         const moved = (event.changedTouches[0]?.clientX ?? 0) - (touch ?? 0)
@@ -199,24 +268,28 @@ function Hero({ movies }: { movies: LibraryMovie[] }) {
         setTouch(undefined)
       }}
     >
-      {picks.map((pick, i) => (
-        <img
-          key={pick.id}
-          src={imageURL(pick.cover!)}
-          alt=""
-          className={cn(
-            'absolute inset-0 -z-10 size-full object-cover object-right transition-opacity duration-1000',
-            i === index ? 'opacity-100' : 'opacity-0'
-          )}
-        />
-      ))}
-      <div className="absolute inset-x-0 top-0 -z-10 h-40 bg-linear-to-b from-background/80 to-transparent" />
-      <div className="absolute inset-0 -z-10 bg-linear-to-t from-background via-background/30 to-transparent" />
-      <div className="absolute inset-0 -z-10 bg-linear-to-r from-background/90 via-background/40 to-transparent" />
-      <div className="mx-auto flex h-full max-w-6xl flex-wrap content-end items-end justify-between gap-6 px-4 pb-10 sm:pb-16">
-        <div key={movie.id} className="max-w-xl animate-in space-y-5 duration-700 fade-in">
-          <p className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] tracking-wider text-muted-foreground">
-            <span>{movie.code}</span>
+      {!nsfwMode
+        ? picks.map((pick, i) => (
+            <img
+              key={pick.id}
+              src={imageURL(pick.cover!)}
+              alt=""
+              className={cn(
+                'absolute inset-0 -z-10 size-full scale-[1.01] object-cover object-[70%_center] transition-opacity duration-1000 motion-reduce:transition-none sm:object-right',
+                i === index ? 'opacity-100' : 'opacity-0'
+              )}
+            />
+          ))
+        : null}
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.05)_0_1px,transparent_1px_3px)] opacity-25" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-24 bg-linear-to-b from-background/70 to-transparent" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-linear-to-t from-background from-2% via-background/55 via-36% to-transparent to-72%" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-linear-to-r from-background/85 from-0% via-background/35 via-38% to-transparent to-68%" />
+
+      <div className={cn(contentClass, 'relative z-10 flex w-full items-end pb-16')}>
+        <div key={movie.id} className="max-w-[680px] animate-in space-y-3 duration-700 fade-in">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5 font-mono text-xs tracking-[0.02em] text-muted-foreground tabular-nums">
+            <span className="text-foreground">{movie.code}</span>
             {year ? <span>{year}</span> : null}
             {movie.duration > 0 ? <span>{movie.duration} 分钟</span> : null}
             {movie.chinese ? <span>中字</span> : null}
@@ -224,21 +297,21 @@ function Hero({ movies }: { movies: LibraryMovie[] }) {
               <span className="text-foreground">★ {movie.rating.toFixed(1)}</span>
             ) : null}
           </p>
-          <h1 className="line-clamp-2 font-serif text-3xl leading-tight font-semibold tracking-wide sm:text-5xl lg:text-6xl">
+          <h1 className="line-clamp-2 font-serif text-[36px] leading-[1.06] font-bold tracking-[-0.03em] sm:text-[clamp(38px,5.2vw,66px)]">
             {movie.title || movie.code}
           </h1>
           {movie.actors.length ? (
-            <p className="truncate text-[15px] tracking-wide text-muted-foreground">
+            <p className="truncate text-xs tracking-[0.03em] text-muted-foreground">
               {movie.actors
                 .map(actor => actor.name)
                 .slice(0, 3)
                 .join('　')}
             </p>
           ) : null}
-          <div className="flex flex-wrap gap-3 pt-2">
-            <Button asChild size="lg" className="h-12 rounded-full px-8 tracking-wide">
+          <div className="flex flex-wrap items-center gap-2.5 pt-3">
+            <Button asChild size="lg" className="h-10 rounded-full px-5 text-sm">
               <Link to="/play/$id" params={{ id: String(movie.id) }}>
-                <PlayIcon data-icon="inline-start" className="fill-current" />
+                <PlayIcon data-icon="inline-start" className="size-3.5 fill-current" />
                 播放
               </Link>
             </Button>
@@ -246,7 +319,7 @@ function Hero({ movies }: { movies: LibraryMovie[] }) {
               asChild
               size="lg"
               variant="outline"
-              className="h-12 rounded-full px-7 tracking-wide"
+              className="h-10 rounded-full border-foreground/25 bg-card/30 px-4 text-sm backdrop-blur-sm"
             >
               <Link to="/movie/$id" params={{ id: String(movie.id) }}>
                 详情
@@ -255,31 +328,40 @@ function Hero({ movies }: { movies: LibraryMovie[] }) {
             <CollectionButton movieId={movie.id} look="icon" />
           </div>
         </div>
-        {picks.length > 1 ? (
-          <div className="flex items-center gap-3 text-xs tracking-widest text-muted-foreground tabular-nums">
-            <span className="text-foreground">{String(index + 1).padStart(2, '0')}</span>
-            <div className="flex">
-              {picks.map((pick, i) => (
-                <button
-                  key={pick.id}
-                  type="button"
-                  aria-label={`第 ${i + 1} 部：${pick.code}`}
-                  className="flex h-6 items-center px-0.5"
-                  onClick={() => setIndex(i)}
-                >
-                  <span
-                    className={cn(
-                      'block h-0.5 transition-all duration-500',
-                      i === index ? 'w-9 bg-gold' : 'w-4 bg-foreground/25'
-                    )}
-                  />
-                </button>
-              ))}
-            </div>
-            <span>{String(picks.length).padStart(2, '0')}</span>
-          </div>
-        ) : null}
       </div>
+
+      {picks.length > 1 ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-2 z-20 md:bottom-[58px]">
+          <div className={cn(contentClass, 'flex justify-end')}>
+            <div className="pointer-events-auto flex flex-col items-end gap-1.5">
+              <p className="font-mono text-xs tracking-[0.12em] text-muted-foreground tabular-nums">
+                <span className="text-foreground">{String(index + 1).padStart(2, '0')}</span>
+                {' / '}
+                {String(picks.length).padStart(2, '0')}
+              </p>
+              <div className="flex gap-[5px]">
+                {picks.map((pick, i) => (
+                  <button
+                    key={pick.id}
+                    type="button"
+                    aria-label={`第 ${i + 1} 部：${pick.code}`}
+                    aria-current={i === index ? 'true' : undefined}
+                    className="flex h-8 items-center"
+                    onClick={() => setIndex(i)}
+                  >
+                    <span
+                      className={cn(
+                        'block h-0.5 rounded-full transition-all duration-300 motion-reduce:transition-none',
+                        i === index ? 'w-[30px] bg-gold' : 'w-[18px] bg-foreground/25'
+                      )}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

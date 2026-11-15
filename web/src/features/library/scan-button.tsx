@@ -24,22 +24,22 @@ export function LibraryScanButton({
   const startScan = useStartLibraryScan()
   const notifyScan = useNotifyScanTask()
   // Keep the mutation observer mounted while pagination replaces the visible control.
-  if (loading) return <Skeleton className="h-9 w-20 rounded-4xl sm:w-60" />
+  if (loading) return <Skeleton className="h-10 w-24 rounded-4xl sm:h-9 sm:w-60" />
   if (!available) return null
 
   return (
     <div className="flex items-center gap-2">
       {[false, true].map(rebuild => {
         const active = scanning && rebuilding === rebuild
-        const activityLabel = connected ? (rebuild ? '正在重建' : '正在同步') : '连接中'
+        const activityLabel = connected ? (rebuild ? '正在重建' : '正在同步') : '进度已断开'
         const label = active ? activityLabel : rebuild ? '重建媒体库' : '同步媒体库'
-        const busy =
-          (active && connected) || (startScan.isPending && startScan.variables === rebuild)
+        const busy = active || (startScan.isPending && startScan.variables === rebuild)
         return (
           <Button
             key={String(rebuild)}
             variant={rebuild ? 'outline' : 'default'}
-            className="w-9 px-0 sm:w-auto sm:px-3"
+            aria-label={label}
+            className="h-10 gap-1.5 px-3 text-xs tracking-wide sm:h-9"
             disabled={scanning || startScan.isPending}
             onClick={() =>
               startScan.mutate(rebuild, {
@@ -64,7 +64,7 @@ export function LibraryScanButton({
             ) : (
               <ScanLineIcon className="size-4" />
             )}
-            <span className="hidden sm:inline">{label}</span>
+            <span>{label}</span>
           </Button>
         )
       })}

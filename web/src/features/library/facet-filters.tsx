@@ -34,11 +34,11 @@ const facetLists = {
 // a value is picked.
 export function chipClass(state: 'off' | 'on' | 'picked' = 'off') {
   return cn(
-    'inline-flex h-8 max-w-60 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-[13px] tracking-wide whitespace-nowrap outline-ring transition-colors',
-    state === 'on' && 'border-foreground bg-foreground text-background',
-    state === 'picked' && 'border-foreground text-foreground',
+    'inline-flex h-10 max-w-60 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-xs tracking-wide whitespace-nowrap outline-ring transition-colors sm:h-9',
     state === 'off' &&
-      'border-foreground/15 text-foreground/80 hover:border-foreground/40 hover:text-foreground data-[state=open]:border-foreground/40'
+      'border-border bg-card/45 text-muted-foreground hover:border-foreground/30 hover:text-foreground data-[state=open]:border-foreground/30 data-[state=open]:text-foreground',
+    state === 'on' && 'border-foreground bg-foreground text-background',
+    state === 'picked' && 'border-gold/55 bg-gold/10 text-foreground'
   )
 }
 
@@ -137,7 +137,7 @@ function FacetPicker({
               <button
                 key={item.name}
                 type="button"
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-gold/10 hover:text-gold"
                 onClick={() => {
                   setOpen(false)
                   setText('')
@@ -177,7 +177,7 @@ export function ChoiceChip<T extends string>({
           type="button"
           className={
             plain
-              ? 'inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 text-[13px] tracking-wide text-foreground/80 outline-ring hover:text-foreground'
+              ? 'inline-flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2 text-xs tracking-wide text-muted-foreground outline-ring transition-colors hover:text-foreground sm:h-9'
               : chipClass(value === first ? 'off' : 'picked')
           }
         >
@@ -191,7 +191,7 @@ export function ChoiceChip<T extends string>({
             key={choice}
             type="button"
             className={cn(
-              'flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-muted',
+              'flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-gold/10',
               choice === value && 'text-gold'
             )}
             onClick={() => {

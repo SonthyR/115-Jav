@@ -37,6 +37,9 @@ export function PanSection() {
               type="button"
               variant="outline"
               size="icon"
+              aria-label="重试"
+              title="重试"
+              className="size-10 sm:size-9"
               disabled={account.isFetching}
               onClick={() => void account.refetch()}
             >
@@ -54,7 +57,15 @@ export function PanSection() {
         <LoaderCircleIcon className="size-4 animate-spin text-muted-foreground" />
       ) : !connected ? (
         <PanLoginDialog>
-          <Button type="button" variant="outline" size="icon" disabled={disconnect.isPending}>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="扫码登录"
+            title="扫码登录"
+            className="size-10 sm:size-9"
+            disabled={disconnect.isPending}
+          >
             <QrCodeIcon className="size-4" />
           </Button>
         </PanLoginDialog>
@@ -66,6 +77,9 @@ export function PanSection() {
               type="button"
               variant="outline"
               size="icon"
+              aria-label="退出登录"
+              title="退出登录"
+              className="size-10 sm:size-9"
               disabled={disconnect.isPending}
               onClick={() => disconnect.mutate()}
             >

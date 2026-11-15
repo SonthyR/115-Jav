@@ -18,8 +18,10 @@ import (
 
 type retryTransport func() error
 
-func (f retryTransport) getJSON(context.Context, string, url.Values, any) error { return f() }
-func (retryTransport) closeIdleConnections()                                    {}
+func (f retryTransport) request(context.Context, string, string, url.Values, any, string) error {
+	return f()
+}
+func (retryTransport) closeIdleConnections() {}
 
 func TestRetryAfterFormats(t *testing.T) {
 	now := time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)

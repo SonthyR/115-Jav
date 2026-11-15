@@ -42,7 +42,7 @@ export function DownloadIndicator() {
         >
           <ArrowDownToLineIcon className="size-[18px]" strokeWidth={1.5} />
           {active > 0 ? (
-            <span className="absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[10px] leading-4 font-semibold text-background">
+            <span className="absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[11px] leading-4 font-semibold text-background">
               {active}
             </span>
           ) : failed ? (

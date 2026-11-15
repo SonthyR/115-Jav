@@ -1,13 +1,12 @@
 import {
   CaptionsIcon,
   CheckIcon,
+  Ellipsis,
   FileUpIcon,
-  GaugeIcon,
-  LayersIcon,
   LoaderCircleIcon,
   type LucideIcon,
   SearchIcon,
-  TimerIcon
+  SettingsIcon
 } from 'lucide-react'
 import { type ReactNode, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -75,73 +74,6 @@ export function PlayerToolbar({
   if (mode !== 'direct' && !transcodes?.includes(mode)) qualities.push(mode)
   return (
     <div className="flex items-center gap-0.5 sm:gap-1">
-      {files.length > 1 ? (
-        <OverlayMenu
-          container={container}
-          label={`${fileIndex + 1}/${files.length}`}
-          icon={LayersIcon}
-        >
-          {close =>
-            files.map((item, index) => (
-              <MenuOption
-                key={item.file_id}
-                active={index === fileIndex}
-                label={item.name}
-                detail={formatSize(item.size)}
-                onSelect={() => {
-                  close()
-                  onFileChange(index)
-                }}
-              />
-            ))
-          }
-        </OverlayMenu>
-      ) : null}
-      <OverlayMenu
-        container={container}
-        label={mode === 'direct' ? '原画' : `${mode.height}P`}
-        icon={GaugeIcon}
-        onOpen={() => {
-          if (!transcodes) {
-            onLoadTranscodes().catch(error =>
-              toast.error(`没有可用的转码版本：${describeApiError(error)}`)
-            )
-          }
-        }}
-      >
-        {close =>
-          qualities.map(item => (
-            <MenuOption
-              key={item === 'direct' ? 'direct' : item.height}
-              active={item === mode}
-              label={item === 'direct' ? '原画直连' : `115 转码 ${item.height}P`}
-              onSelect={() => {
-                close()
-                onModeChange(item)
-              }}
-            />
-          ))
-        }
-      </OverlayMenu>
-      <OverlayMenu
-        container={container}
-        label={rate.rate === 1 ? '倍速' : `${rate.rate}×`}
-        icon={TimerIcon}
-      >
-        {close =>
-          playbackRates.map(item => (
-            <MenuOption
-              key={item}
-              active={item === rate.rate}
-              label={item === 1 ? '正常' : `${item}×`}
-              onSelect={() => {
-                close()
-                rate.set(item)
-              }}
-            />
-          ))
-        }
-      </OverlayMenu>
       <SubtitleMenu
         container={container}
         movieId={movieId}
@@ -150,7 +82,111 @@ export function PlayerToolbar({
         onTrackChange={onTrackChange}
         onAddTrack={onAddTrack}
       />
+      <OverlayMenu
+        container={container}
+        label="设置"
+        icon={SettingsIcon}
+        onOpen={() => {
+          if (!transcodes) {
+            onLoadTranscodes().catch(error =>
+              toast.error(`没有可用的转码版本：${describeApiError(error)}`)
+            )
+          }
+        }}
+      >
+        {close => (
+          <div className="space-y-1">
+            {files.length > 1 ? (
+              <MenuSection label="文件">
+                {files.map((item, index) => (
+                  <MenuOption
+                    key={item.file_id}
+                    active={index === fileIndex}
+                    label={item.name}
+                    detail={formatSize(item.size)}
+                    onSelect={() => {
+                      close()
+                      onFileChange(index)
+                    }}
+                  />
+                ))}
+              </MenuSection>
+            ) : null}
+            <MenuSection label="画质">
+              {qualities.map(item => (
+                <MenuOption
+                  key={item === 'direct' ? 'direct' : item.height}
+                  active={item === mode}
+                  label={item === 'direct' ? '原画直连' : `115 转码 ${item.height}P`}
+                  onSelect={() => {
+                    close()
+                    onModeChange(item)
+                  }}
+                />
+              ))}
+            </MenuSection>
+            <MenuSection label="播放速度">
+              {playbackRates.map(item => (
+                <MenuOption
+                  key={item}
+                  active={item === rate.rate}
+                  label={item === 1 ? '正常' : `${item}×`}
+                  onSelect={() => {
+                    close()
+                    rate.set(item)
+                  }}
+                />
+              ))}
+            </MenuSection>
+          </div>
+        )}
+      </OverlayMenu>
     </div>
+  )
+}
+
+// Picture-in-picture and fullscreen are the quiet extras behind the top bar's
+// overflow control; playback choices stay with the bottom settings menu.
+export function PlayerMoreMenu({
+  container,
+  fullscreen,
+  pictureInPicture,
+  onPictureInPicture,
+  onFullscreen
+}: {
+  container: HTMLElement | null
+  fullscreen: boolean
+  pictureInPicture: boolean
+  onPictureInPicture: () => void
+  onFullscreen: () => void
+}) {
+  return (
+    <OverlayMenu container={container} label="更多" icon={Ellipsis} side="bottom">
+      {close => (
+        <>
+          {pictureInPicture ? (
+            <MenuOption
+              active={false}
+              label="画中画"
+              detail="PiP"
+              onSelect={() => {
+                close()
+                onPictureInPicture()
+              }}
+            />
+          ) : null}
+          <MenuOption
+            active={fullscreen}
+            label={fullscreen ? '退出全屏' : '全屏'}
+            detail="F"
+            onSelect={() => {
+              close()
+              onFullscreen()
+            }}
+          />
+        </>
+      )}
+    </OverlayMenu>
   )
 }
 
@@ -158,12 +194,14 @@ function OverlayMenu({
   container,
   label,
   icon: Icon,
+  side = 'top',
   onOpen,
   children
 }: {
   container: HTMLElement | null
   label: string
   icon: LucideIcon
+  side?: 'top' | 'bottom'
   onOpen?: () => void
   children: (close: () => void) => ReactNode
 }) {
@@ -177,20 +215,30 @@ function OverlayMenu({
       }}
     >
       <PopoverTrigger asChild>
-        <Button variant="ghost" className={controlButton} aria-label={label}>
+        <Button variant="ghost" className={controlButton} aria-label={label} title={label}>
           <Icon />
-          <span className="hidden sm:inline">{label}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent
         container={container}
-        side="top"
+        side={side}
         align="end"
         className="max-h-[60dvh] w-[min(20rem,calc(100vw-1rem))] overflow-y-auto p-1.5"
       >
         {children(() => setOpen(false))}
       </PopoverContent>
     </Popover>
+  )
+}
+
+function MenuSection({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <section className="space-y-0.5 py-1">
+      <h3 className="px-2.5 py-1 font-mono text-[10px] tracking-[0.12em] text-muted-foreground uppercase">
+        {label}
+      </h3>
+      {children}
+    </section>
   )
 }
 
@@ -271,9 +319,9 @@ function SubtitleMenu({
           variant="ghost"
           className={controlButton + (activeTrack ? ' text-gold' : '')}
           aria-label="字幕"
+          title="字幕"
         >
           <CaptionsIcon />
-          <span className="hidden sm:inline">字幕</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent

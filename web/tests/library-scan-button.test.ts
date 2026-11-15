@@ -1,4 +1,5 @@
-import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
+import { Children, createElement, isValidElement, type ReactElement, type ReactNode } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test, vi } from 'vitest'
 
 import { useLibraryMovies, useStartLibraryScan } from '@/api/library'
@@ -12,8 +13,10 @@ vi.mock('@/api/library', () => ({
   useLibraryMovies: vi.fn(),
   useStartLibraryScan: vi.fn()
 }))
+vi.mock('@/api/auth', () => ({ useLite: () => false }))
 vi.mock('@/api/tasks', () => ({
   useTasks: vi.fn(),
+  useRetryTask: () => ({ isPending: false, mutate: vi.fn() }),
   isScanTask: () => true,
   isTaskActive: () => false
 }))
@@ -24,13 +27,19 @@ vi.mock('@/features/tasks/task-toast', () => {
   const notifyScanTask = vi.fn()
   return { notifyScanTask, useNotifyScanTask: () => notifyScanTask, notifyTaskError: vi.fn() }
 })
+vi.mock('@tanstack/react-router', () => ({ Link: () => null }))
+vi.mock('@/features/library/filters', () => ({ LibraryFilters: () => null }))
 
 function elements(node: ReactNode): ReactElement<Record<string, unknown>>[] {
   return Children.toArray(node).filter(isValidElement) as ReactElement<Record<string, unknown>>[]
 }
 
-test('scan control retains its header position and component identity while pages load or fail', () => {
+test('library page keeps the scan action through loading and failure states', () => {
   vi.mocked(useTasks).mockReturnValue({ data: [] } as unknown as ReturnType<typeof useTasks>)
+  vi.mocked(useStartLibraryScan).mockReturnValue({
+    isPending: false,
+    mutate: vi.fn()
+  } as unknown as ReturnType<typeof useStartLibraryScan>)
   const onPageChange = vi.fn()
   const states = [
     {
@@ -45,14 +54,17 @@ test('scan control retains its header position and component identity while page
     vi.mocked(useLibraryMovies).mockReturnValue(
       state as unknown as ReturnType<typeof useLibraryMovies>
     )
-    const page = LibraryPage({ page: 2, onPageChange })
-    const header = elements(page.props.children)[0]!
-    const control = elements(header.props.children as ReactNode)[0]!
-    expect(control.type).toBe(LibraryScanButton)
-    expect(control.props.loading).toBe(state.isPending)
-    ;(control.props.onStarted as () => void)()
+    const html = renderToStaticMarkup(createElement(LibraryPage, { page: 2, onPageChange }))
+    if ('isPending' in state) {
+      expect(html).not.toContain('aria-label="同步媒体库"')
+    } else if (state.data?.source) {
+      expect(html).toContain('aria-label="同步媒体库"')
+      expect(html).toContain('aria-label="重建媒体库"')
+    } else {
+      expect(html).not.toContain('aria-label="同步媒体库"')
+    }
   }
-  expect(onPageChange.mock.calls).toEqual([[1], [1], [1], [1]])
+  expect(useStartLibraryScan).toHaveBeenCalledTimes(states.length)
 })
 
 test('loading and hidden controls still retain the scan mutation hook', () => {

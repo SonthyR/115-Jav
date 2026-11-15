@@ -35,7 +35,12 @@ export function ListPagination({
     if (item === page) {
       return (
         <PaginationItem key={item}>
-          <PaginationLink isActive>{item}</PaginationLink>
+          <PaginationLink
+            isActive
+            className="size-8 rounded-full border-0 bg-foreground font-mono text-xs text-background hover:bg-foreground/90 hover:text-background"
+          >
+            {item}
+          </PaginationLink>
         </PaginationItem>
       )
     }
@@ -44,7 +49,10 @@ export function ListPagination({
         <PaginationLink
           href="#"
           tabIndex={disabled ? -1 : undefined}
-          className={cn(disabled && 'pointer-events-none opacity-50')}
+          className={cn(
+            'size-8 rounded-full font-mono text-xs text-muted-foreground hover:text-foreground',
+            disabled && 'pointer-events-none opacity-50'
+          )}
           onClick={e => {
             e.preventDefault()
             changePage(item)
@@ -62,13 +70,14 @@ export function ListPagination({
   const items = totalPages === undefined ? [page] : getPageNumbers(page, totalPages)
 
   return (
-    <Pagination className="py-3">
-      <PaginationContent>
+    <Pagination className="py-6">
+      <PaginationContent className="gap-1 rounded-full border border-border bg-card/45 p-1.5">
         <PaginationItem>
           <PaginationPrevious
             text="上一页"
             disabled={page <= 1 || disabled}
             onClick={() => changePage(page - 1)}
+            className="h-8 rounded-full px-2 text-xs text-muted-foreground hover:text-foreground"
           />
         </PaginationItem>
 
@@ -77,7 +86,7 @@ export function ListPagination({
             renderPage(item)
           ) : (
             <PaginationItem key={item}>
-              <PaginationEllipsis />
+              <PaginationEllipsis className="size-8 text-muted-foreground" />
             </PaginationItem>
           )
         )}
@@ -87,6 +96,7 @@ export function ListPagination({
             text="下一页"
             disabled={disabled || !hasMore}
             onClick={() => changePage(page + 1)}
+            className="h-8 rounded-full px-2 text-xs text-muted-foreground hover:text-foreground"
           />
         </PaginationItem>
       </PaginationContent>

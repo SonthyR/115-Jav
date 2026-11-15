@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	javdbDeviceSetting = "javdb.device_uuid"
-	javdbRouteSetting  = "javdb.route"
+	javdbDeviceSetting  = "javdb.device_uuid"
+	javdbRouteSetting   = "javdb.route"
+	javdbAccountSetting = "javdb.account"
 )
 
 type persistedRoute struct {
@@ -45,14 +46,16 @@ type Service struct {
 	lastSavedRoute persistedRoute
 }
 
-// New creates the lazy JavDB client and restores/persists device UUID and route settings.
-// On success, Close also releases the supplied magnet source.
+// New creates the lazy JavDB client and restores/persists device UUID, route and
+// account settings. A stored account wins over the credentials supplied from
+// the environment. On success, Close also releases the supplied magnet source.
 func New(
 	ctx context.Context,
 	db *ent.Client,
 	proxy *netx.ProxyManager,
 	local LocalState,
 	supplement JavBusSource,
+	account javdb.Credentials,
 ) (*Service, error) {
 	deviceUUID, found, err := database.LoadSetting[string](ctx, db, javdbDeviceSetting)
 	if err != nil {
@@ -68,6 +71,14 @@ func New(
 		}
 	}
 
+	stored, found, err := database.LoadSetting[javdb.Credentials](ctx, db, javdbAccountSetting)
+	if err != nil {
+		return nil, err
+	}
+	if found && stored.Username != "" && stored.Password != "" {
+		account = stored
+	}
+
 	route, _, err := database.LoadSetting[persistedRoute](ctx, db, javdbRouteSetting)
 	if err != nil {
 		return nil, err
@@ -77,6 +88,7 @@ func New(
 		Proxy:         proxy,
 		CachedHost:    route.Host,
 		CachedLatency: time.Duration(route.LatencyMS) * time.Millisecond,
+		Credentials:   account,
 	})
 	if err != nil {
 		return nil, err
@@ -136,6 +148,35 @@ func (service *Service) Close() {
 	if service.javbus != nil {
 		service.javbus.Close()
 	}
+}
+
+// JavDBAccount reports whether a JavDB account is configured and signed in.
+func (service *Service) JavDBAccount(context.Context) (JavDBAccount, error) {
+	username := service.javdb.Username()
+	return JavDBAccount{
+		Configured: username != "",
+		LoggedIn:   service.javdb.LoggedIn(),
+		Username:   username,
+	}, nil
+}
+
+// UpdateJavDBAccount signs in before saving, so rejected credentials are not kept.
+func (service *Service) UpdateJavDBAccount(ctx context.Context, username, password string) error {
+	username = strings.TrimSpace(username)
+	if username == "" || password == "" {
+		return domain.E(domain.KindInvalid, "JavDB 用户名和密码不能为空", nil)
+	}
+	if err := service.javdb.Login(ctx, username, password); err != nil {
+		if javdb.IsAuthError(err) {
+			return domain.E(domain.KindInvalid, "JavDB 用户名或密码错误，请检查后重试", err)
+		}
+		return domain.E(domain.KindUpstream, "连不上 JavDB，请检查网络或代理后重试", err)
+	}
+	account := javdb.Credentials{Username: service.javdb.Username(), Password: password}
+	if err := database.SaveSetting(ctx, service.database, javdbAccountSetting, account); err != nil {
+		return fmt.Errorf("save JavDB account: %w", err)
+	}
+	return nil
 }
 
 func (service *Service) Search(

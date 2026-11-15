@@ -75,7 +75,18 @@ func (t *transport) getJSON(
 	params url.Values,
 	destination any,
 ) error {
-	request, err := t.newRequest(ctx, path, params, time.Now().Unix())
+	return t.request(ctx, http.MethodGet, path, params, destination, "")
+}
+
+func (t *transport) request(
+	ctx context.Context,
+	method string,
+	path string,
+	params url.Values,
+	destination any,
+	token string,
+) error {
+	request, err := t.newRequest(ctx, method, path, params, time.Now().Unix(), token)
 	if err != nil {
 		return err
 	}
@@ -103,9 +114,11 @@ func (t *transport) getJSON(
 
 func (t *transport) newRequest(
 	ctx context.Context,
+	method string,
 	path string,
-	params url.Values,
+	fields url.Values,
 	timestamp int64,
+	token string,
 ) (*http.Request, error) {
 	query := url.Values{
 		"app_channel":        {"official"},
@@ -117,24 +130,32 @@ func (t *transport) newRequest(
 		"device_name":        {"Pixel"},
 		"device_uuid":        {t.deviceUUID},
 	}
-	for key, values := range params {
-		for _, value := range values {
+	for key, items := range fields {
+		for _, value := range items {
 			query.Add(key, value)
 		}
 	}
 
-	request, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodGet,
-		t.host+"/"+strings.TrimLeft(path, "/")+"?"+query.Encode(),
-		nil,
-	)
+	target := t.host + "/" + strings.TrimLeft(path, "/")
+	var body io.Reader
+	if method == http.MethodGet {
+		target += "?" + query.Encode()
+	} else {
+		body = strings.NewReader(query.Encode())
+	}
+	request, err := http.NewRequestWithContext(ctx, method, target, body)
 	if err != nil {
 		return nil, fmt.Errorf("create JavDB request: %w", err)
+	}
+	if method != http.MethodGet {
+		request.Header.Set("content-type", "application/x-www-form-urlencoded")
 	}
 	request.Header.Set("accept-language", defaultLanguage)
 	request.Header.Set("connection", "keep-alive")
 	request.Header.Set("jdsignature", signature(timestamp))
 	request.Header.Set("user-agent", userAgent)
+	if token != "" {
+		request.Header.Set("authorization", "Bearer "+token)
+	}
 	return request, nil
 }

@@ -2,7 +2,6 @@ import {
   MaximizeIcon,
   MinimizeIcon,
   PauseIcon,
-  PictureInPicture2Icon,
   PlayIcon,
   RotateCcwIcon,
   RotateCwIcon,
@@ -112,14 +111,16 @@ export function ControlBar({
   onFullscreen: () => void
   menus: ReactNode
 }) {
-  const pip = typeof document !== 'undefined' && document.pictureInPictureEnabled
   return (
     <div className="space-y-1 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4 sm:pb-3">
       <Timeline api={api} state={state} resumeAt={resumeAt} />
       <div className="flex items-center gap-0.5 text-white sm:gap-1">
         <Button
           variant="ghost"
-          className={controlButton}
+          className={cn(
+            controlButton,
+            'size-10 bg-white px-0 text-black hover:bg-white/90 hover:text-black sm:size-11'
+          )}
           aria-label={state.paused ? '播放' : '暂停'}
           title={state.paused ? '播放 (空格)' : '暂停 (空格)'}
           onClick={api.togglePlay}
@@ -160,23 +161,12 @@ export function ControlBar({
           </Button>
         ) : null}
         <Volume api={api} state={state} />
-        <span className="ml-1 shrink-0 text-xs text-white/90 tabular-nums sm:ml-2 sm:text-sm">
+        <span className="ml-1 shrink-0 font-mono text-[11px] text-white/90 tabular-nums sm:ml-2 sm:text-xs">
           {formatTime(state.time)}
-          <span className="text-white/50"> / {formatTime(state.duration)}</span>
+          <span className="hidden text-white/50 sm:inline"> / {formatTime(state.duration)}</span>
         </span>
         <div className="ml-auto flex items-center gap-0.5 sm:gap-1">
           {menus}
-          {pip ? (
-            <Button
-              variant="ghost"
-              className={cn(controlButton, 'hidden sm:inline-flex')}
-              aria-label="画中画"
-              title="画中画"
-              onClick={api.togglePictureInPicture}
-            >
-              <PictureInPicture2Icon />
-            </Button>
-          ) : null}
           <Button
             variant="ghost"
             className={controlButton}
@@ -307,7 +297,7 @@ function Volume({ api, state }: { api: VideoApi; state: VideoState }) {
         step={0.05}
         value={level}
         aria-label="音量"
-        className="hidden h-1 w-0 cursor-pointer accent-white opacity-0 transition-all group-hover/volume:w-20 group-hover/volume:opacity-100 focus-visible:w-20 focus-visible:opacity-100 [@media(hover:hover)]:block"
+        className="hidden h-1 w-0 cursor-pointer accent-gold opacity-0 transition-all group-hover/volume:w-20 group-hover/volume:opacity-100 focus-visible:w-20 focus-visible:opacity-100 [@media(hover:hover)]:block"
         onChange={event => api.setVolume(Number(event.target.value))}
       />
     </div>

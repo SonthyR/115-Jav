@@ -8,6 +8,9 @@ import {
   SelectValue
 } from '@/components/ui/select'
 
+export const filterSelectClass =
+  'h-10 w-auto min-w-32 shrink-0 rounded-full border-border bg-card/50 px-3.5 text-xs tracking-wide text-foreground transition-colors hover:border-foreground/30 sm:h-9'
+
 export function CommonFilterSelect({
   options,
   value,
@@ -22,7 +25,7 @@ export function CommonFilterSelect({
       value={value || 'all'}
       onValueChange={next => onValueChange(next === 'all' ? '' : next)}
     >
-      <SelectTrigger className="w-full sm:w-48">
+      <SelectTrigger className={filterSelectClass}>
         <SelectValue placeholder="全部条件" />
       </SelectTrigger>
       <SelectContent position="popper" align="start">

@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { ExpandIcon, TvIcon } from 'lucide-react'
+import { TvIcon } from 'lucide-react'
 import { lazy, Suspense, useState } from 'react'
 
 import { useLite } from '@/api/auth'
@@ -52,15 +52,7 @@ function LibraryMovieDetail({ movieId, play = false }: { movieId: number; play?:
       ) : null}
       {/* The watch side plays full screen and keeps progress and versions. */}
       <div className="-mb-6 flex flex-wrap gap-2">
-        {lite ? null : (
-          <Button asChild size="sm" variant="secondary" className="rounded-full">
-            <Link to="/play/$id" params={{ id: String(movieId) }}>
-              <ExpandIcon data-icon="inline-start" />
-              全屏播放
-            </Link>
-          </Button>
-        )}
-        <Button asChild size="sm" variant="ghost" className="rounded-full">
+        <Button asChild size="sm" variant="ghost" className="ml-auto rounded-full">
           <Link to="/movie/$id" params={{ id: String(movieId) }}>
             <TvIcon data-icon="inline-start" />
             打开影片页
@@ -93,7 +85,7 @@ function LibraryCatalogueExtras({ movieId }: { movieId: string }) {
   useRecordMovieView(movieId)
   return (
     <>
-      <MovieMagnets movieID={movieId} query={magnets} />
+      <MovieMagnets movieID={movieId} query={magnets} showSubscription={false} />
       {detail.data ? (
         <>
           <MovieRecommendations title="TA（们）还出演过" movies={detail.data.actor_movies} />
@@ -144,7 +136,7 @@ function IdentifiedMovieDetail({ movieId }: { movieId: string }) {
       ) : null}
       <MovieHero movie={detail.data} />
       <MoviePreviews images={detail.data.preview_images} />
-      <MovieMagnets movieID={movieId} query={magnets} />
+      <MovieMagnets movieID={movieId} query={magnets} showSubscription={false} />
       <MovieRecommendations title="TA（们）还出演过" movies={detail.data.actor_movies} />
       <MovieRecommendations title="你可能也喜欢" movies={detail.data.related_movies} />
     </div>

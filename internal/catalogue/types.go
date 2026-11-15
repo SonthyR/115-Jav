@@ -57,6 +57,13 @@ type MovieStateItem struct {
 	State     MovieState `json:"state"`
 }
 
+// JavDBAccount is the login state shown on the settings page.
+type JavDBAccount struct {
+	Configured bool   `json:"configured"`
+	LoggedIn   bool   `json:"logged_in"`
+	Username   string `json:"username"`
+}
+
 // JavDBClient supplies the primary catalogue, route management and magnets.
 type JavDBClient interface {
 	magnet.Source
@@ -67,6 +74,9 @@ type JavDBClient interface {
 	FetchMedia(context.Context, string) (domain.Media, error)
 	Tags(context.Context, domain.Zone) ([]domain.TagCategory, error)
 	ResolveMovieID(context.Context, string) (string, error)
+	Login(context.Context, string, string) error
+	LoggedIn() bool
+	Username() string
 	Route() (javdb.RouteStatus, bool)
 }
 

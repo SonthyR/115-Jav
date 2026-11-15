@@ -9,7 +9,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { notifyOfflineTask, notifyTaskError } from '@/features/tasks/task-toast'
 
 // Shown on released cards with magnets; clicks must not open the detail dialog.
-export function MovieOfflineButton({ movie }: { movie: DiscoverMovie }) {
+export function MovieOfflineButton({
+  movie,
+  showLabel = false
+}: {
+  movie: DiscoverMovie
+  showLabel?: boolean
+}) {
   const add = useAddOffline(movie.id)
 
   function handleClick(event: MouseEvent<HTMLButtonElement>) {
@@ -33,12 +39,19 @@ export function MovieOfflineButton({ movie }: { movie: DiscoverMovie }) {
         <Button
           type="button"
           variant="outline"
-          size="icon-sm"
+          size={showLabel ? 'lg' : 'icon-sm'}
+          aria-label="按订阅偏好选磁力，一键加入 115"
+          title="按订阅偏好选磁力，一键加入 115"
           disabled={add.isPending}
-          className="bg-background/85 backdrop-blur"
+          className={
+            showLabel
+              ? 'h-10 border-white/25 bg-white/10 px-4 text-xs text-white backdrop-blur hover:bg-white/20 hover:text-white'
+              : 'size-10 bg-background/85 backdrop-blur sm:size-9'
+          }
           onClick={handleClick}
         >
           {add.isPending ? <LoaderCircleIcon className="animate-spin" /> : <CloudDownloadIcon />}
+          {showLabel ? '加入 115' : null}
         </Button>
       </TooltipTrigger>
       <TooltipContent side="left">按订阅偏好选磁力，一键加入 115</TooltipContent>

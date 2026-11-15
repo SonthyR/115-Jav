@@ -84,7 +84,7 @@ function ProfileRoute() {
       }
       onFilterChange={(next: LibraryFilter) => {
         const { [kind]: _, ...rest } = next
-        void navigate({ search: rest, resetScroll: false })
+        void navigate({ search: rest, replace: true, resetScroll: false })
       }}
     />
   )

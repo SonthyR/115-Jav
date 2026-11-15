@@ -18,7 +18,7 @@ func clearConfigEnvironment(t *testing.T) {
 		"MIYABI_PUBLIC_URL", "MIYABI_STRM_TOKEN",
 		"MIYABI_LOG_LEVEL", "MIYABI_ACCESS_PASSWORD", "MIYABI_JWT_SECRET", "MIYABI_TRUSTED_PROXIES",
 		"MIYABI_EMBY_ENABLED", "MIYABI_EMBY_SERVER_URL", "MIYABI_EMBY_API_KEY", "MIYABI_EMBY_MEDIA_PATH", "MIYABI_EMBY_SYNC_ACTORS",
-		"MIYABI_EMBY_URL", "MIYABI_LITE",
+		"MIYABI_EMBY_URL", "MIYABI_LITE", "MIYABI_JAVDB_USERNAME", "MIYABI_JAVDB_PASSWORD",
 	} {
 		// Restore the developer's environment when the test finishes.
 		t.Setenv(key, "")
@@ -61,6 +61,8 @@ func TestLoadDefaultsAndEnvironment(t *testing.T) {
 				"MIYABI_EMBY_MEDIA_PATH":  " /media ",
 				"MIYABI_EMBY_SYNC_ACTORS": " false ",
 				"MIYABI_LITE":             " TRUE ",
+				"MIYABI_JAVDB_USERNAME":   " alice ",
+				"MIYABI_JAVDB_PASSWORD":   " secret with spaces ",
 			},
 			want: Config{
 				Listen:         "127.0.0.1:9090",
@@ -76,6 +78,8 @@ func TestLoadDefaultsAndEnvironment(t *testing.T) {
 				EmbyMediaPath:  "/media",
 				EmbySyncActors: false,
 				Lite:           true,
+				JavDBUsername:  "alice",
+				JavDBPassword:  " secret with spaces ",
 			},
 		},
 		{
@@ -118,6 +122,21 @@ func TestLoadRejectsInvalidEnvironment(t *testing.T) {
 				t.Fatalf("expected an error naming %s, got %v", test.key, err)
 			}
 		})
+	}
+}
+
+func TestLoadRequiresJavDBAccountPair(t *testing.T) {
+	for _, env := range []map[string]string{
+		{"MIYABI_JAVDB_USERNAME": "alice"},
+		{"MIYABI_JAVDB_PASSWORD": "secret"},
+	} {
+		clearConfigEnvironment(t)
+		for key, value := range env {
+			t.Setenv(key, value)
+		}
+		if _, err := Load(); err == nil || !strings.Contains(err.Error(), "MIYABI_JAVDB_USERNAME") {
+			t.Fatalf("expected a paired credential error, got %v", err)
+		}
 	}
 }
 
